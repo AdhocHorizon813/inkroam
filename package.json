@@ -1,0 +1,21 @@
+{
+  "name": "paper-trail-blog",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "cross-env NODE_OPTIONS=--experimental-sqlite nuxt build",
+    "dev": "cross-env NODE_OPTIONS=--experimental-sqlite nuxt dev",
+    "generate": "cross-env NODE_OPTIONS=--experimental-sqlite nuxt generate",
+    "preview": "cross-env NODE_OPTIONS=--experimental-sqlite nuxt preview",
+    "typecheck": "cross-env NODE_OPTIONS=--experimental-sqlite nuxt typecheck"
+  },
+  "dependencies": {
+    "@nuxt/content": "3.16.0",
+    "nuxt": "4.4.2"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.3.11"
+  }
+}
