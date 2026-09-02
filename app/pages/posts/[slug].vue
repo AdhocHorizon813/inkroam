@@ -39,6 +39,7 @@ const formatDate = (date: string) =>
         <PinnedBadge v-if="post.pinned" />
         <FeaturedBadge v-if="post.featured" />
         <AiGeneratedBadge v-if="post.aiGenerated" />
+        <AiAssistedBadge v-if="post.aiAssisted" />
       </div>
       <h1>{{ post.title }}</h1>
       <p class="article-deck">{{ post.description }}</p>

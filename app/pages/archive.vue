@@ -33,6 +33,8 @@ const shortDate = (date: string) => date.slice(5).replace('-', ' / ')
           <span class="archive-title">
             <span>{{ post.title }}</span>
             <FeaturedBadge v-if="post.featured" />
+            <AiGeneratedBadge v-if="post.aiGenerated" />
+            <AiAssistedBadge v-if="post.aiAssisted" />
           </span>
           <span class="archive-tag">{{ post.tags?.[0] || '随笔' }}</span>
           <span aria-hidden="true">↗</span>

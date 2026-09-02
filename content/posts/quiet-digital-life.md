@@ -6,7 +6,7 @@ tags: [生活方式, 数字工具]
 readingTime: 6 分钟
 aiGenerated: true
 pinned: false
-featured: true
+featured: false
 draft: false
 ---
 我们拥有的数字工具比任何时候都多，但真正能够留给思考的空间，似乎并没有因此增加。

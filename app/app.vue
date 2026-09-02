@@ -42,6 +42,22 @@ watch(() => route.fullPath, async (_currentPath, previousPath) => {
 
 onBeforeUnmount(() => routeAnimations.forEach(animation => animation.cancel()))
 
+/* Sticky header: when the page scrolls, the header expands into a full-bleed
+   rail (driven by the CSS [data-scrolled] state) with a non-linear settle. */
+function syncScrollState() {
+  const root = document.documentElement
+  if (window.scrollY > 8) {
+    root.dataset.scrolled = 'true'
+  } else {
+    delete root.dataset.scrolled
+  }
+}
+onMounted(() => {
+  syncScrollState()
+  window.addEventListener('scroll', syncScrollState, { passive: true })
+})
+onBeforeUnmount(() => window.removeEventListener('scroll', syncScrollState))
+
 useSeoMeta({
   ogSiteName: '纸上漫游',
   ogTitle: '纸上漫游',

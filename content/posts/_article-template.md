@@ -5,6 +5,7 @@ date: 2026-09-02
 tags: [主分类, 次级标签]
 readingTime: 6 分钟
 aiGenerated: false
+aiAssisted: false
 pinned: false
 featured: false
 draft: true
@@ -58,11 +59,13 @@ draft: true
 interface ArticleMeta {
   title: string
   aiGenerated: boolean
+  aiAssisted: boolean
 }
 
 const article: ArticleMeta = {
   title: '文章标题',
   aiGenerated: false,
+  aiAssisted: false,
 }
 ```
 
@@ -89,6 +92,6 @@ const article: ArticleMeta = {
 1. 将本文件复制并重命名为英文短横线文件名，例如 `my-new-article.md`；
 2. 修改标题、摘要、日期、标签和阅读时长；
 3. 需要置顶时设置 `pinned: true`，需要精选标识时设置 `featured: true`；
-4. AI 生成文章设置 `aiGenerated: true`；
+4. AI 生成文章设置 `aiGenerated: true`、AI 辅助文章设置 `aiAssisted: true`；
 5. 删除不需要的示例章节；
 6. 完成后将 `draft` 改为 `false`。

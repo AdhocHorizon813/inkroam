@@ -70,6 +70,7 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
             <PinnedBadge v-if="post.pinned" />
             <FeaturedBadge v-if="post.featured" />
             <AiGeneratedBadge v-if="post.aiGenerated" />
+            <AiAssistedBadge v-if="post.aiAssisted" />
           </div>
           <h3>{{ post.title }}</h3>
           <p>{{ post.description }}</p>
@@ -106,6 +107,7 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
             <time :datetime="post.date">{{ formatDate(post.date) }}</time>
             <span>{{ post.readingTime }}</span>
             <AiGeneratedBadge v-if="post.aiGenerated" />
+            <AiAssistedBadge v-if="post.aiAssisted" />
           </div>
           <h3>{{ post.title }}</h3>
           <p>{{ post.description }}</p>
