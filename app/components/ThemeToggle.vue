@@ -6,6 +6,7 @@ function readColorMode(): 'dark' | 'light' {
   try {
     const saved = JSON.parse(localStorage.getItem('paper-trail-appearance-v5') || 'null')
     if (saved?.colorMode === 'dark' || saved?.colorMode === 'light') return saved.colorMode
+    if (saved?.colorMode === 'auto') return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   } catch {}
   const dom = document.documentElement.dataset.colorMode
   if (dom === 'dark' || dom === 'light') return dom

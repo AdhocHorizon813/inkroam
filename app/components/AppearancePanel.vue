@@ -1,6 +1,6 @@
 <script setup lang="ts">
 type VisualMode = 'modern' | 'classic'
-type ColorMode = 'dark' | 'light'
+type ColorMode = 'dark' | 'light' | 'auto'
 type MaterialMode = 'liquid' | 'acrylic' | 'mica'
 type BackgroundMode = 'flat' | 'art' | 'aurora' | 'custom'
 type LatestPostCount = 5 | 10 | 'all'
@@ -15,6 +15,7 @@ interface AppearanceState {
   navBlur: number
   contentBlur: number
   backgroundBlur: number
+  backgroundOverlay: number
   accent: string
   latestPostCount: LatestPostCount
 }
@@ -33,14 +34,15 @@ const customBackgroundName = ref('')
 const sharedLatestPostCount = useState<LatestPostCount>('latest-post-count', () => 10)
 const state = reactive<AppearanceState>({
   visual: 'modern',
-  colorMode: 'dark',
+  colorMode: 'auto',
   navMaterial: 'mica',
   contentMaterial: 'mica',
   backgroundMaterial: 'mica',
-  background: 'flat',
-  navBlur: 24,
-  contentBlur: 24,
-  backgroundBlur: 0,
+  background: 'art',
+  navBlur: 12,
+  contentBlur: 10,
+  backgroundBlur: 4,
+  backgroundOverlay: 40,
   accent: '#7892b2',
   latestPostCount: 10,
 })
@@ -59,6 +61,12 @@ const accents = [
   { name: '雾霭紫', value: '#8d839f' },
   { name: '鸢尾紫', value: '#7666b3' },
 ]
+
+const prefersDark = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null
+
+function onSystemThemeChange() {
+  if (state.colorMode === 'auto') applyAppearance()
+}
 
 onMounted(() => {
   try {
@@ -83,6 +91,11 @@ onMounted(() => {
     status.value = '外观偏好未能读取，已使用默认设置。'
   }
   applyAppearance()
+  prefersDark?.addEventListener('change', onSystemThemeChange)
+})
+
+onUnmounted(() => {
+  prefersDark?.removeEventListener('change', onSystemThemeChange)
 })
 
 let vtSeq = 0
@@ -140,9 +153,12 @@ watch(isOpen, async (open) => {
 function applyAppearance() {
   if (!import.meta.client) return
   const root = document.documentElement
+  const mode = state.colorMode === 'auto'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : state.colorMode
   root.dataset.visual = state.visual
-  root.dataset.colorMode = state.colorMode
-  root.dataset.theme = state.colorMode
+  root.dataset.colorMode = mode
+  root.dataset.theme = mode
   root.dataset.navMaterial = state.navMaterial
   root.dataset.material = state.contentMaterial
   root.dataset.backgroundMaterial = state.backgroundMaterial
@@ -152,6 +168,7 @@ function applyAppearance() {
   root.style.setProperty('--background-blur', `${state.backgroundBlur}px`)
   root.style.setProperty('--glass-blur', `${state.contentBlur}px`)
   root.style.setProperty('--modern-accent', state.accent)
+  root.style.setProperty('--background-overlay-opacity', String(state.backgroundOverlay / 100))
 
   if (state.background === 'custom') {
     const custom = localStorage.getItem(CUSTOM_BG_KEY)
@@ -238,14 +255,15 @@ function compressImage(file: File): Promise<string> {
 function resetAppearance() {
   Object.assign(state, {
     visual: 'modern',
-    colorMode: 'dark',
+    colorMode: 'auto',
     navMaterial: 'mica',
     contentMaterial: 'mica',
     backgroundMaterial: 'mica',
-    background: 'flat',
-    navBlur: 24,
-    contentBlur: 24,
-    backgroundBlur: 0,
+    background: 'art',
+    navBlur: 12,
+    contentBlur: 10,
+    backgroundBlur: 4,
+    backgroundOverlay: 40,
     accent: '#7892b2',
     latestPostCount: 10,
   })
@@ -298,9 +316,10 @@ function resetAppearance() {
 
         <fieldset class="setting-group">
           <legend class="setting-label">外观模式</legend>
-          <div class="segmented-control segmented-control--two" :style="segmentStyle(state.colorMode === 'light' ? 0 : 1)">
+          <div class="segmented-control" :style="segmentStyle(state.colorMode === 'light' ? 0 : state.colorMode === 'dark' ? 1 : 2)">
             <button type="button" :class="{ active: state.colorMode === 'light' }" @click="state.colorMode = 'light'">浅色</button>
             <button type="button" :class="{ active: state.colorMode === 'dark' }" @click="state.colorMode = 'dark'">深色</button>
+            <button type="button" :class="{ active: state.colorMode === 'auto' }" @click="state.colorMode = 'auto'">自动</button>
           </div>
         </fieldset>
 
@@ -420,6 +439,23 @@ function resetAppearance() {
             :disabled="state.visual === 'classic'"
           >
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
+        </div>
+
+        <div class="setting-group" :aria-disabled="state.visual === 'classic'">
+          <div class="range-heading">
+            <span class="setting-label">背景遮罩透明度</span>
+            <output>{{ state.backgroundOverlay }} %</output>
+          </div>
+          <input
+            v-model.number="state.backgroundOverlay"
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            :style="{ '--range-progress': `${state.backgroundOverlay / 100 * 100}%` }"
+            :disabled="state.visual === 'classic'"
+          >
+          <div class="range-scale" aria-hidden="true"><span>0 %</span><span>100 %</span></div>
         </div>
 
         <fieldset class="setting-group accent-setting" :disabled="state.visual === 'classic'">

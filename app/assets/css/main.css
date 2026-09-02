@@ -243,6 +243,19 @@ button { font: inherit; }
     linear-gradient(145deg, #0a0f22 0%, #161634 48%, #080b18 100%);
 }
 
+/* Background overlay: dims the backdrop art so foreground text is readable.
+   Its opacity is user-controlled (0–100%). At 100% it fully hides the backdrop. */
+:root[data-visual='modern'] .ambient-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--backdrop-overlay);
+  opacity: var(--background-overlay-opacity, .5);
+  pointer-events: none;
+}
+:root[data-visual='modern'] { --backdrop-overlay: #0b0e1a; }
+:root[data-visual='modern'][data-color-mode='light'] { --backdrop-overlay: #eef0f2; }
+
 :root[data-visual='modern'] .ambient-image {
   position: absolute;
   inset: -4%;
@@ -250,7 +263,7 @@ button { font: inherit; }
   background-size: cover;
   background-position: center;
   filter: saturate(.82) brightness(.66);
-  opacity: .88;
+  opacity: calc(1 - var(--background-overlay-opacity, .5));
 }
 
 :root[data-visual='modern'][data-background='aurora'] .ambient-image { opacity: 0; }
@@ -1043,12 +1056,12 @@ button { font: inherit; }
 :root[data-visual='modern'][data-color-mode='light'] .ambient-backdrop { background: #f0efeb; }
 :root[data-visual='modern'][data-color-mode='light'] .ambient-image {
   filter: saturate(.58) brightness(1.18);
-  opacity: .2;
+  opacity: calc(1 - var(--background-overlay-opacity, .5));
 }
 :root[data-visual='modern'][data-color-mode='light'] .ambient-aurora { opacity: .08; }
 :root[data-visual='modern'][data-color-mode='light'][data-background='aurora'] .ambient-aurora { opacity: .16; }
 :root[data-visual='modern'][data-color-mode='light'] .ambient-vignette::before {
-  opacity: 1;
+  opacity: var(--background-overlay-opacity, 1);
   background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(240, 239, 235, .62));
 }
 
@@ -2487,13 +2500,13 @@ fieldset.setting-group > legend.setting-label {
 }
 :root[data-visual='modern'][data-color-mode='light'] .ambient-image {
   filter: saturate(.78) brightness(1.03) contrast(.94);
-  opacity: .58;
+  opacity: calc(1 - var(--background-overlay-opacity, .5));
 }
 :root[data-visual='modern'][data-color-mode='light'][data-background='aurora'] .ambient-image { opacity: 0; }
 :root[data-visual='modern'][data-color-mode='light'] .ambient-aurora { opacity: .18; }
 :root[data-visual='modern'][data-color-mode='light'][data-background='aurora'] .ambient-aurora { opacity: .46; }
 :root[data-visual='modern'][data-color-mode='light'] .ambient-vignette::before {
-  opacity: 1;
+  opacity: var(--background-overlay-opacity, 1);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(244, 245, 247, .16) 58%, rgba(232, 235, 239, .38)),
     radial-gradient(ellipse at center, transparent 42%, rgba(234, 237, 241, .26) 100%);
@@ -2578,7 +2591,7 @@ fieldset.setting-group > legend.setting-label {
     saturate(var(--background-saturation, 1));
 }
 :root[data-visual='modern'] .ambient-vignette {
-  opacity: var(--background-material-opacity, .8);
+  opacity: var(--background-overlay-opacity, 1);
 }
 
 /* Landscape navigation remains compact, but never drops below readable UI text. */
@@ -2616,9 +2629,9 @@ fieldset.setting-group > legend.setting-label {
   background: inherit;
   filter:
     blur(var(--background-blur))
-    saturate(var(--background-saturation, .82))
-    brightness(var(--background-brightness, .66))
-    contrast(var(--background-contrast, 1));
+    saturate(calc(var(--background-saturation, .82) + (1 - var(--background-overlay-opacity, .5)) * (1 - var(--background-saturation, .82))))
+    brightness(calc(var(--background-brightness, .66) + (1 - var(--background-overlay-opacity, .5)) * (1 - var(--background-brightness, .66))))
+    contrast(calc(var(--background-contrast, 1) + (1 - var(--background-overlay-opacity, .5)) * (1 - var(--background-contrast, 1))));
   transition: filter 260ms var(--ease-fluid);
   will-change: filter;
 }
@@ -2631,7 +2644,7 @@ fieldset.setting-group > legend.setting-label {
   filter: blur(56px) saturate(var(--background-saturation, 1));
 }
 :root[data-visual='modern'] .ambient-vignette {
-  opacity: 1;
+  opacity: var(--background-overlay-opacity, 1);
 }
 :root[data-visual='modern'] .ambient-vignette::before {
   content: '';
@@ -2658,19 +2671,19 @@ fieldset.setting-group > legend.setting-label {
 }
 
 :root[data-visual='modern'][data-color-mode='light'][data-background-material='liquid'] .ambient-vignette::before {
-  opacity: 1;
+  opacity: var(--background-overlay-opacity, 1);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, .12), transparent 36%, color-mix(in srgb, var(--modern-accent) 6%, transparent) 72%, rgba(255, 255, 255, .05)),
     linear-gradient(180deg, rgba(246, 247, 249, .01), rgba(238, 241, 244, .12) 70%, rgba(230, 234, 239, .22));
 }
 :root[data-visual='modern'][data-color-mode='light'][data-background-material='acrylic'] .ambient-vignette::before {
-  opacity: 1;
+  opacity: var(--background-overlay-opacity, 1);
   background:
     radial-gradient(ellipse at 24% 16%, color-mix(in srgb, var(--modern-accent) 9%, transparent), transparent 42%),
     linear-gradient(180deg, rgba(248, 248, 246, .12), rgba(238, 241, 244, .28) 70%, rgba(229, 233, 238, .38));
 }
 :root[data-visual='modern'][data-color-mode='light'][data-background-material='mica'] .ambient-vignette::before {
-  opacity: 1;
+  opacity: var(--background-overlay-opacity, 1);
   background:
     radial-gradient(ellipse at 22% 14%, color-mix(in srgb, var(--modern-accent) 8%, transparent), transparent 42%),
     linear-gradient(180deg, rgba(247, 247, 244, .28), rgba(238, 240, 242, .48) 68%, rgba(228, 232, 236, .58));
