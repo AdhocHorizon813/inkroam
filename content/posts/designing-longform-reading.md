@@ -4,6 +4,7 @@ description: 从字体、行宽到段落节奏，阅读体验藏在许多不显�
 date: 2026-07-24
 tags: [设计, 阅读体验]
 readingTime: 7 分钟
+aiGenerated: true
 featured: false
 draft: false
 ---

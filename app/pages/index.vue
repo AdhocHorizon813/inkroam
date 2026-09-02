@@ -18,8 +18,8 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
       <h1>写下那些<br><em>不该被遗忘</em>的想法。</h1>
       <div class="hero-aside">
         <p class="hero-copy">
-          你好，我是纸上漫游者。这里记录技术之外的判断、阅读之后的回声，
-          以及对更好生活方式的持续探索。
+          你好。这里是我的个人博客。<br>
+          技术、生活，以及一些我觉得值得记下来的东西。
         </p>
         <a class="text-link" href="#latest">开始阅读 <span>↘</span></a>
       </div>
@@ -46,6 +46,7 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
             <span>{{ post.tags?.[0] || '随笔' }}</span>
             <time :datetime="post.date">{{ formatDate(post.date) }}</time>
             <span>{{ post.readingTime }}</span>
+            <AiGeneratedBadge v-if="post.aiGenerated" />
           </div>
           <h3>{{ post.title }}</h3>
           <p>{{ post.description }}</p>
@@ -55,7 +56,7 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
     </section>
 
     <section class="manifesto">
-      <p>“真正重要的内容，值得一个安静、耐看的容器。”</p>
+      <p>“有些东西，不能只让它停在脑子里。”</p>
       <NuxtLink to="/about">— 关于这个博客</NuxtLink>
     </section>
   </main>

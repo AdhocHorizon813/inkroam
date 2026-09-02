@@ -11,6 +11,7 @@ export default defineContentConfig({
         date: z.string(),
         tags: z.array(z.string()).default([]),
         readingTime: z.string().default('5 分钟'),
+        aiGenerated: z.boolean().default(false),
         featured: z.boolean().default(false),
         draft: z.boolean().default(false),
       }),

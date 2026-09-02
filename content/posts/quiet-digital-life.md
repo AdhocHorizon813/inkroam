@@ -4,6 +4,7 @@ description: 工具越来越多之后，我重新思考了注意力、记录与�
 date: 2026-08-18
 tags: [生活方式, 数字工具]
 readingTime: 6 分钟
+aiGenerated: true
 featured: true
 draft: false
 ---

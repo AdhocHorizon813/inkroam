@@ -4,6 +4,7 @@ description: 博客不只是发布渠道，也可以是一处允许想法慢慢�
 date: 2026-08-06
 tags: [独立创作, 写作]
 readingTime: 5 分钟
+aiGenerated: true
 featured: false
 draft: false
 ---

@@ -36,6 +36,7 @@ const formatDate = (date: string) =>
         <span>{{ post.tags?.[0] || '随笔' }}</span>
         <time :datetime="post.date">{{ formatDate(post.date) }}</time>
         <span>阅读约 {{ post.readingTime }}</span>
+        <AiGeneratedBadge v-if="post.aiGenerated" />
       </div>
       <h1>{{ post.title }}</h1>
       <p class="article-deck">{{ post.description }}</p>

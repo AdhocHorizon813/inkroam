@@ -74,7 +74,7 @@ useSeoMeta({
       <NuxtPage :transition="false" />
     </div>
     <footer class="site-footer">
-      <span>在文字里，保存缓慢而清醒的思考。</span>
+      <span>一些想法，一些记录。</span>
       <span>© {{ new Date().getFullYear() }} 纸上漫游</span>
     </footer>
   </div>

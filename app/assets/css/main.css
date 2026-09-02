@@ -2802,6 +2802,74 @@ fieldset.setting-group > legend.setting-label {
   border-color: var(--paper);
 }
 
+/* Reusable authorship disclosure for article lists and article headers. */
+.story-meta,
+.article-kicker {
+  align-items: center;
+}
+.story-meta .ai-disclosure,
+.article-kicker .ai-disclosure {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .38em;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  white-space: nowrap;
+}
+.story-meta .ai-disclosure::before,
+.article-kicker .ai-disclosure::before {
+  content: '';
+  align-self: center;
+  width: 4px;
+  height: 4px;
+  margin-right: .08em;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.ai-disclosure__mark {
+  display: inline;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--ink) !important;
+  font-size: inherit;
+  font-weight: 720;
+  line-height: inherit;
+  letter-spacing: .025em;
+}
+.story-meta .ai-disclosure__label,
+.article-kicker .ai-disclosure__label {
+  color: var(--muted) !important;
+}
+:root[data-visual='modern'] .story-meta .ai-disclosure,
+:root[data-visual='modern'] .article-kicker .ai-disclosure {
+  color: var(--modern-muted);
+}
+:root[data-visual='modern'] .story-meta .ai-disclosure::before,
+:root[data-visual='modern'] .article-kicker .ai-disclosure::before {
+  background: var(--modern-accent);
+}
+:root[data-visual='modern'] .ai-disclosure__mark {
+  color: var(--modern-ink) !important;
+}
+:root[data-visual='modern'] .story-meta .ai-disclosure__label,
+:root[data-visual='modern'] .article-kicker .ai-disclosure__label {
+  color: var(--modern-muted) !important;
+}
+:root[data-visual='modern'][data-color-mode='light'] .story-meta .ai-disclosure,
+:root[data-visual='modern'][data-color-mode='light'] .article-kicker .ai-disclosure {
+  color: rgba(38, 43, 51, .64);
+}
+
 /* Mobile panel is bounded by the live viewport and safe areas, not the dock box. */
 @media (max-width: 767.98px) {
   .appearance-panel,
