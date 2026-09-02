@@ -1232,14 +1232,8 @@ button { font: inherit; }
   -webkit-backdrop-filter: none;
 }
 
-/* The default flat canvas is editorial, not a stack of dashboard cards. */
-:root[data-visual='modern'][data-background='flat'] .site-header {
-  border: 0;
-  border-bottom: 1px solid var(--modern-line);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--surface-bg-strong) 92%, transparent);
-  box-shadow: none;
-}
+/* Navigation keeps its floating rounded dock in every background (flat included). */
+
 :root[data-visual='modern'][data-background='flat'] .hero,
 :root[data-visual='modern'][data-background='flat'] .latest-section,
 :root[data-visual='modern'][data-background='flat'] .manifesto,
@@ -2245,9 +2239,7 @@ fieldset.setting-group > legend.setting-label {
 }
 
 /* Flat changes the canvas, not the component geometry. */
-:root[data-visual='modern'][data-background='flat'] .site-header {
-  border-radius: 14px;
-}
+
 :root[data-visual='modern'][data-background='flat'] .hero {
   border-radius: 18px;
 }
@@ -2259,7 +2251,6 @@ fieldset.setting-group > legend.setting-label {
 }
 
 @media (max-width: 767.98px) {
-  :root[data-visual='modern'][data-background='flat'] .site-header { border-radius: 12px; }
   :root[data-visual='modern'][data-background='flat'] .hero,
   :root[data-visual='modern'][data-background='flat'] .latest-section,
   :root[data-visual='modern'][data-background='flat'] .manifesto,
