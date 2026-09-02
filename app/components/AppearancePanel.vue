@@ -3,6 +3,7 @@ type VisualMode = 'modern' | 'classic'
 type ColorMode = 'dark' | 'light'
 type MaterialMode = 'liquid' | 'acrylic' | 'mica'
 type BackgroundMode = 'flat' | 'art' | 'aurora' | 'custom'
+type LatestPostCount = 5 | 10 | 'all'
 
 interface AppearanceState {
   visual: VisualMode
@@ -15,6 +16,7 @@ interface AppearanceState {
   contentBlur: number
   backgroundBlur: number
   accent: string
+  latestPostCount: LatestPostCount
 }
 
 const STORAGE_KEY = 'paper-trail-appearance-v5'
@@ -28,6 +30,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const panelScroll = ref<HTMLDivElement | null>(null)
 const customBackgroundPreview = ref('')
 const customBackgroundName = ref('')
+const sharedLatestPostCount = useState<LatestPostCount>('latest-post-count', () => 10)
 const state = reactive<AppearanceState>({
   visual: 'modern',
   colorMode: 'dark',
@@ -39,6 +42,7 @@ const state = reactive<AppearanceState>({
   contentBlur: 24,
   backgroundBlur: 0,
   accent: '#7892b2',
+  latestPostCount: 10,
 })
 
 const accents = [
@@ -71,6 +75,10 @@ onMounted(() => {
         contentBlur: typeof blur === 'number' ? blur : state.contentBlur,
       })
     }
+    if (state.latestPostCount !== 5 && state.latestPostCount !== 10 && state.latestPostCount !== 'all') {
+      state.latestPostCount = 10
+    }
+    sharedLatestPostCount.value = state.latestPostCount
   } catch {
     status.value = '外观偏好未能读取，已使用默认设置。'
   }
@@ -85,6 +93,7 @@ watch(state, (_state, from) => {
   const discreteChanged =
     !!from && DISCRETE_FIELDS.some((key) => state[key] !== from![key])
   const apply = () => {
+    sharedLatestPostCount.value = state.latestPostCount
     applyAppearance()
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
@@ -155,6 +164,12 @@ function applyAppearance() {
 function selectVisual(visual: VisualMode) {
   state.visual = visual
   status.value = visual === 'classic' ? '已切换到保留的纸媒风格。' : '已切换到现代幻境风格。'
+}
+
+function segmentStyle(index: number) {
+  return {
+    '--segment-transform': `translate3d(calc(${index * 100}% + ${index * 5}px), 0, 0)`,
+  }
 }
 
 function openFilePicker() {
@@ -232,6 +247,7 @@ function resetAppearance() {
     contentBlur: 24,
     backgroundBlur: 0,
     accent: '#7892b2',
+    latestPostCount: 10,
   })
   localStorage.removeItem(CUSTOM_BG_KEY)
   localStorage.removeItem(CUSTOM_BG_NAME_KEY)
@@ -274,7 +290,7 @@ function resetAppearance() {
 
         <div class="setting-group">
           <span class="setting-label">视觉风格</span>
-          <div class="segmented-control segmented-control--two">
+          <div class="segmented-control segmented-control--two" :style="segmentStyle(state.visual === 'modern' ? 0 : 1)">
             <button type="button" :class="{ active: state.visual === 'modern' }" @click="selectVisual('modern')">现代幻境</button>
             <button type="button" :class="{ active: state.visual === 'classic' }" @click="selectVisual('classic')">纸媒原版</button>
           </div>
@@ -282,15 +298,24 @@ function resetAppearance() {
 
         <fieldset class="setting-group">
           <legend class="setting-label">外观模式</legend>
-          <div class="segmented-control segmented-control--two">
+          <div class="segmented-control segmented-control--two" :style="segmentStyle(state.colorMode === 'light' ? 0 : 1)">
             <button type="button" :class="{ active: state.colorMode === 'light' }" @click="state.colorMode = 'light'">浅色</button>
             <button type="button" :class="{ active: state.colorMode === 'dark' }" @click="state.colorMode = 'dark'">深色</button>
           </div>
         </fieldset>
 
+        <fieldset class="setting-group">
+          <legend class="setting-label">最近写下</legend>
+          <div class="segmented-control" :style="segmentStyle(state.latestPostCount === 5 ? 0 : state.latestPostCount === 10 ? 1 : 2)">
+            <button type="button" :class="{ active: state.latestPostCount === 5 }" @click="state.latestPostCount = 5">5 篇</button>
+            <button type="button" :class="{ active: state.latestPostCount === 10 }" @click="state.latestPostCount = 10">10 篇</button>
+            <button type="button" :class="{ active: state.latestPostCount === 'all' }" @click="state.latestPostCount = 'all'">所有</button>
+          </div>
+        </fieldset>
+
         <fieldset class="setting-group" :disabled="state.visual === 'classic'">
           <legend class="setting-label">导航材质</legend>
-          <div class="segmented-control">
+          <div class="segmented-control" :style="segmentStyle(state.navMaterial === 'liquid' ? 0 : state.navMaterial === 'acrylic' ? 1 : 2)">
             <button type="button" :class="{ active: state.navMaterial === 'liquid' }" @click="state.navMaterial = 'liquid'">液态玻璃</button>
             <button type="button" :class="{ active: state.navMaterial === 'acrylic' }" @click="state.navMaterial = 'acrylic'">亚克力</button>
             <button type="button" :class="{ active: state.navMaterial === 'mica' }" @click="state.navMaterial = 'mica'">云母</button>
@@ -316,7 +341,7 @@ function resetAppearance() {
 
         <fieldset class="setting-group" :disabled="state.visual === 'classic'">
           <legend class="setting-label">内容材质</legend>
-          <div class="segmented-control">
+          <div class="segmented-control" :style="segmentStyle(state.contentMaterial === 'liquid' ? 0 : state.contentMaterial === 'acrylic' ? 1 : 2)">
             <button type="button" :class="{ active: state.contentMaterial === 'liquid' }" @click="state.contentMaterial = 'liquid'">液态玻璃</button>
             <button type="button" :class="{ active: state.contentMaterial === 'acrylic' }" @click="state.contentMaterial = 'acrylic'">亚克力</button>
             <button type="button" :class="{ active: state.contentMaterial === 'mica' }" @click="state.contentMaterial = 'mica'">云母</button>
@@ -373,7 +398,7 @@ function resetAppearance() {
 
         <fieldset class="setting-group" :disabled="state.visual === 'classic'">
           <legend class="setting-label">背景材质</legend>
-          <div class="segmented-control">
+          <div class="segmented-control" :style="segmentStyle(state.backgroundMaterial === 'liquid' ? 0 : state.backgroundMaterial === 'acrylic' ? 1 : 2)">
             <button type="button" :class="{ active: state.backgroundMaterial === 'liquid' }" @click="state.backgroundMaterial = 'liquid'">液态玻璃</button>
             <button type="button" :class="{ active: state.backgroundMaterial === 'acrylic' }" @click="state.backgroundMaterial = 'acrylic'">亚克力</button>
             <button type="button" :class="{ active: state.backgroundMaterial === 'mica' }" @click="state.backgroundMaterial = 'mica'">云母</button>

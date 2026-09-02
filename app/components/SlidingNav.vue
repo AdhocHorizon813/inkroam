@@ -5,6 +5,7 @@ const items = [
   { label: '文章', to: '/' },
   { label: '归档', to: '/archive' },
   { label: '关于', to: '/about' },
+  { label: '搜索', to: '/search', icon: 'search' },
 ]
 
 const navElement = ref<HTMLElement | null>(null)
@@ -22,6 +23,7 @@ function setLinkElement(element: unknown, index: number) {
 function getActiveIndex(path: string) {
   if (path.startsWith('/archive')) return 1
   if (path.startsWith('/about')) return 2
+  if (path.startsWith('/search')) return 3
   return 0
 }
 
@@ -70,8 +72,15 @@ onBeforeUnmount(() => {
       :key="item.to"
       :ref="element => setLinkElement(element, index)"
       :to="item.to"
+      :class="{ 'nav-search': item.icon === 'search' }"
+      :aria-label="item.icon === 'search' ? item.label : undefined"
+      :title="item.icon === 'search' ? item.label : undefined"
     >
-      {{ item.label }}
+      <svg v-if="item.icon === 'search'" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="m16 16 4 4" />
+      </svg>
+      <template v-else>{{ item.label }}</template>
     </NuxtLink>
     <ThemeToggle />
   </nav>
