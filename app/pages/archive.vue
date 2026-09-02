@@ -30,7 +30,10 @@ const shortDate = (date: string) => date.slice(5).replace('-', ' / ')
       <div class="archive-list">
         <NuxtLink v-for="post in yearPosts" :key="post.path" :to="post.path" class="archive-item">
           <time :datetime="post.date">{{ shortDate(post.date) }}</time>
-          <span>{{ post.title }}</span>
+          <span class="archive-title">
+            <span>{{ post.title }}</span>
+            <FeaturedBadge v-if="post.featured" />
+          </span>
           <span class="archive-tag">{{ post.tags?.[0] || '随笔' }}</span>
           <span aria-hidden="true">↗</span>
         </NuxtLink>

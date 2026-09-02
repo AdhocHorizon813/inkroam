@@ -5,7 +5,11 @@ useSeoMeta({
 })
 
 const { data: posts } = await useAsyncData('home-posts', () =>
-  queryCollection('posts').where('draft', '=', false).order('date', 'DESC').all(),
+  queryCollection('posts')
+    .where('draft', '=', false)
+    .order('pinned', 'DESC')
+    .order('date', 'DESC')
+    .all(),
 )
 
 const formatDate = (date: string) => date.replaceAll('-', '.')
@@ -46,6 +50,8 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
             <span>{{ post.tags?.[0] || '随笔' }}</span>
             <time :datetime="post.date">{{ formatDate(post.date) }}</time>
             <span>{{ post.readingTime }}</span>
+            <PinnedBadge v-if="post.pinned" />
+            <FeaturedBadge v-if="post.featured" />
             <AiGeneratedBadge v-if="post.aiGenerated" />
           </div>
           <h3>{{ post.title }}</h3>

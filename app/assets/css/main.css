@@ -2870,6 +2870,82 @@ fieldset.setting-group > legend.setting-label {
   color: rgba(38, 43, 51, .64);
 }
 
+/* Editorial status stays typographic; pinning remains a separate ordering concern. */
+.story-meta .featured-badge,
+.article-kicker .featured-badge,
+.archive-title .featured-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .48em;
+  padding: 0;
+  color: var(--accent) !important;
+  font: inherit;
+  font-weight: 680;
+  line-height: inherit;
+  letter-spacing: inherit;
+  white-space: nowrap;
+}
+.story-meta .featured-badge::before,
+.article-kicker .featured-badge::before,
+.archive-title .featured-badge::before {
+  content: '';
+  align-self: center;
+  width: 5px;
+  height: 5px;
+  border: 1px solid currentColor;
+  transform: rotate(45deg);
+}
+:root[data-visual='modern'] .story-meta .featured-badge,
+:root[data-visual='modern'] .article-kicker .featured-badge,
+:root[data-visual='modern'] .archive-title .featured-badge {
+  color: var(--accent-strong) !important;
+}
+
+.archive-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.archive-title > span:first-child {
+  min-width: 0;
+}
+.archive-title .featured-badge {
+  flex: 0 0 auto;
+  font-family: var(--sans);
+  font-size: 9px;
+  line-height: 1.4;
+  letter-spacing: .06em;
+}
+
+/* Pinning is visible where it changes reading priority. */
+.story-meta .pinned-badge,
+.article-kicker .pinned-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .48em;
+  padding: 0;
+  color: var(--accent) !important;
+  font: inherit;
+  font-weight: 680;
+  line-height: inherit;
+  letter-spacing: inherit;
+  white-space: nowrap;
+}
+.story-meta .pinned-badge::before,
+.article-kicker .pinned-badge::before {
+  content: '';
+  align-self: center;
+  width: 2px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+}
+:root[data-visual='modern'] .story-meta .pinned-badge,
+:root[data-visual='modern'] .article-kicker .pinned-badge {
+  color: var(--accent-strong) !important;
+}
+
 /* Mobile panel is bounded by the live viewport and safe areas, not the dock box. */
 @media (max-width: 767.98px) {
   .appearance-panel,

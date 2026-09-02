@@ -5,3 +5,4 @@ node_modules
 dist
 .env
 *.log
+# /content/posts/_article-template.md
