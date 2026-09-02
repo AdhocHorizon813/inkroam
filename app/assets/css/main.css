@@ -2741,3 +2741,83 @@ fieldset.setting-group > legend.setting-label {
   .appearance-trigger > span:first-child,
   .appearance-trigger > span:last-child { font-size: 11px; }
 }
+
+/* The trigger is a plain material control; it must not inherit the liquid corner flare. */
+:root[data-visual='modern'] .appearance-trigger::before {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  opacity: 0 !important;
+}
+
+/* The retained paper theme follows its own light palette inside the shared panel. */
+:root[data-visual='classic'][data-theme='light'] .appearance-panel {
+  border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  background: color-mix(in srgb, var(--paper) 94%, white);
+  color: var(--ink);
+  box-shadow: 0 20px 52px rgba(29, 33, 28, .14);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-visual='classic'][data-theme='light'] .panel-kicker,
+:root[data-visual='classic'][data-theme='light'] .appearance-panel__footer button {
+  color: var(--accent);
+}
+:root[data-visual='classic'][data-theme='light'] .panel-close {
+  border-color: color-mix(in srgb, var(--ink) 15%, transparent);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--ink);
+}
+:root[data-visual='classic'][data-theme='light'] .setting-group,
+:root[data-visual='classic'][data-theme='light'] .appearance-panel__footer {
+  border-color: color-mix(in srgb, var(--ink) 11%, transparent);
+}
+:root[data-visual='classic'][data-theme='light'] .setting-label,
+:root[data-visual='classic'][data-theme='light'] .range-heading output,
+:root[data-visual='classic'][data-theme='light'] .range-scale {
+  color: var(--muted);
+}
+:root[data-visual='classic'][data-theme='light'] .segmented-control {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+:root[data-visual='classic'][data-theme='light'] .segmented-control button,
+:root[data-visual='classic'][data-theme='light'] .background-options button {
+  color: var(--muted);
+}
+:root[data-visual='classic'][data-theme='light'] .background-options button {
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+:root[data-visual='classic'][data-theme='light'] .segmented-control button.active,
+:root[data-visual='classic'][data-theme='light'] .background-options button.active {
+  border-color: color-mix(in srgb, var(--ink) 13%, transparent);
+  background: color-mix(in srgb, var(--paper) 70%, white);
+  color: var(--ink);
+  box-shadow: 0 5px 14px rgba(29, 33, 28, .08);
+}
+:root[data-visual='classic'][data-theme='light'] .background-swatch--custom {
+  border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+  color: var(--ink);
+}
+:root[data-visual='classic'][data-theme='light'] .accent-options button.active {
+  border-color: var(--paper);
+}
+
+/* Mobile panel is bounded by the live viewport and safe areas, not the dock box. */
+@media (max-width: 767.98px) {
+  .appearance-panel,
+  :root[data-visual='modern'][data-nav-material='liquid'] .appearance-panel {
+    position: fixed !important;
+    top: max(8px, env(safe-area-inset-top)) !important;
+    right: max(8px, env(safe-area-inset-right)) !important;
+    bottom: calc(58px + env(safe-area-inset-bottom)) !important;
+    left: auto !important;
+    width: min(390px, calc(100vw - 16px)) !important;
+    height: auto;
+    max-height: none !important;
+  }
+  .appearance-panel__scroll {
+    height: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+  }
+}
