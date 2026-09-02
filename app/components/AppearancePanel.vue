@@ -351,7 +351,7 @@ function resetAppearance() {
             type="range"
             min="0"
             max="48"
-            step="2"
+            step="1"
             :style="{ '--range-progress': `${state.navBlur / 48 * 100}%` }"
             :disabled="state.visual === 'classic'"
           >
@@ -377,7 +377,7 @@ function resetAppearance() {
             type="range"
             min="0"
             max="48"
-            step="2"
+            step="1"
             :style="{ '--range-progress': `${state.contentBlur / 48 * 100}%` }"
             :disabled="state.visual === 'classic'"
           >
@@ -434,7 +434,7 @@ function resetAppearance() {
             type="range"
             min="0"
             max="48"
-            step="2"
+            step="1"
             :style="{ '--range-progress': `${state.backgroundBlur / 48 * 100}%` }"
             :disabled="state.visual === 'classic'"
           >
@@ -451,7 +451,7 @@ function resetAppearance() {
             type="range"
             min="0"
             max="100"
-            step="5"
+            step="1"
             :style="{ '--range-progress': `${state.backgroundOverlay / 100 * 100}%` }"
             :disabled="state.visual === 'classic'"
           >
