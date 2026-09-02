@@ -131,7 +131,7 @@ button { font: inherit; }
 .article-content a { border-bottom: 1px solid var(--accent); color: var(--accent); }
 .article-content code { padding: 2px 5px; background: color-mix(in srgb, var(--ink) 8%, transparent); border-radius: 3px; font-size: .88em; }
 .article-end { max-width: 700px; margin: 90px auto 0; padding: 55px 0 0; border-top: 1px solid var(--ink); text-align: center; }
-.article-end > span { display: grid; place-items: center; width: 46px; height: 46px; margin: 0 auto 26px; border-radius: 50%; background: var(--accent); color: var(--paper); font: 18px var(--serif); }
+.article-end > span { display: grid; place-items: center; width: 46px; height: 46px; margin: 0 auto 26px; border-radius: 50%; background: var(--accent); color: var(--paper); font: 18px var(--serif); line-height: 1; padding: 0; }
 .article-end p { color: var(--muted); font: 15px/1.8 var(--serif); }
 .article-end .text-link { margin-top: 20px; }
 
