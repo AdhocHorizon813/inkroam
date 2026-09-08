@@ -762,6 +762,16 @@ button { font: inherit; }
 
 :root[data-visual='modern'] .article-deck { color: var(--modern-muted); font: 17px/1.9 var(--sans); }
 
+/* Sticky-header anchor offset. In the modern theme .site-header is position:
+   sticky (top 14px + height 54px, so its bottom edge is ≤68px; 9px + 50px
+   under 768px), which means a #hash jump parks the heading underneath it.
+   scroll-margin-top keeps the target below the header. Classic keeps the
+   header in normal flow, so this is deliberately scoped to modern only. */
+:root[data-visual='modern'] { --anchor-offset: 88px; }
+:root[data-visual='modern'] .article-content h2,
+:root[data-visual='modern'] .article-content h3,
+:root[data-visual='modern'] .article-content h4 { scroll-margin-top: var(--anchor-offset); }
+
 :root[data-visual='modern'] .article-grid {
   grid-template-columns: 170px minmax(0, 720px);
   gap: clamp(42px, 7vw, 82px);

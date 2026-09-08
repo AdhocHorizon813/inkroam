@@ -57,6 +57,27 @@ requestAnimationFrame(() => requestAnimationFrame(() => {
 
 窄屏（<768px）刻意不展开：视口本来就窄，拉满宽度既没有视觉收益，还可能因为取整误差产生横向滚动条。
 
+### 锚点跳转与头部遮挡
+
+头部是 `position: sticky`，而文章标题自带 `id`（由 `@nuxtjs/mdc` 生成），点击 `§` 标题里的 `<a href="#...">` 时浏览器会把标题对齐到视口顶部 `y = 0`，正好落在头部下面被盖住。
+
+修法是给标题加 `scroll-margin-top`（`app/assets/css/main.css`，只作用于 modern 主题）：
+
+```css
+:root[data-visual='modern'] { --anchor-offset: 88px; }
+:root[data-visual='modern'] .article-content h2,
+:root[data-visual='modern'] .article-content h3,
+:root[data-visual='modern'] .article-content h4 { scroll-margin-top: var(--anchor-offset); }
+```
+
+`88px` 的来历：modern 头部底边最高是 `top 14px + height 54px = 68px`（窄屏 `9px + 50px = 59px`，横屏 `7px + 48px = 55px`），再留约 20px 呼吸空间。
+
+**改动头部的 `top` / `height` 时要同步核对 `--anchor-offset`**，它必须大于头部底边；反过来，不要为了省事把它调成 0——对照组已经证明那样标题会正好被盖住。
+
+classic 主题的头部在正常流里、不吸顶，所以不加这个偏移，否则跳转后标题会凭空下移一段。
+
+验证方式（headless Chrome + CDP）：点击第 3 个 `h2` 的锚点后断言 `target.getBoundingClientRect().top >= header.getBoundingClientRect().bottom`；再把该标题的 `scroll-margin-top` 临时置为 `0px` 复现原 bug 作为对照组。1280×800 与 390×844 两个视口均通过（修复后 87.8 / 88.3px，对照组 -0.2 / 0.3px）。
+
 ## 导航指示器
 
 `SlidingNav.vue` 用一个绝对定位的 `.nav-highlight` 表示当前项，位置由 JS 测量后写进 CSS 变量：
