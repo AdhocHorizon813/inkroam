@@ -6,6 +6,8 @@
 
 博客提供两种视觉风格：**现代幻境**与**纸媒原版**。你不必喜欢默认的样子——右下角的外观面板可以随时调整主题、材质与背景，让阅读更贴近你自己的习惯。
 
+线上地址：<https://adhochorizon813.github.io/inkroam/>
+
 ## 写作
 
 在 `content/posts/` 中新建一个 Markdown 文件，即可发布一篇新文章：
@@ -34,11 +36,34 @@ npm run dev
 
 然后访问 `http://localhost:3000`。
 
-## 文章图片灯箱
+线上部署在 GitHub Pages 的子路径 `/inkroam/` 下，需要复现线上路径时：
 
-正文图片点击后会打开全屏灯箱：双击或滚轮缩放（100%–600%）、拖拽平移、`←` / `→` 切换、`Esc` 关闭，触屏支持双指捏合。
+```bash
+# macOS / Linux
+BASE_PATH=/inkroam/ npm run generate && npm run preview
+```
 
-交互行为、设计取舍与实现细节见 [`docs/article-image-lightbox.md`](docs/article-image-lightbox.md)。
+```powershell
+# Windows PowerShell
+$env:BASE_PATH='/inkroam/'; npm run generate; npm run preview
+```
+
+## 部署
+
+推送到 `main` 即触发 GitHub Actions：`npm run generate` → 上传 `.output/public` → 发布到 GitHub Pages 的 `/inkroam/` 子路径。也可以在仓库 Actions 页面手动触发（`workflow_dispatch`）。
+
+细节与排查见 [`docs/deployment-github-pages.md`](docs/deployment-github-pages.md)。
+
+## 文档
+
+设计与实现细节记录在 [`docs/`](docs/README.md)：
+
+- [架构与技术选型](docs/architecture.md)
+- [视觉系统与美学细节](docs/visual-system.md)
+- [动效与交互细节](docs/motion-and-interaction.md)
+- [文章图片灯箱](docs/article-image-lightbox.md)
+- [内容创作指南](docs/content-authoring.md)
+- [GitHub Pages 部署](docs/deployment-github-pages.md)
 
 ## 常见构建失败（GitHub Actions）
 
@@ -54,3 +79,6 @@ npm run dev
 2. 在 `tagSlugMap` 为对应中文标签补充 ASCII slug（例如：`图像生成 -> image-generation`）；
 3. 本地验证：`BASE_PATH=/inkroam/ npm run generate`；
 4. 确认构建通过后再提交。
+
+更完整的部署说明与已知问题（`og:image` 指向 localhost、canonical 缺失等）见 [`docs/deployment-github-pages.md`](docs/deployment-github-pages.md)。
+
