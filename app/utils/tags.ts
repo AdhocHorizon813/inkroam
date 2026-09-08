@@ -1,4 +1,7 @@
 export const tagSlugMap: Record<string, string> = {
+  'GPT-5.6 Sol': 'gpt-5-6-sol',
+  'AI': 'ai',
+  'deepseek-v4.1-flash-expires-on-0910': 'deepseek-v4-1-flash-expires-on-0910',
   '生活方式': 'lifestyle',
   '数字工具': 'digital-tools',
   '独立创作': 'indie-publishing',
