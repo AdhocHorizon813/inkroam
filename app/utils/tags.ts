@@ -10,6 +10,7 @@ export const tagSlugMap: Record<string, string> = {
   '生命系统': 'life-systems',
   '梦境': 'dreams',
   '随笔': 'essays',
+  '图像生成': 'image-generation',
 }
 
 const tagNameMap = Object.fromEntries(
