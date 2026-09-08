@@ -62,6 +62,7 @@ $env:BASE_PATH='/inkroam/'; npm run generate; npm run preview
 - [视觉系统与美学细节](docs/visual-system.md)
 - [审美原则（弱代码）](docs/aesthetic-principles.md)
 - [动效与交互细节](docs/motion-and-interaction.md)
+- [界面组分（顶栏、面板、列表）](docs/ui-components.md)
 - [文章图片灯箱](docs/article-image-lightbox.md)
 - [内容创作指南](docs/content-authoring.md)
 - [GitHub Pages 部署](docs/deployment-github-pages.md)
