@@ -25,6 +25,53 @@
 2. **`.route-frame` 只做动画容器**，`NuxtPage` 的 `:transition` 被显式关掉，入场动画由 `app.vue` 手动驱动；
 3. **外观面板挂在 `.site-shell` 之外**，因为它是全局浮层，不该被内容布局影响。
 
+## 页面切换
+
+页面之间的过渡**不是** Vue 的 `<Transition>`，而是 `app.vue` 里手写的 Web Animations。`nuxt.config.ts` 里没有 `pageTransition`，各页面也没有 `definePageMeta`——`NuxtPage` 被显式传了 `:transition="false"`。
+
+原因：`<Transition>` 的常见写法会同时跑「旧页面离场 + 新页面入场」两套动画，两条时间线一旦对不齐就会闪。而这里只需要一个方向——**新内容进场**。
+
+### 一次切换发生了什么
+
+```
+watch(route.fullPath)
+  → 跳过首次加载（没有 previousPath 就直接 return）
+  → nextTick()                    等新页面挂载
+  → cancel() 上一批动画            快速连点不会叠加
+  → 在 .route-frame 内找表面元素
+      .hero / .latest-section / .manifesto / .standard-page / .article-page
+  → 取这些元素的直接子元素作为动画目标
+  → 同步把 opacity 置 0
+  → 等两帧（双 requestAnimationFrame）
+  → 逐个 animate：opacity 0 → 1，translateY 10px → 0
+      duration 620ms
+      delay    min(index * 18, 108) ms
+      easing   cubic-bezier(.16, 1, .3, 1)   ← 就是 --ease-fluid
+```
+
+### 几个刻意的选择
+
+- **只做入场，不做离场**：旧页面在切换瞬间就被替换。给「已经不需要的内容」做离场动画，等于让用户等它消失，和「离场快而脆」的原则相反；
+- **滚动位置沿用 Nuxt 默认**：项目没有自定义 `scrollBehavior`——路径变化回到顶部、带 `#hash` 时定位到锚点、浏览器前进 / 后退则恢复之前的位置。所以「翻页」的手感是：内容先重置到顶部，再逐个浮上来；
+- **逐个 stagger，但封顶**：延迟 `index * 18ms` 最多累加到 108ms。内容多的页面不会等到天荒地老，又保留了「一层层浮上来」的层次感；
+- **位移只有 10px**：动的是重心，不是距离；620ms 的 `--ease-fluid` 负责「顺」；
+- **先置 0 再等两帧**：直接 `animate()` 的话，首帧可能先渲染出未动画状态、闪一下。同步把 `opacity` 置 0，等两帧后启动，随后立刻移除内联 `opacity`，交给 WAAPI 的 `fill: 'both'` 接管；
+- **`onfinish` 里 `cancel()`**：动画结束后清掉 WAAPI 状态，避免残留的 `fill` 影响后续样式；
+- **`prefers-reduced-motion` 时整段跳过**：不是把时长压到 0，而是根本不启动。
+
+### 和主题切换的区别
+
+| | 页面切换 | 主题切换 |
+| --- | --- | --- |
+| 触发 | 路由变化 | 面板里的视觉 / 材质 / 强调色 / 背景 |
+| 机制 | Web Animations 手动驱动 | `document.startViewTransition()` 快照 |
+| 动画对象 | 新页面的区块 | 整页交叉淡入 |
+| 为什么不同 | 只需要「进」，不需要「出」 | 需要同时看到旧态和新态 |
+
+`.route-frame` 是这套动画的**稳定锚点**：它在路由切换时不重建，所以可以安全地在它内部查找元素。`<header>` 和 `<footer>` 在它之外，视觉上始终连续——导航不会跟着页面一起闪。
+
+实现细节见 [motion-and-interaction.md](motion-and-interaction.md#路由入场动画)。
+
 ## 顶栏
 
 ### 结构
@@ -129,9 +176,9 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 - 悬停时正文平移 7px、箭头朝右上 3px（520ms `--ease-settle`），只在精确指针设备启用；
 - `content-visibility: auto` 配合 `contain-intrinsic-size`，长列表只渲染视口附近的行。
 
-### 路由入场
+### 区块入场
 
-路由切换时，首页的区块逐个入场：位移只有 10px，延迟 `index * 18ms` 且封顶 108ms，620ms `--ease-fluid`。封顶是为了让内容多的页面不会「等很久才动完」。
+首页的区块会参与应用级的页面切换动画，完整的时序与取舍见上文「页面切换」。
 
 ## 文章页
 
