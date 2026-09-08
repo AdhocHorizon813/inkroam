@@ -80,5 +80,5 @@ $env:BASE_PATH='/inkroam/'; npm run generate; npm run preview
 3. 本地验证：`BASE_PATH=/inkroam/ npm run generate`；
 4. 确认构建通过后再提交。
 
-更完整的部署说明与已知问题（`og:image` 指向 localhost、canonical 缺失等）见 [`docs/deployment-github-pages.md`](docs/deployment-github-pages.md)。
+更完整的部署说明见 [`docs/deployment-github-pages.md`](docs/deployment-github-pages.md)。
 

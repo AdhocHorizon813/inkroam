@@ -11,17 +11,17 @@ if (!post.value || post.value.draft) {
   throw createError({ statusCode: 404, statusMessage: '文章未找到' })
 }
 
+/* 文章页不再清空 og 图：继承 app.vue 的全局 og.png，
+   否则社交平台抓到的是一张空图。 */
 useSeoMeta({
   title: post.value.title,
   description: post.value.description,
   ogTitle: post.value.title,
   ogDescription: post.value.description,
   ogType: 'article',
-  ogImage: '',
   twitterCard: 'summary_large_image',
   twitterTitle: post.value.title,
   twitterDescription: post.value.description,
-  twitterImage: '',
 })
 
 const formatDate = (date: string) =>

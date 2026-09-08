@@ -58,16 +58,31 @@ onMounted(() => {
 })
 onBeforeUnmount(() => window.removeEventListener('scroll', syncScrollState))
 
+/* siteUrl 由 CI 通过 NUXT_PUBLIC_SITE_URL 注入（含 GitHub Pages 子路径），
+   本地开发回落到 http://localhost:3000。去掉尾部斜杠，避免拼出 //。 */
+const siteBase = computed(() => config.public.siteUrl.replace(/\/+$/, ''))
+
+/* 静态站点的规范地址统一为目录形式（带尾斜杠），与 GitHub Pages 的解析一致。 */
+const canonicalUrl = computed(() => {
+  const path = route.path === '/' ? '/' : `${route.path.replace(/\/+$/, '')}/`
+  return `${siteBase.value}${path}`
+})
+
 useSeoMeta({
   ogSiteName: '纸上漫游',
   ogTitle: '纸上漫游',
   ogDescription: '写下那些不该被遗忘的想法。',
-  ogImage: () => `${config.public.siteUrl}/og.png`,
+  ogImage: () => `${siteBase.value}/og.png`,
+  ogUrl: () => canonicalUrl.value,
   twitterCard: 'summary_large_image',
   twitterTitle: '纸上漫游',
   twitterDescription: '写下那些不该被遗忘的想法。',
-  twitterImage: () => `${config.public.siteUrl}/og.png`,
+  twitterImage: () => `${siteBase.value}/og.png`,
 })
+
+useHead(() => ({
+  link: [{ rel: 'canonical', href: canonicalUrl.value }],
+}))
 </script>
 
 <template>

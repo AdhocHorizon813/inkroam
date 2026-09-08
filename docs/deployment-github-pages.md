@@ -69,39 +69,30 @@ npm run preview
 3. 本地验证 `BASE_PATH=/inkroam/ npm run generate`；
 4. 通过后再提交。
 
-## 已知问题
+## 曾经的坑（已修复，别改回去）
 
 ### 1. `og:image` 指向 localhost
 
-`nuxt.config.ts` 里 `runtimeConfig.public.siteUrl` 的默认值是 `http://localhost:3000`，而 `app.vue` 用它拼 `og:image`。线上首页实际输出：
-
-```html
-<meta property="og:image" content="http://localhost:3000/og.png">
-```
-
-社交平台抓取时会失败。项目已经预留了环境变量（见 `.env.example`）：
-
-```
-NUXT_PUBLIC_SITE_URL=https://example.com
-```
-
-**修复建议**：在 `deploy.yml` 的 generate 步骤补一个 env：
+`app.vue` 用 `runtimeConfig.public.siteUrl` 拼绝对地址，而它的默认值是 `http://localhost:3000`，所以必须在 CI 注入真实域名。`deploy.yml` 里的「Resolve public site URL」步骤负责这件事：
 
 ```yaml
-env:
-  BASE_PATH: /${{ github.event.repository.name }}/
-  NUXT_PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+- name: Resolve public site URL
+  run: echo "NUXT_PUBLIC_SITE_URL=https://${OWNER,,}.github.io/${{ github.event.repository.name }}" >> "$GITHUB_ENV"
+  env:
+    OWNER: ${{ github.repository_owner }}
 ```
+
+`${OWNER,,}` 是 bash 的小写展开：GitHub 用户名可能含大写（本仓库是 `AdhocHorizon813`），而 Pages 域名一律小写，先转换再拼接，canonical 才不会出现大小写混用。**不要删掉这一步。**
 
 ### 2. 文章页的 `og:image` 为空
 
-`app/pages/posts/[slug].vue` 的 `useSeoMeta` 里写了 `ogImage: ''` 和 `twitterImage: ''`，会把 `app.vue` 设置的全局值覆盖成空字符串。线上文章页输出的是 `<meta property="og:image" content>`。
+`app/pages/posts/[slug].vue` 里曾写死 `ogImage: ''` / `twitterImage: ''`，会把 `app.vue` 的全局值覆盖成空字符串，社交平台抓到的是一张空图。现已删除，文章页继承全局 `og.png`。
 
-**修复建议**：删掉这两行，让文章页继承全局值；或改为使用文章自己的封面图。
+如果以后想给文章配专属分享图，应该在 `content.config.ts` 增加 `cover` 字段，再在文章页用它拼 `ogImage`——**不要**再写空字符串。
 
-### 3. 没有 canonical
+### 3. 缺少 canonical
 
-页面没有输出 `<link rel="canonical">`。如果以后绑定自定义域名或存在多路径访问，需要补上。
+`app.vue` 现在用 `useHead` 输出 `<link rel="canonical">`，地址是 `siteUrl + 目录形式的路由路径`。绑定自定义域名或调整路由后，记得同步这里的拼接逻辑。
 
 ## 手动触发与回滚
 
@@ -115,4 +106,5 @@ env:
 2. 浏览器 Network 面板里 `_nuxt/*.js`、`_nuxt/*.css` 返回 200（若有 404，多半是 `.nojekyll` 或 `BASE_PATH` 的问题）；
 3. 文章图片正常显示且不变形；
 4. 图片灯箱可打开、双击/滚轮缩放正常（见 [article-image-lightbox.md](article-image-lightbox.md)）；
-5. 控制台无报错。
+5. 控制台无报错；
+6. 查看页面源码：`og:image`、`og:url`、`canonical` 都指向 `https://adhochorizon813.github.io/inkroam/...`，而不是 localhost。

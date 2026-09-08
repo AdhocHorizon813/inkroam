@@ -24,9 +24,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Resolve public site URL
+        # og:image / canonical 需要绝对地址。GitHub 用户名可能含大写，
+        # 而 Pages 域名一律小写，这里统一转小写后再注入。
+        run: echo "NUXT_PUBLIC_SITE_URL=https://${OWNER,,}.github.io/${{ github.event.repository.name }}" >> "$GITHUB_ENV"
+        env:
+          OWNER: ${{ github.repository_owner }}
+
       - run: npm run generate
         env:
-          # Nun auto-fills the repo name so assets resolve under /<repo>/
+          # Nuxt auto-fills the repo name so assets resolve under /<repo>/
           BASE_PATH: /${{ github.event.repository.name }}/
       - run: touch .output/public/.nojekyll
       - uses: actions/configure-pages@v5

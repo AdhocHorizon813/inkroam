@@ -82,10 +82,11 @@ const latestPostCount = useState<LatestPostCount>('latest-post-count', () => 10)
 - `app.vue` 设置全局的 `ogSiteName`、`ogTitle`、`ogDescription`、`ogImage` 与 twitter 卡片；
 - 文章页额外设置 `ogType: 'article'`。
 
-⚠️ 两处已知问题（细节与修复建议见 [deployment-github-pages.md](deployment-github-pages.md#已知问题)）：
+绝对地址（`og:image`、`og:url`、`canonical`）由 `app.vue` 统一拼接：
 
-1. `runtimeConfig.public.siteUrl` 默认值是 `http://localhost:3000`，部署后首页的 `og:image` 会指向 localhost；
-2. 文章页 `useSeoMeta` 里写了 `ogImage: ''`，会把全局值覆盖成空字符串。
+- `siteUrl` 在 CI 里由 `NUXT_PUBLIC_SITE_URL` 注入（`deploy.yml` 的「Resolve public site URL」步骤），本地回落到 `http://localhost:3000`；
+- `canonical` 用 `useHead` 输出，统一为「目录形式」（带尾斜杠），与 GitHub Pages 的解析一致；
+- 文章页不再覆盖 `ogImage`，继承全局的 `og.png`。
 
 ## 样式组织
 
