@@ -130,6 +130,18 @@ button { font: inherit; }
 .article-content blockquote p { color: var(--muted); font-size: 22px; margin: 0; }
 .article-content a { border-bottom: 1px solid var(--accent); color: var(--accent); }
 .article-content code { padding: 2px 5px; background: color-mix(in srgb, var(--ink) 8%, transparent); border-radius: 3px; font-size: .88em; }
+/* Markdown images render as plain <img> with no size attributes, so they must be
+   constrained to the reading column while keeping their intrinsic aspect ratio. */
+.article-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 2.6em auto;
+  border-radius: 4px;
+}
+.article-content figure { margin: 2.6em 0; }
+.article-content figure img { margin: 0 auto; }
+.article-content figcaption { margin-top: .9em; color: var(--muted); font: 13px/1.7 var(--serif); text-align: center; }
 .article-end { max-width: 700px; margin: 90px auto 0; padding: 55px 0 0; border-top: 1px solid var(--ink); text-align: center; }
 .article-end > span { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; margin: 0 auto 26px; border-radius: 50%; background: var(--accent); color: var(--paper); font: 18px var(--serif); line-height: 1; padding: 0; }
 .article-end p { color: var(--muted); font: 15px/1.8 var(--serif); }
@@ -1195,6 +1207,8 @@ button { font: inherit; }
   background: color-mix(in srgb, var(--modern-ink) 7%, transparent);
   color: var(--modern-ink);
 }
+:root[data-visual='modern'] .article-content img { border-radius: 14px; }
+:root[data-visual='modern'] .article-content figcaption { color: var(--modern-muted); font-family: var(--sans); }
 :root[data-visual='modern'] .article-end { border-top-color: var(--modern-line); }
 :root[data-visual='modern'] .article-end > span {
   background: var(--modern-ink);
@@ -3230,4 +3244,140 @@ fieldset.setting-group > legend.setting-label {
 
 @media (prefers-reduced-motion: reduce) {
   .segmented-control::before { transition: none; }
+}
+
+/* In-article image zoom. The viewer is teleported to <body> so ancestor
+   backdrop-filter/transform surfaces cannot trap the fixed overlay. */
+.article-content img { cursor: zoom-in; }
+.article-content img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: clamp(18px, 5vw, 64px);
+}
+.image-lightbox__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 8, 12, .88);
+  backdrop-filter: blur(16px) saturate(115%);
+  -webkit-backdrop-filter: blur(16px) saturate(115%);
+}
+.image-lightbox__figure {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+}
+.image-lightbox__image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100vh - clamp(140px, 22vh, 200px));
+  border-radius: 10px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .5);
+  transform-origin: center center;
+  will-change: transform;
+  cursor: zoom-in;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.image-lightbox.is-zoomed .image-lightbox__image { cursor: grab; }
+.image-lightbox.is-panning .image-lightbox__image { cursor: grabbing; }
+.image-lightbox.is-animating .image-lightbox__image { transition: transform 320ms var(--ease-settle); }
+.image-lightbox__caption {
+  max-width: min(72ch, 100%);
+  color: rgba(255, 255, 255, .66);
+  font: 13px/1.7 var(--sans);
+  text-align: center;
+  transition: opacity 200ms var(--ease-fluid);
+}
+/* A zoomed image overflows its box, so fade the caption instead of letting it
+   sit on top of the picture. */
+.image-lightbox.is-zoomed .image-lightbox__caption { opacity: 0; }
+.image-lightbox__hud {
+  position: absolute;
+  z-index: 2;
+  top: clamp(16px, 3vw, 30px);
+  left: clamp(16px, 3vw, 30px);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font: 12px/1 var(--sans);
+}
+.image-lightbox__count { color: rgba(255, 255, 255, .6); letter-spacing: .1em; }
+.image-lightbox__zoom { color: rgba(255, 255, 255, .82); font-variant-numeric: tabular-nums; letter-spacing: .06em; }
+.image-lightbox__hint { color: rgba(255, 255, 255, .34); letter-spacing: .04em; }
+.image-lightbox__close,
+.image-lightbox__nav {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 50%;
+  background: rgba(18, 22, 28, .6);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 180ms var(--ease-fluid), border-color 180ms var(--ease-fluid);
+}
+.image-lightbox__close { top: clamp(14px, 3vw, 26px); right: clamp(14px, 3vw, 26px); }
+.image-lightbox__nav { top: 50%; transform: translateY(-50%); }
+.image-lightbox__nav--prev { left: clamp(10px, 2.5vw, 28px); }
+.image-lightbox__nav--next { right: clamp(10px, 2.5vw, 28px); }
+.image-lightbox__close:hover,
+.image-lightbox__nav:hover { background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .42); }
+.image-lightbox__close:focus-visible,
+.image-lightbox__nav:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.image-lightbox__close svg,
+.image-lightbox__nav svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lightbox-enter-active { transition: opacity 260ms var(--ease-fluid); }
+.lightbox-leave-active { transition: opacity 160ms cubic-bezier(.4, 0, .85, .25); }
+/* The figure carries the entrance animation; the image keeps its own inline
+   transform for zoom and pan. */
+.lightbox-enter-active .image-lightbox__figure { transition: transform 460ms var(--ease-settle); }
+.lightbox-leave-active .image-lightbox__figure { transition: transform 180ms cubic-bezier(.4, 0, .85, .25); }
+.lightbox-enter-from,
+.lightbox-leave-to { opacity: 0; }
+.lightbox-enter-from .image-lightbox__figure { transform: scale(.965); }
+.lightbox-leave-to .image-lightbox__figure { transform: scale(.985); }
+
+@media (max-width: 767.98px) {
+  .image-lightbox { padding: 14px; }
+  .image-lightbox__image { max-height: calc(100vh - 150px); border-radius: 8px; }
+  .image-lightbox__close,
+  .image-lightbox__nav { width: 40px; height: 40px; }
+  .image-lightbox__caption { font-size: 12px; }
+  .image-lightbox__hint { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lightbox-enter-active,
+  .lightbox-leave-active,
+  .lightbox-enter-active .image-lightbox__figure,
+  .lightbox-leave-active .image-lightbox__figure,
+  .image-lightbox.is-animating .image-lightbox__image,
+  .image-lightbox__caption { transition: none; }
 }
