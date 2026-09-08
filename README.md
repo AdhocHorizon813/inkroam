@@ -33,3 +33,18 @@ npm run dev
 ```
 
 然后访问 `http://localhost:3000`。
+
+## 常见构建失败（GitHub Actions）
+
+如果 `Deploy to GitHub Pages` 的 `build` 作业在 `npm run generate` 阶段失败，并出现某个 `/tags/...` 路由 prerender 500，通常是标签 slug 映射缺失导致的。
+
+- 构建环境会使用 `BASE_PATH`（仓库子路径）执行静态生成；
+- `app/utils/tags.ts` 中未显式映射的中文标签会走 `encodeURIComponent`；
+- 在该场景下，部分非 ASCII 标签路由可能触发 prerender 异常。
+
+### 处理方式
+
+1. 打开 `/home/runner/work/inkroam/inkroam/app/utils/tags.ts`；
+2. 在 `tagSlugMap` 为对应中文标签补充 ASCII slug（例如：`图像生成 -> image-generation`）；
+3. 本地验证：`BASE_PATH=/inkroam/ npm run generate`；
+4. 确认构建通过后再提交。
