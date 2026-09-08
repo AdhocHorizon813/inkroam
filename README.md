@@ -34,6 +34,12 @@ npm run dev
 
 然后访问 `http://localhost:3000`。
 
+## 文章图片灯箱
+
+正文图片点击后会打开全屏灯箱：双击或滚轮缩放（100%–600%）、拖拽平移、`←` / `→` 切换、`Esc` 关闭，触屏支持双指捏合。
+
+交互行为、设计取舍与实现细节见 [`docs/article-image-lightbox.md`](docs/article-image-lightbox.md)。
+
 ## 常见构建失败（GitHub Actions）
 
 如果 `Deploy to GitHub Pages` 的 `build` 作业在 `npm run generate` 阶段失败，并出现某个 `/tags/...` 路由 prerender 500，通常是标签 slug 映射缺失导致的。

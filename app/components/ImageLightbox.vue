@@ -163,6 +163,7 @@ function resetZoom(animate = false) {
 
 function onWheel(event: WheelEvent) {
   event.preventDefault()
+  /* Normalise line/page delta modes so wheels, trackpads and browsers feel alike. */
   const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1
   const factor = Math.exp(-event.deltaY * unit * WHEEL_SENSITIVITY)
   zoomAt(scale.value * factor, event.clientX, event.clientY)
