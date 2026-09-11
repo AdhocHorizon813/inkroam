@@ -14,6 +14,9 @@ export const tagSlugMap: Record<string, string> = {
   '梦境': 'dreams',
   '随笔': 'essays',
   '图像生成': 'image-generation',
+  '物理': 'physics',
+  '黑洞': 'black-holes',
+  '科幻': 'science-fiction',
 }
 
 const tagNameMap = Object.fromEntries(
