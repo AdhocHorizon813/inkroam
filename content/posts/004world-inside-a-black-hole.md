@@ -7,10 +7,9 @@ readingTime: 16 分钟
 aiGenerated: false
 aiAssisted: true
 pinned: false
-featured: false
+featured: true
 draft: false
 ---
-
 黑洞里面是什么？
 
 最熟悉的回答大概是：事件视界以内，一切都不可避免地落向奇点。
