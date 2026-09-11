@@ -68,6 +68,20 @@ export const getTagName = (slug: string) => tagNameMap[slug] || decodeURICompone
 
 图片下方的说明文字用普通段落书写即可；如果用 `<figure>` + `<figcaption>`，样式也已就绪。
 
+## 数学公式
+
+支持 LaTeX 公式，行内公式使用 `$...$`，独立公式使用单独成行的 `$$`：
+
+```md
+质能关系是 $E = mc^2$。
+
+$$
+\frac{1}{r^2} = \frac{8\pi G}{3c^2}\rho
+$$
+```
+
+公式由 `remark-math` 和 `rehype-katex` 在构建时渲染，字体随站点打包。长公式在窄屏上可以横向滚动。展示公式源码时请使用行内代码或代码块；普通文本中的美元符号可以写成 `\$`。
+
 ## 搜索是如何工作的
 
 搜索页用了两条数据源（`app/pages/search.vue`）：

@@ -119,6 +119,7 @@ button { font: inherit; }
 .tag-list a { padding: 0; border: 0; background: none; border-radius: 0; color: var(--muted); font-size: 11px; }
 .tag-list a:hover { border-color: var(--accent); color: var(--accent); }
 .article-content { min-width: 0; }
+.article-content .katex-display { overflow-x: auto; overflow-y: hidden; padding: .25em 0; }
 .article-content p, .article-content li { color: var(--ink); font: 18px/2.05 var(--serif); }
 .article-content p { margin: 0 0 1.7em; }
 .article-content h2 { margin: 2.5em 0 .8em; font: 600 32px/1.45 var(--serif); }

@@ -1,9 +1,15 @@
 export default defineNuxtConfig({
   modules: ['@nuxt/content'],
-  css: ['~/assets/css/main.css'],
+  css: ['katex/dist/katex.min.css', '~/assets/css/main.css'],
   devtools: { enabled: false },
   content: {
     experimental: { sqliteConnector: 'native' },
+    build: {
+      markdown: {
+        remarkPlugins: { 'remark-math': {} },
+        rehypePlugins: { 'rehype-katex': {} },
+      },
+    },
   },
   runtimeConfig: {
     public: {
