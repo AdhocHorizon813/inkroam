@@ -7,6 +7,8 @@ export const tagSlugMap: Record<string, string> = {
   '独立创作': 'indie-publishing',
   '写作': 'writing',
   '设计': 'design',
+  '创新': 'innovation',
+  '思考': 'thinking',
   '阅读体验': 'reading',
   '哲学': 'philosophy',
   '意识': 'consciousness',
