@@ -11,6 +11,8 @@ export const tagSlugMap: Record<string, string> = {
   '思考': 'thinking',
   '阅读体验': 'reading',
   '哲学': 'philosophy',
+  '灵魂': 'soul',
+  '宗教': 'religion',
   '意识': 'consciousness',
   '生命系统': 'life-systems',
   '梦境': 'dreams',
