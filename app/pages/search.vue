@@ -36,15 +36,6 @@ function createExcerpt(content: string, searchValue: string) {
 
 const searchTerms = computed(() => normalize(query.value).split(' ').filter(Boolean))
 
-const titleResults = computed(() => {
-  const terms = searchTerms.value
-  if (!terms.length) return []
-
-  return (posts.value || [])
-    .filter(post => terms.every(term => normalize(post.title).includes(term)))
-    .slice(0, 20)
-})
-
 const contentResults = computed(() => {
   const searchValue = query.value.trim()
   const terms = searchTerms.value
@@ -68,10 +59,20 @@ const contentResults = computed(() => {
     })
     .filter((section): section is NonNullable<typeof section> => section !== null)
     .sort((a, b) => b.score - a.score || String(b.date).localeCompare(String(a.date)))
-    .slice(0, 30)
 })
 
-const totalResults = computed(() => titleResults.value.length + contentResults.value.length)
+const articleResults = computed(() => {
+  const terms = searchTerms.value
+  if (!terms.length) return []
+  return (posts.value || []).map(post => {
+    const titleMatch = terms.every(term => normalize(post.title).includes(term))
+    const matches = contentResults.value.filter(section => section.id.split('#')[0] === post.path)
+    return { ...post, titleMatch, matches, score: titleMatch ? 100 : Math.max(0, ...matches.map(section => section.score)) }
+  }).filter(post => post.titleMatch || post.matches.length)
+    .sort((a, b) => b.score - a.score || b.date.localeCompare(a.date))
+})
+
+const totalResults = computed(() => articleResults.value.length)
 
 watch(() => route.query.q, (value) => {
   const nextQuery = typeof value === 'string' ? value : ''
@@ -119,50 +120,42 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
     <section class="search-results" aria-live="polite" aria-label="搜索结果">
       <div v-if="query.trim()" class="search-results__heading">
         <span>搜索结果</span>
-        <span>{{ totalResults }} 项</span>
+        <span>{{ totalResults }} 篇文章</span>
       </div>
 
-      <div v-if="titleResults.length" class="search-group">
-        <div class="search-group__heading">
-          <h2>标题匹配</h2>
-          <span>{{ titleResults.length }}</span>
-        </div>
-        <NuxtLink
-          v-for="post in titleResults"
+      <div v-if="articleResults.length" class="search-group">
+        <article
+          v-for="post in articleResults"
           :key="post.path"
-          :to="post.path"
-          class="search-result"
+          class="search-result search-result--grouped"
         >
           <div class="search-result__meta">
             <time :datetime="post.date">{{ formatDate(post.date) }}</time>
             <span v-if="post.tags?.[0]">{{ post.tags[0] }}</span>
+            <span v-if="post.titleMatch">标题匹配</span>
           </div>
-          <h2>{{ post.title }}</h2>
-          <p>{{ post.description }}</p>
-          <span class="search-result__arrow" aria-hidden="true">↗</span>
-        </NuxtLink>
-      </div>
-
-      <div v-if="contentResults.length" class="search-group">
-        <div class="search-group__heading">
-          <h2>正文匹配</h2>
-          <span>{{ contentResults.length }}</span>
-        </div>
-        <NuxtLink
-          v-for="result in contentResults"
-          :key="result.id"
-          :to="result.id"
-          class="search-result"
-        >
-          <div class="search-result__meta">
-            <time v-if="result.date" :datetime="result.date">{{ formatDate(result.date) }}</time>
-            <span v-if="result.tags?.[0]">{{ result.tags[0] }}</span>
-          </div>
-          <h2>{{ result.title }}</h2>
-          <p v-if="result.titles?.length" class="search-result__path">{{ result.titles.join(' / ') }}</p>
-          <p>{{ result.excerpt }}</p>
-          <span class="search-result__arrow" aria-hidden="true">↗</span>
-        </NuxtLink>
+          <h2><NuxtLink :to="post.path"><SearchHighlight :text="post.title" :terms="searchTerms" /></NuxtLink></h2>
+          <p><SearchHighlight :text="post.description" :terms="searchTerms" /></p>
+          <ul v-if="post.matches.length" class="search-matches">
+            <li v-for="match in post.matches.slice(0, 3)" :key="match.id">
+              <NuxtLink :to="match.id">
+                <span class="search-match__title"><SearchHighlight :text="match.level > 1 ? match.title : '摘要与开篇'" :terms="searchTerms" /> <span aria-hidden="true">↗</span></span>
+                <span class="search-match__excerpt"><SearchHighlight :text="match.excerpt" :terms="searchTerms" /></span>
+              </NuxtLink>
+            </li>
+          </ul>
+          <details v-if="post.matches.length > 3" :key="query">
+            <summary>展开其余 {{ post.matches.length - 3 }} 处匹配</summary>
+            <ul class="search-matches">
+              <li v-for="match in post.matches.slice(3)" :key="match.id">
+                <NuxtLink :to="match.id">
+                  <span class="search-match__title"><SearchHighlight :text="match.level > 1 ? match.title : '摘要与开篇'" :terms="searchTerms" /> <span aria-hidden="true">↗</span></span>
+                  <span class="search-match__excerpt"><SearchHighlight :text="match.excerpt" :terms="searchTerms" /></span>
+                </NuxtLink>
+              </li>
+            </ul>
+          </details>
+        </article>
       </div>
 
       <p v-if="query.trim() && !totalResults" class="search-empty">没有找到相关内容，试试更短或不同的关键词。</p>
@@ -170,3 +163,15 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
     </section>
   </main>
 </template>
+
+<style scoped>
+.search-result--grouped:hover { transform: none; }
+.search-result__meta { flex-wrap: wrap; }
+.search-matches { list-style: none; padding: 0; margin: 18px 0 0; border-left: 1px solid var(--line); }
+.search-matches li + li { margin-top: 14px; }
+.search-matches a { display: block; padding: 4px 0 4px 16px; }
+.search-match__title { display: block; color: var(--ink); font-size: 13px; line-height: 1.7; }
+.search-match__excerpt { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.search-matches a:hover .search-match__title { color: var(--accent); }
+summary { cursor: pointer; margin-top: 16px; color: var(--muted); font-size: 12px; }
+</style>

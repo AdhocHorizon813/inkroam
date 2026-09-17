@@ -104,6 +104,7 @@ watch(() => route.fullPath, async () => {
         <div class="tag-list">
           <NuxtLink v-for="tag in (post.tags || [])" :key="tag" :to="`/tags/${getTagSlug(tag)}`">{{ tag }}</NuxtLink>
         </div>
+        <ArticleToc :links="post.body?.toc?.links || []" />
       </aside>
       <article
         ref="articleContent"

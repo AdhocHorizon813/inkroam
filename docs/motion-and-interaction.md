@@ -19,6 +19,8 @@
 
 ## 路由入场动画
 
+页面动画仅监听 `route.path`，同页 hash 变化不触发入场。`app/router.options.ts` 通过 `scrollBehaviorType` 启用浏览器原生非线性平滑滚动，保留 Nuxt 的锚点偏移和历史位置逻辑；减少动效偏好下使用即时滚动。目录开合复用 settle / exit 曲线，电脑与手机都可折叠。
+
 页面切换没有用 Vue 的 `<Transition>`（`NuxtPage :transition="false"`），而是在 `app.vue` 里用 Web Animations 手动驱动：
 
 ```ts
@@ -77,6 +79,18 @@ requestAnimationFrame(() => requestAnimationFrame(() => {
 classic 主题的头部在正常流里、不吸顶，所以不加这个偏移，否则跳转后标题会凭空下移一段。
 
 验证方式（headless Chrome + CDP）：点击第 3 个 `h2` 的锚点后断言 `target.getBoundingClientRect().top >= header.getBoundingClientRect().bottom`；再把该标题的 `scroll-margin-top` 临时置为 `0px` 复现原 bug 作为对照组。1280×800 与 390×844 两个视口均通过（修复后 87.8 / 88.3px，对照组 -0.2 / 0.3px）。
+
+### 页内锚点的统一入口
+
+正文标题的锚点是 Markdown 生成的普通 `<a href="#id">`，**不是 NuxtLink**，所以不走路由：`modern` 主题把 `scroll-behavior` 设为 `auto`，点下去是瞬跳；而用 NuxtLink 的文章目录却是平滑滚动——同一个页面里两种手感。
+
+现在所有页内锚点都由 `app.vue` 的 `onDocumentClick` 统一处理：命中 `a[href^="#"]`（已被 NuxtLink 处理过的用 `event.defaultPrevented` 排除）后 `router.push({ hash })`，于是和目录走同一条 `scrollBehaviorType: 'smooth'`（见 `app/router.options.ts`）的路径。
+
+⚠️ **必须用 `anchor.getAttribute('href')`，不要用 `anchor.hash`**：中文 id 在 HTML 属性里是未编码的（`#收件人是下一个我`），而 `anchor.hash` 返回**百分号编码**形式（`#%E6%94%B6...`）。把这个编码串再交给 `router.push` 会被**二次编码**（`%` → `%25`），Nuxt 的 scrollBehavior 拿 `#%25E6...` 去 `getElementById` 必然找不到元素——表现是「点了完全不动」，同时 URL 里留下一个坏 hash。
+
+第二个细节：目标与当前 hash 相同时，路由会判为重复导航直接跳过，所以这里补一次 `scrollIntoView({ behavior: 'smooth' })`，否则「跳过去之后再点同一个标题」会毫无反应。
+
+`§` 也一并移进了标题锚点（`.article-content h2 a::before`）。它以前是 `h2::before`——看起来像标题的一部分，其实在链接之外，点它不会跳转。移动之后整个标题（含 §）是同一个可点区域，也就都会带上标题链接自身的下划线。
 
 ## 导航指示器
 

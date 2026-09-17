@@ -5,4 +5,5 @@ node_modules
 dist
 .env
 *.log
+docs/work-checkpoint.md
 # /content/posts/_article-template.md

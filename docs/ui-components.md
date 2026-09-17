@@ -34,7 +34,7 @@
 ### 一次切换发生了什么
 
 ```
-watch(route.fullPath)
+watch(route.path)
   → 跳过首次加载（没有 previousPath 就直接 return）
   → nextTick()                    等新页面挂载
   → cancel() 上一批动画            快速连点不会叠加
@@ -53,6 +53,7 @@ watch(route.fullPath)
 
 - **只做入场，不做离场**：旧页面在切换瞬间就被替换。给「已经不需要的内容」做离场动画，等于让用户等它消失，和「离场快而脆」的原则相反；
 - **滚动位置沿用 Nuxt 默认**：项目没有自定义 `scrollBehavior`——路径变化回到顶部、带 `#hash` 时定位到锚点、浏览器前进 / 后退则恢复之前的位置。所以「翻页」的手感是：内容先重置到顶部，再逐个浮上来；
+- **只监听 `route.path`**：页内 hash 跳转（点标题、点目录）不会重放整页入场动画，只做页内平滑滚动；
 - **逐个 stagger，但封顶**：延迟 `index * 18ms` 最多累加到 108ms。内容多的页面不会等到天荒地老，又保留了「一层层浮上来」的层次感；
 - **位移只有 10px**：动的是重心，不是距离；620ms 的 `--ease-fluid` 负责「顺」；
 - **先置 0 再等两帧**：直接 `animate()` 的话，首帧可能先渲染出未动画状态、闪一下。同步把 `opacity` 置 0，等两帧后启动，随后立刻移除内联 `opacity`，交给 WAAPI 的 `fill: 'both'` 接管；
@@ -151,6 +152,8 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 
 ### 实现要点
 
+- 面板外框保持固定，只让 `.appearance-panel__scroll` 内部滚动。上下边缘共用 `--panel-edge-fade: 20px`（原为 16px），中点透明度为 55%，形成略宽且对称的淡出。这里使用 `mask-image`，不是增大整块面板的背景模糊；标准与 WebKit 声明必须同步修改。修改后检查顶部标题和底部恢复默认按钮的可读性。
+
 - 所有选择都写进 `<html>` 的 `data-*` 和内联 CSS 变量，**CSS 不读组件状态**；
 - 关闭时面板 `scrollTop` 归零，下次打开从顶部开始；
 - 自定义背景在上传时就压缩成 webp data URL（最长边 1920、质量 .82）并校验体积，避免塞爆 localStorage；
@@ -182,6 +185,10 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 
 ## 文章页
 
+侧栏标签下的 `ArticleToc.vue` 读取 `post.body.toc.links`，展示二、三级标题。电脑和手机均通过带 `aria-expanded` 的按钮展开收起；桌面初始展开，手机初始折叠，没有标题时隐藏。折叠使用 grid 行高和透明度过渡：展开 440ms settle，收起 260ms exit；收起内容设置 inert，防止键盘进入隐藏链接。目录用 NuxtLink 锚点，沿用正文 `scroll-margin-top`。滚动监听通过 requestAnimationFrame 合并，使用 `aria-current="location"` 标记当前位置，并在卸载时清理监听。
+
+目录样式局限在组件内，颜色使用现有语义变量，以兼容现代与纸媒、深浅色主题。后续如调整标题锚点偏移，应同步核对目录当前位置的判断阈值。
+
 `[slug].vue` 的结构：
 
 ```
@@ -198,10 +205,10 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 - **kicker 是元信息条**：极小字号、正字距、低对比度，把「这是哪一类文章」压缩到一行；
 - **deck** 用 `description`，字号介于标题与正文之间，承担「再给一次机会决定要不要读下去」的作用；
 - **`.article-aside` 用 `position: sticky`**，滚动时始终贴着阅读位置，窄屏收进单列；
-- **正文 `h2` 带 `§` 伪元素**，一个符号完成章节标记，不再加色块或图标；
+- **正文 `h2` 的锚点带 `§` 伪元素**（`.article-content h2 a::before`）：§ 属于链接本身，所以点它也跳转；一个符号完成章节标记，不再加色块或图标；
 - **`.article-end`** 用一个圆形「完」字收尾，把「读完」这件事视觉化。
 
-正文里的图片由 `.article-content` 上的事件委托接管（点击放大、双击 / 滚轮缩放），实现细节见 [article-image-lightbox.md](article-image-lightbox.md)；标题锚点靠 `scroll-margin-top` 避开顶栏，见 [motion-and-interaction.md](motion-and-interaction.md#锚点跳转与头部遮挡)。
+正文里的图片由 `.article-content` 上的事件委托接管（点击放大、双击 / 滚轮缩放），实现细节见 [article-image-lightbox.md](article-image-lightbox.md)；标题锚点靠 `scroll-margin-top` 避开顶栏，页内锚点则统一交给路由以获得与目录一致的平滑滚动，两处细节见 [motion-and-interaction.md](motion-and-interaction.md#锚点跳转与头部遮挡)。
 
 ## 列表页：归档 / 标签 / 搜索
 
@@ -211,9 +218,9 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 | --- | --- | --- |
 | 归档 | `.archive-item` 四列网格（日期 / 标题 / 标签 / 箭头） | 按年分组，强调「时间感」 |
 | 标签 | 复用 `.story-row` | 与首页一致，强调「同一主题的连续性」 |
-| 搜索 | `.search-result` 卡片，分「标题匹配」「正文匹配」两组 | 结果分区，正文命中显示上下文片段 |
+| 搜索 | `.search-result` 按文章归并，内部列出命中章节 | 每篇只出现一次，保留章节直达与关键词高亮 |
 
-搜索的排序不是随机的：空格分词后要求**每个词都命中**（AND），标题命中额外加 3 分，同分按日期倒序。这意味着**把 `##` 小节标题写清楚，搜索体验就更好**，细节见 [content-authoring.md](content-authoring.md#搜索是如何工作的)。
+搜索空格分词后要求**每个词都命中**（AND）。文章标题匹配优先，随后按最佳章节得分（章节标题每词 3 分）、日期倒序排列。每篇默认显示三处匹配，剩余匹配可展开，细节见 [content-authoring.md](content-authoring.md#搜索是如何工作的)。
 
 ## 徽章
 

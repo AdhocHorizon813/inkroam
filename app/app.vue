@@ -4,7 +4,7 @@ const route = useRoute()
 const routeFrame = ref<HTMLElement | null>(null)
 let routeAnimations: Animation[] = []
 
-watch(() => route.fullPath, async (_currentPath, previousPath) => {
+watch(() => route.path, async (_currentPath, previousPath) => {
   if (!import.meta.client || !previousPath) return
   await nextTick()
 
@@ -57,6 +57,53 @@ onMounted(() => {
   window.addEventListener('scroll', syncScrollState, { passive: true })
 })
 onBeforeUnmount(() => window.removeEventListener('scroll', syncScrollState))
+
+/* Markdown 标题里的锚点是普通 `<a href="#id">`，不是 NuxtLink，因此绕开了路由：
+   modern 主题把 scroll-behavior 设为 auto，点下去就是瞬跳；而用 NuxtLink 的文章
+   目录反而是平滑滚动。这里统一交给路由，让页内锚点与目录走同一条
+   `scrollBehaviorType: 'smooth'` 的路径。 */
+const router = useRouter()
+
+function isCurrentHash(hash: string) {
+  /* route.hash 是百分号编码形式，普通锚点的 href 是原始形式，比较前先解码。 */
+  try {
+    return decodeURIComponent(route.hash) === hash
+  } catch {
+    return route.hash === hash
+  }
+}
+
+function onDocumentClick(event: MouseEvent) {
+  if (event.defaultPrevented || event.button !== 0) return
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+  const target = event.target
+  if (!(target instanceof Element)) return
+
+  const anchor = target.closest<HTMLAnchorElement>('a[href^="#"]')
+  if (!anchor || anchor.target || anchor.hasAttribute('download')) return
+
+  /* 只能用原始 href：中文 id 在 HTML 属性里是未编码的，而 anchor.hash 返回的是
+     百分号编码形式，交给 router.push 会被二次编码（% 变成 %25），Nuxt 的
+     scrollBehavior 随即找不到元素——表现就是「点了完全不动」。 */
+  const hash = anchor.getAttribute('href') || ''
+  const id = hash.slice(1)
+  const destination = document.getElementById(id)
+  if (!id || !destination) return
+
+  event.preventDefault()
+  if (isCurrentHash(hash)) {
+    /* 同一个目标：路由会判为重复导航直接跳过，这里补一次滚动，
+       避免「已经跳过去之后再点同一个标题没反应」。 */
+    destination.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    })
+    return
+  }
+  router.push({ hash })
+}
+onMounted(() => document.addEventListener('click', onDocumentClick))
+onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
 
 /* siteUrl 由 CI 通过 NUXT_PUBLIC_SITE_URL 注入（含 GitHub Pages 子路径），
    本地开发回落到 http://localhost:3000。去掉尾部斜杠，避免拼出 //。 */
