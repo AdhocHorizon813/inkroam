@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parse } from 'devalue'
 import { generateSearchSections } from '../node_modules/@nuxt/content/dist/runtime/internal/search.js'
+import { articleExcerptSections, excerptParts } from '../app/utils/search-excerpt.ts'
+import katex from 'katex'
 
 const payload = parse(readFileSync('.output/public/posts/004world-inside-a-black-hole/_payload.json', 'utf8'), {
   ShallowReactive: value => value, ShallowRef: value => value,
@@ -25,3 +27,17 @@ assert.ok(newSection.content.includes('这个模型最让我感兴趣'), 'Surrou
 assert.ok(newSection.content.includes('r>r+'), 'Visible formula text remains searchable')
 console.log('PASS: real KaTeX search text, no duplicate formula or TeX annotation; chapter links preserved.')
 console.log(newSection.content.slice(0, 240))
+
+const previews = articleExcerptSections(post.body, post.path, post.description)
+const gravity = after.find(section => section.title.startsWith('二、'))
+const excerpt = excerptParts(previews.get(gravity.id), '暗物质')
+const formula = excerpt.find(part => part.kind === 'math' && part.text.includes('sqrt'))
+assert.ok(formula, 'Gravity excerpt must retain the complete square-root formula')
+const html = katex.renderToString(formula.text, { trust: false, throwOnError: true })
+assert.ok(html.includes('<msqrt>'), 'Square root is actually typeset')
+assert.ok(html.includes('<mfrac>'), 'Fraction is actually typeset')
+assert.ok(!excerpt.filter(part => part.kind === 'text').some(part => /\\(?:sqrt|frac|approx)/.test(part.text)), 'No TeX leaked into prose')
+const atomic = excerptParts([{ kind: 'text', text: 'prefix' }, { kind: 'math', text: formula.text }], '', 7)
+assert.equal(atomic.find(part => part.kind === 'math')?.text, formula.text, 'Excerpt boundary cannot cut a formula')
+assert.ok(!pageSource.includes('<span v-if="post.titleMatch">'), 'Title-match label is removed')
+console.log('PASS: structured excerpts preserve and typeset roots/fractions without duplicate text.')

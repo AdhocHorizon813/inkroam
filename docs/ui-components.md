@@ -222,6 +222,8 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 
 搜索空格分词后要求**每个词都命中**（AND）。文章标题匹配优先，随后按最佳章节得分（章节标题每词 3 分）、日期倒序排列。每篇默认显示三处匹配，剩余匹配可展开，细节见 [content-authoring.md](content-authoring.md#搜索是如何工作的)。
 
+搜索“展开其余 N 处匹配”由 `SearchMoreMatches.vue` 控制：使用 grid `0fr → 1fr` 做真实高度展开，展开 440ms settle、收起 260ms exit，不使用透明度淡入淡出。按钮同步更新展开/收起文案、`aria-expanded` 和独立的 `aria-controls`；折叠区设置 inert，查询改变时恢复折叠，减少动效偏好下跳过可感知过渡。
+
 ## 徽章
 
 四个小组件，模板都只有几行，但语义必须成对出现（可见文字 + `aria-label`）：

@@ -95,9 +95,13 @@ $$
 
 ### 搜索中的公式
 
-搜索摘要提取时跳过 KaTeX 的 `math`（MathML）及 `annotation` / `annotation-xml` 节点，只保留可见 HTML 层的文字，避免同一公式和 LaTeX 源码重复出现。此过滤仅作用于搜索，不会删除正文公式或无障碍信息。摘要是纯文本，分式、上下标等复杂排版请进入正文查看。手写在代码块里的公式源码仍作为正常内容保留。
+搜索匹配索引跳过 KaTeX 的 `math`（MathML）及 `annotation` / `annotation-xml` 节点，避免重复匹配。显示摘要则由 `app/utils/search-excerpt.ts` 从正文结构中单独提取：普通文字和完整公式分别保存，公式只取外层 KaTeX 中的一份 TeX 注解，绝不拼接多份渲染层。
 
-回归验证：执行 `npm run generate` 后运行 `node scripts/check-search-math.mjs`，使用实际黑洞文章检查公式不重复、无 TeX 注解泄露、段落链接不变。脚本使用当前固定版本 Content 的内部分节函数，升级该依赖时需同步检查。
+`SearchExcerpt.vue` 将公式交给 KaTeX 排版，保留根号、分式、上下标；摘要截取不会截断公式，长公式可横向滚动。普通文字继续通过文本节点进行关键词高亮，公式使用 `trust: false` 禁止可信扩展，无法排版时显示“公式请见正文”。手写代码块中的公式源码仍作为普通内容保留。
+
+回归验证：执行 `npm run generate` 后运行 `node --experimental-strip-types scripts/check-search-math.mjs`，使用实际黑洞文章检查索引去重、段落链接、摘要公式完整性及根号和分式排版。脚本使用当前固定版本 Content 的内部分节函数，升级该依赖时需同步检查。
+
+结果元信息只显示首个标签，与首页分类规则一致，其余标签仍保留在文章中。“标题匹配”提示已移除，标题命中仍优先排序并保留关键词高亮。
 
 ## 文章目录
 

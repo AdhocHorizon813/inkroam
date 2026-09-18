@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { articleExcerptSections, excerptParts } from '~/utils/search-excerpt'
 useSeoMeta({
   title: '搜索',
   description: '搜索纸上漫游的全部文章与正文内容。',
@@ -26,18 +27,14 @@ const { data: sections } = await useAsyncData('post-search-sections-readable-mat
 
 const normalize = (value: string) => value.toLocaleLowerCase('zh-CN').replace(/\s+/g, ' ').trim()
 
-function createExcerpt(content: string, searchValue: string) {
-  const cleanContent = content.replace(/\s+/g, ' ').trim()
-  if (!cleanContent) return '打开文章继续阅读。'
-
-  const firstTerm = normalize(searchValue).split(' ').find(Boolean) || ''
-  const matchIndex = normalize(cleanContent).indexOf(firstTerm)
-  const start = matchIndex < 0 ? 0 : Math.max(0, matchIndex - 52)
-  const end = Math.min(cleanContent.length, start + 150)
-  return `${start > 0 ? '…' : ''}${cleanContent.slice(start, end)}${end < cleanContent.length ? '…' : ''}`
-}
-
 const searchTerms = computed(() => normalize(query.value).split(' ').filter(Boolean))
+const previewSections = computed(() => {
+  const result = new Map()
+  for (const post of posts.value || []) {
+    for (const [id, parts] of articleExcerptSections(post.body, post.path, post.description)) result.set(id, parts)
+  }
+  return result
+})
 
 const contentResults = computed(() => {
   const searchValue = query.value.trim()
@@ -57,7 +54,7 @@ const contentResults = computed(() => {
       return {
         ...section,
         score,
-        excerpt: createExcerpt(section.content || section.description || '', searchValue),
+        excerpt: excerptParts(previewSections.value.get(section.id) || [{ kind: 'text', text: section.content || section.description || '' }], searchValue),
       }
     })
     .filter((section): section is NonNullable<typeof section> => section !== null)
@@ -135,7 +132,6 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
           <div class="search-result__meta">
             <time :datetime="post.date">{{ formatDate(post.date) }}</time>
             <span v-if="post.tags?.[0]">{{ post.tags[0] }}</span>
-            <span v-if="post.titleMatch">标题匹配</span>
           </div>
           <h2><NuxtLink :to="post.path"><SearchHighlight :text="post.title" :terms="searchTerms" /></NuxtLink></h2>
           <p><SearchHighlight :text="post.description" :terms="searchTerms" /></p>
@@ -143,21 +139,20 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
             <li v-for="match in post.matches.slice(0, 3)" :key="match.id">
               <NuxtLink :to="match.id">
                 <span class="search-match__title"><SearchHighlight :text="match.level > 1 ? match.title : '摘要与开篇'" :terms="searchTerms" /> <span aria-hidden="true">↗</span></span>
-                <span class="search-match__excerpt"><SearchHighlight :text="match.excerpt" :terms="searchTerms" /></span>
+                <span class="search-match__excerpt"><SearchExcerpt :parts="match.excerpt" :terms="searchTerms" /></span>
               </NuxtLink>
             </li>
           </ul>
-          <details v-if="post.matches.length > 3" :key="query">
-            <summary>展开其余 {{ post.matches.length - 3 }} 处匹配</summary>
+          <SearchMoreMatches v-if="post.matches.length > 3" :key="query" :count="post.matches.length - 3">
             <ul class="search-matches">
               <li v-for="match in post.matches.slice(3)" :key="match.id">
                 <NuxtLink :to="match.id">
                   <span class="search-match__title"><SearchHighlight :text="match.level > 1 ? match.title : '摘要与开篇'" :terms="searchTerms" /> <span aria-hidden="true">↗</span></span>
-                  <span class="search-match__excerpt"><SearchHighlight :text="match.excerpt" :terms="searchTerms" /></span>
+                  <span class="search-match__excerpt"><SearchExcerpt :parts="match.excerpt" :terms="searchTerms" /></span>
                 </NuxtLink>
               </li>
             </ul>
-          </details>
+          </SearchMoreMatches>
         </article>
       </div>
 
@@ -176,5 +171,4 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
 .search-match__title { display: block; color: var(--ink); font-size: 13px; line-height: 1.7; }
 .search-match__excerpt { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
 .search-matches a:hover .search-match__title { color: var(--accent); }
-summary { cursor: pointer; margin-top: 16px; color: var(--muted); font-size: 12px; }
 </style>
