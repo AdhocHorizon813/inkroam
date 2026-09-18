@@ -14,8 +14,11 @@ const { data: posts } = await useAsyncData('search-posts', () =>
     .all(),
 )
 
-const { data: sections } = await useAsyncData('post-search-sections', () =>
+const { data: sections } = await useAsyncData('post-search-sections-readable-math', () =>
   queryCollectionSearchSections('posts', {
+    // KaTeX renders both MathML (including TeX annotations) and visible HTML.
+    // Index the visible representation once; keep article accessibility intact.
+    ignoredTags: ['math', 'annotation', 'annotation-xml', 'script', 'style'],
     extraFields: ['description', 'date', 'tags', 'readingTime', 'draft'],
   })
     .where('draft', '=', false),
