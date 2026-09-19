@@ -82,6 +82,8 @@ export const getTagName = (slug: string) => tagNameMap[slug] || decodeURICompone
 ::
 ```
 
+**指令要独占一个段落**（前后各留一个空行），并用独立一行的 `::` 收尾。不要把它写进表格单元格、列表或引用块里：那样 MDC 只会当普通文字处理，页面上原样显示 `::pdf-viewer{…}`，组件完全不渲染。排查时先看生成 HTML 里有没有 `<section class="pdf-viewer">`，只有 `::pdf-viewer` 字面文字就说明指令被别的块级语法（表格最常见）吞掉了。
+
 上述示例对应磁盘 `public/pdfs/functional-analysis/lecture-01.pdf`。组件会自动添加 GitHub Pages 的 `/inkroam/` 基础路径，不要手动写仓库前缀。只接受本地 PDF 路径，不接受外部网址、查询参数或父目录跳转。
 
 `app/components/content/PdfViewer.vue` 使用浏览器原生 PDF 内嵌能力，在正文中提供响应式阅读区域；翻页、缩放等控件由浏览器提供。部分浏览器尤其移动端可能无法内嵌或体验有限，组件始终保留“打开原文件”入口。当前尚未接入 PDF.js，不能保证跨浏览器统一阅读体验。

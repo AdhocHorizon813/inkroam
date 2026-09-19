@@ -5,7 +5,7 @@ date: 2026-09-19
 tags: [思考]
 readingTime: 2 分钟
 aiGenerated: true
-draft: true
+draft: false
 ---
 > 本文是 AI 生成的页面测试内容，不是正式课程笔记；确认功能后可删除。
 
@@ -33,5 +33,5 @@ draft: true
 
 以下为用户提供的 PDF，用于本地检验页内阅读；与上方 AI 生成的测试文字无关。
 
-| ::pdf-viewer{src="/pdfs/linear-functional-analysis-test.pdf" title="Linear Functional Analysis · PDF 内嵌测试"} |
-| :--------------------------------------------------------------------------------------------------------------: |
+::pdf-viewer{src="/pdfs/linear-functional-analysis-test.pdf" title="Linear Functional Analysis · PDF 内嵌测试"}
+::
