@@ -86,7 +86,7 @@ export const getTagName = (slug: string) => tagNameMap[slug] || decodeURICompone
 
 上述示例对应磁盘 `public/pdfs/functional-analysis/lecture-01.pdf`。组件会自动添加 GitHub Pages 的 `/inkroam/` 基础路径，不要手动写仓库前缀。只接受本地 PDF 路径，不接受外部网址、查询参数或父目录跳转。
 
-`app/components/content/PdfViewer.vue` 使用浏览器原生 PDF 内嵌能力，在正文中提供响应式阅读区域；翻页、缩放等控件由浏览器提供。部分浏览器尤其移动端可能无法内嵌或体验有限。Android / iOS 浏览器完全没有内嵌 PDF 的能力：`<object>` 只会渲染成一个空白框，写在里面的兜底文案也不会显示，因此组件在这类环境改渲染「打开 PDF」卡片（文件名 + 一句说明 + 一键打开），桌面仍用浏览器原生阅读器。组件默认按卡片输出，挂载后确认浏览器能内嵌才替换成 `<object>`，好处是手机不会白白下载整份附件；代价是桌面首次渲染时会看到卡片被阅读器替换。当前尚未接入 PDF.js，手机端不能页内翻页，也不保证跨浏览器统一体验。
+`app/components/content/PdfViewer.vue` 按浏览器能力渲染三种形态：能内嵌的浏览器用原生 `<object type="application/pdf">`（翻页、缩放由浏览器提供）；`navigator.pdfViewerEnabled === false` 的浏览器（Chrome / Firefox for Android 等）显示卡片（文件名 + 一句说明 + 「在页面内阅读」/「打开原文件」）；点了「在页面内阅读」后加载 `app/components/PdfCanvasReader.vue`，用 PDF.js 把页面画到 canvas 上，支持翻页、缩放与横向滑动翻页。几个取舍：判据只看浏览器能力，不看设备类型或屏幕宽度——平板、手机横屏、iPad「请求桌面版网站」都走同一套逻辑，老浏览器没有该属性时只把 Android 当作不能内嵌；组件默认按卡片输出，挂载后确认能内嵌才替换成 `<object>`，这样手机不会白白下载整份附件，代价是能内嵌的设备首次渲染会看到卡片被阅读器替换；`pdfjs-dist` 只在点「在页面内阅读」时才下载（动态 `import()` + `defineAsyncComponent`），能内嵌的浏览器永远不请求它；画布没有文本层，PDF 里的文字不能选中、也不参与站内搜索；阅读器加载失败会退回卡片，附件入口始终可用。尚未做 PDF 全文索引（需要文本提取，扫描件还要 OCR）。
 
 Markdown 入口照常进入课程、归档及搜索，但 PDF 内部文字不参与站内搜索；可将摘要和重要概念写在附件前面。PDF 全文索引需要额外文本提取，扫描件还需要 OCR。
 

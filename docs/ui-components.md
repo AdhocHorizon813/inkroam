@@ -237,6 +237,26 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 
 正文里的图片由 `.article-content` 上的事件委托接管（点击放大、双击 / 滚轮缩放），实现细节见 [article-image-lightbox.md](article-image-lightbox.md)；标题锚点靠 `scroll-margin-top` 避开顶栏，页内锚点则统一交给路由以获得与目录一致的平滑滚动，两处细节见 [motion-and-interaction.md](motion-and-interaction.md#锚点跳转与头部遮挡)。
 
+## 内嵌 PDF 阅读器
+
+正文里的 `::pdf-viewer{src="/pdfs/…" title="…"}` 由 `app/components/content/PdfViewer.vue` 渲染，按环境分三种形态：
+
+| 环境 | 形态 | 说明 |
+| --- | --- | --- |
+| 能内嵌的浏览器（桌面、iPad） | 原生 `<object type="application/pdf">` | 翻页、缩放、打印由浏览器提供 |
+| `navigator.pdfViewerEnabled === false`（Chrome / Firefox for Android 等） | 卡片 | 文件名 + 说明 + 「在页面内阅读」/「打开原文件」 |
+| 卡片上点了「在页面内阅读」 | `app/components/PdfCanvasReader.vue` | PDF.js 画到 canvas，页码 / 缩放 / 横向滑动翻页 |
+
+几个刻意的选择：
+
+- **默认出卡片，确认能内嵌再升级**：静态站只有一份 HTML（`nuxt generate`），预渲染时无法判断浏览器能力；先输出卡片能保证不能内嵌的设备不会先下载整份附件，也让没有 JS 的读者仍有可用链接。代价是能内嵌的设备首次渲染会看到卡片被 `<object>` 替换；
+- **只判断能力，不判断设备**：唯一依据是 `navigator.pdfViewerEnabled`，老浏览器缺这个属性时只把 Android 当作不能内嵌。不读 UA 机型、也不看屏幕宽度，iPad、Android 平板、手机横屏、平板「请求桌面版网站」都会落到正确形态；
+- **不要依赖 `<object>` 内部的兜底文案**：不能内嵌的浏览器不会显示它，手机用户看到的只是一个空白框——这就是最初「手机上什么都没显示」的原因；
+- **PDF.js 按需加载**：`defineAsyncComponent` + 动态 `import('pdfjs-dist')`，worker 用 `?url` 交给打包器处理，`BASE_PATH` 部署不会丢路径；桌面路径完全不请求这两个分块；
+- **画布没有文本层**：PDF 内的文字不能选中、不参与站内搜索，需要被搜到的内容写在附件前面。
+
+验证方式（无头 Chrome + CDP，临时探针放 `tmp/`，不提交）：用 `Page.addScriptToEvaluateOnNewDocument` 覆盖 `navigator.pdfViewerEnabled = false` 来模拟 Android（只改 UA 不够，桌面内核仍会报告 true），点击「在页面内阅读」后应出现 `.pdf-reader__canvas`、页码为 `1 / 3`，网络里能看到 `pdf.worker` 与 PDF 请求；能力为 true 时（桌面、iPad、平板桌面模式）应只有 `<object>`，网络里不应出现 pdfjs 分块。回归命令：`node --experimental-strip-types scripts/check-pdf-embed.mjs`（加 `--built` 时检查 `/inkroam/` 产物）。
+
 ## 列表页：归档 / 标签 / 搜索
 
 三个页面共用 `.standard-page` + `.page-intro` 的开头，但列表形态不同：
