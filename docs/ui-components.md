@@ -154,11 +154,11 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
   .appearance-panel              面板本体（关闭时 inert + aria-hidden）
     .appearance-panel__scroll
       .appearance-panel__header  标题 + 关闭按钮
-      .setting-group × 12        分组设置
+      .setting-group × 14        分组设置
       .appearance-panel__footer  状态提示 + 恢复默认
 ```
 
-十二组设置依次是：视觉风格、外观模式、最近写下、导航材质、导航模糊、内容材质、内容模糊、背景氛围、背景材质、背景模糊、背景遮罩透明度、氛围色。**材质分导航 / 内容 / 背景三条独立通道**，所以顶栏、卡片、背景可以各用各的质感。
+十四组设置依次是：视觉风格、外观模式、最近文章、最近笔记、PDF 附件、导航材质、导航模糊、内容材质、内容模糊、背景氛围、背景材质、背景模糊、背景遮罩透明度、氛围色。其中**导航模糊 / 内容模糊 / 背景模糊 / 背景遮罩透明度四组是滑条**，其余是可切换选项。**材质分导航 / 内容 / 背景三条独立通道**，所以顶栏、卡片、背景可以各用各的质感。
 
 ### 审美
 
@@ -185,6 +185,7 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 - 关闭时面板 `scrollTop` 归零，下次打开从顶部开始；
 - 自定义背景在上传时就压缩成 webp data URL（最长边 1920、质量 .82）并校验体积，避免塞爆 localStorage；
 - 旧版存储键（v4）会做一次迁移，原来的单个 `blur` 被拆成 `navBlur` / `contentBlur`。
+- **禁用态收敛成一条规则**：材质类分组是 `fieldset`，直接用原生 `:disabled`；四个滑条组是 `div`（`fieldset` 不能包滑条，布局会变），只能靠 `aria-disabled='true'`。两者在 CSS 里并成同一条 `.setting-group:disabled, .setting-group[aria-disabled='true'] { opacity: .42 }`，所以纸媒模式下材质按钮与滑条的淡化程度完全一致；滑条内的 `input[type='range']` 也带 `:disabled`，禁用时无法拖动，`aria-disabled` 只是补足视觉与语义。
 
 ## 首页
 
@@ -256,9 +257,10 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 - **PDF.js 按需加载**：`defineAsyncComponent` + 动态 `import('pdfjs-dist')`，worker 用 `?url` 交给打包器处理，`BASE_PATH` 部署不会丢路径；桌面路径完全不请求这两个分块；
 - **画布没有文本层**：PDF 内的文字不能选中、不参与站内搜索，需要被搜到的内容写在附件前面。
 - **偏好两个入口、一份状态**：外观面板的「PDF 附件」分段控件与卡片上的「始终在页面内阅读」勾选框都只改 `useState('pdf-fallback')`；面板 `watch` 这份共享状态回写 `state.pdfFallback`，再由既有 `watch(state)` 统一持久化，因此不存在两处各自写 localStorage 的竞争。偏好只在不能内嵌时生效：能内嵌的浏览器永远走原生阅读器，面板里选了「直接阅读」也不会改变它。
-- **能内嵌时该项直接禁用**：面板的可用性与标注同样由 `supportsEmbeddedPdf()`（`app/utils/pdf-embed.ts`，与 `PdfViewer` 共用）决定——能内嵌的浏览器上这一栏 `disabled`（复用 `.setting-group:disabled` 的淡化），标签变成「PDF 附件 · 支持内嵌」；判断前（SSR 与首次渲染）保持可用且不加断言，避免在手机上先显示一句错误的「支持内嵌」。
+- **能内嵌时整组禁用**：说明行与禁用状态同样由 `supportsEmbeddedPdf()`（`app/utils/pdf-embed.ts`，与 `PdfViewer` 共用）决定。能内嵌的浏览器上，标签与选项之间多出一行 `.setting-hint`「当前浏览器支持内嵌，此项不生效」，整个 `fieldset` 走和其它设置项完全相同的 `:disabled`（`.setting-group:disabled { opacity: .42 }`），禁用观感一致；相反情况显示「浏览器不能内嵌 PDF，此项生效」。说明行的明暗、字号与 `.setting-label` 共用同一条声明（见 `main.css` 中 `.setting-label, .setting-hint`），深浅色两套面板各有一处覆盖也同步列出。判断前（SSR 与首次渲染，`pdfEmbedSupported === null`）不渲染说明行、也不做任何断言，避免在手机上先闪一句错误的「支持内嵌」。
+- **勾选框自绘**：卡片上「始终在页面内阅读」的原生 checkbox 会被系统 `color-scheme: dark` 涂成黑底，与面板的深色玻璃不搭；因此 `input` 只做视觉隐藏（仍在原地，可聚焦、可键盘操作、点标签即切换），真正显示的是紧跟其后的 `.pdf-viewer__box`——未勾选是透明底 + `--line` 描边，勾选后填 `--accent` 并显示 `::after` 画出的勾。勾色沿用主按钮「强调色上写字」的 `--paper`，而现代主题的 `--paper` 是透明色，所以那里另给 `#12161d`。
 
-验证方式（无头 Chrome + CDP，临时探针放 `tmp/`，不提交）：用 `Page.addScriptToEvaluateOnNewDocument` 覆盖 `navigator.pdfViewerEnabled = false` 来模拟 Android（只改 UA 不够，桌面内核仍会报告 true），点击「在页面内阅读」后应出现 `.pdf-reader__canvas`、页码为 `1 / 3`，网络里能看到 `pdf.worker` 与 PDF 请求；勾上「始终在页面内阅读」再点按钮，`localStorage` 里的 `pdfFallback` 应变成 `reader`（面板分段控件同步高亮），刷新后不必再点；能力为 true 时（桌面、iPad、平板桌面模式）应只有 `<object>`，网络里不应出现 pdfjs 分块。回归命令：`node --experimental-strip-types scripts/check-pdf-embed.mjs`（加 `--built` 时检查 `/inkroam/` 产物）。
+验证方式（无头 Chrome + CDP，临时探针放 `tmp/`，不提交）：用 `Page.addScriptToEvaluateOnNewDocument` 覆盖 `navigator.pdfViewerEnabled = false` 来模拟 Android（只改 UA 不够，桌面内核仍会报告 true），点击「在页面内阅读」后应出现 `.pdf-reader__canvas`、页码为 `1 / 3`，网络里能看到 `pdf.worker` 与 PDF 请求；勾上「始终在页面内阅读」再点按钮，`localStorage` 里的 `pdfFallback` 应变成 `reader`（面板分段控件同步高亮），刷新后不必再点；能力为 true 时（桌面、iPad、平板桌面模式）应只有 `<object>`，网络里不应出现 pdfjs 分块；此时打开外观面板，「PDF 附件」一组应显示「当前浏览器支持内嵌，此项不生效」且两个按钮 `disabled`，点它不会改动 `pdfFallback`；卡片上的勾选框应只有描边（透明底），勾选后才填充强调色并出现勾。回归命令：`node --experimental-strip-types scripts/check-pdf-embed.mjs`（加 `--built` 时检查 `/inkroam/` 产物）。
 
 ## 列表页：归档 / 标签 / 搜索
 

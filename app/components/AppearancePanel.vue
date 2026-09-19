@@ -373,7 +373,11 @@ function resetAppearance() {
         </fieldset>
 
         <fieldset class="setting-group" :disabled="pdfEmbedSupported === true">
-          <legend class="setting-label">PDF 附件 · {{ pdfEmbedSupported === true ? '支持内嵌' : '浏览器不能内嵌时' }}</legend>
+          <legend class="setting-label">PDF 附件</legend>
+          <!-- 说明行放在选项上方；与本组其它文字一样随 fieldset 的禁用一起淡化，保持与其它设置项一致的禁用观感。 -->
+          <p v-if="pdfEmbedSupported !== null" class="setting-hint">
+            {{ pdfEmbedSupported ? '当前浏览器支持内嵌，此项不生效' : '浏览器不能内嵌 PDF，此项生效' }}
+          </p>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.pdfFallback === 'card' ? 0 : 1)">
             <button type="button" :aria-pressed="state.pdfFallback === 'card'" :class="{ active: state.pdfFallback === 'card' }" title="先显示文件卡片，点“在页面内阅读”再打开阅读器" @click="state.pdfFallback = 'card'">显示卡片</button>
             <button type="button" :aria-pressed="state.pdfFallback === 'reader'" :class="{ active: state.pdfFallback === 'reader' }" title="直接打开页面内阅读器，省去一次点击" @click="state.pdfFallback = 'reader'">直接阅读</button>

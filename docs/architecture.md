@@ -77,7 +77,7 @@ const latestNoteCount = useState<LatestPostCount>('latest-note-count', () => 10)
 
 旧 v5 配置保留原 `latestPostCount`，缺失的 `latestNoteCount` 使用 10；两项都只接受 5、10、`all`，分别保存与恢复，不修改存储键、不清空其他外观偏好。
 
-PDF 附件的呈现偏好也走共享状态：`useState('pdf-fallback', () => 'card')`，取值 `card`（先给文件卡片）或 `reader`（直接打开页面内阅读器）。外观面板的分段控件与 `PdfViewer` 卡片上的「始终在页面内阅读」勾选框都只改这一份状态，面板 `watch` 它回写 `state.pdfFallback`，再交给既有的 `watch(state)` 统一持久化——两处入口不会各自去写 `localStorage`。旧配置没有该字段时默认为 `card`，不需要升级存储键。该偏好只在浏览器不能内嵌 PDF 时生效：能内嵌的浏览器上面板里的这一项 `disabled` 并标注「支持内嵌」，判断用的 `supportsEmbeddedPdf()`（`utils/pdf-embed.ts`）与 `PdfViewer` 是同一份实现。
+PDF 附件的呈现偏好也走共享状态：`useState('pdf-fallback', () => 'card')`，取值 `card`（先给文件卡片）或 `reader`（直接打开页面内阅读器）。外观面板的分段控件与 `PdfViewer` 卡片上的「始终在页面内阅读」勾选框都只改这一份状态，面板 `watch` 它回写 `state.pdfFallback`，再交给既有的 `watch(state)` 统一持久化——两处入口不会各自去写 `localStorage`。旧配置没有该字段时默认为 `card`，不需要升级存储键。该偏好只在浏览器不能内嵌 PDF 时生效：能内嵌的浏览器上面板会在选项上方说明「当前浏览器支持内嵌，此项不生效」，并按其它设置项同样的方式整组 `:disabled`，判断用的 `supportsEmbeddedPdf()`（`utils/pdf-embed.ts`）与 `PdfViewer` 是同一份实现。
 
 ## 外观偏好的存储
 

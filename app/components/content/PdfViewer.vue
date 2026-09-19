@@ -76,6 +76,7 @@ function onReaderFailed() {
       </div>
       <label v-if="pdfFallback === 'card'" class="pdf-viewer__always">
         <input v-model="alwaysInPage" type="checkbox">
+        <span class="pdf-viewer__box" aria-hidden="true"></span>
         <span>始终在页面内阅读</span>
       </label>
     </div>
@@ -91,8 +92,23 @@ function onReaderFailed() {
 .pdf-viewer__document { display: block; width: 100%; height: clamp(360px, 75vh, 960px); background: #f5f5f5; color: #222; }
 .pdf-viewer__document p { padding: 24px; }
 .pdf-viewer__fallback { display: grid; justify-items: start; gap: 10px; padding: 16px; }
-.pdf-viewer__always { display: inline-flex; align-items: center; gap: 8px; margin-top: 2px; color: var(--muted); font-size: 12.5px; line-height: 1.5; cursor: pointer; }
-.pdf-viewer__always input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.pdf-viewer__always { position: relative; display: inline-flex; align-items: center; gap: 8px; margin-top: 2px; color: var(--muted); font-size: 12.5px; line-height: 1.5; cursor: pointer; }
+/* 勾选框自绘：原生控件会被系统 color-scheme 涂成深色，未勾选时应该只是透明底 + 描边。
+   input 仍留在原地（可聚焦、可点标签、键盘可用），只是视觉上隐藏。 */
+.pdf-viewer__always input { position: absolute; width: 14px; height: 14px; margin: 0; opacity: 0; cursor: pointer; }
+.pdf-viewer__box {
+  display: inline-grid; place-items: center; width: 14px; height: 14px;
+  border: 1px solid var(--line); border-radius: 4px; background: transparent;
+  transition: border-color 200ms var(--ease-fluid), background-color 200ms var(--ease-fluid);
+}
+.pdf-viewer__box::after {
+  content: ''; width: 7px; height: 3px;
+  border-left: 2px solid var(--paper); border-bottom: 2px solid var(--paper);
+  opacity: 0; transform: rotate(-45deg) translate(0, -1px);
+}
+.pdf-viewer__always input:checked + .pdf-viewer__box { border-color: var(--accent); background: var(--accent); }
+.pdf-viewer__always input:checked + .pdf-viewer__box::after { opacity: 1; }
+.pdf-viewer__always input:focus-visible + .pdf-viewer__box { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pdf-viewer__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .pdf-viewer__file { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .pdf-viewer__note { max-width: 46ch; margin: 0; color: var(--muted); font: 13px/1.75 var(--serif); }
@@ -114,7 +130,9 @@ button.pdf-viewer__open { cursor: pointer; font-family: inherit; font-size: 14px
 .pdf-viewer__open.pdf-viewer__open--primary { border-color: var(--accent); background: var(--accent); color: var(--paper); }
 .pdf-viewer__open.pdf-viewer__open--primary span { color: currentColor; }
 :root[data-visual='modern'] .pdf-viewer__always { color: var(--modern-muted); }
-:root[data-visual='modern'] .pdf-viewer__always input { accent-color: var(--modern-accent); }
+:root[data-visual='modern'] .pdf-viewer__box { border-color: var(--modern-line); }
+/* 现代主题的 --paper 是透明色，勾要用主按钮那套深色（见下方 --primary）。 */
+:root[data-visual='modern'] .pdf-viewer__box::after { border-color: #12161d; }
 :root[data-visual='modern'] .pdf-viewer__open.pdf-viewer__open--primary {
   border-color: var(--modern-accent); background: var(--modern-accent); color: #12161d;
 }

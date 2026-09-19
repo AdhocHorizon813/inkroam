@@ -578,8 +578,15 @@ button { font: inherit; }
 .appearance-panel h2 { margin: 0; font: 600 20px/1.35 var(--sans); letter-spacing: -.025em; }
 .panel-close { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid rgba(255, 255, 255, .14); border-radius: 50%; background: rgba(255, 255, 255, .07); color: #fff; cursor: pointer; line-height: 1; }
 .setting-group { margin: 0; padding: 15px 0; border: 0; border-top: 1px solid rgba(255, 255, 255, .1); }
-.setting-group:disabled { opacity: .42; }
-.setting-label { display: block; margin-bottom: 11px; color: rgba(235, 238, 255, .68); font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+/* 滑条那几组是 div，用 aria-disabled 表达禁用（range 本身也已 :disabled），
+   淡化程度与 fieldset:disabled 完全一致。 */
+.setting-group:disabled,
+.setting-group[aria-disabled='true'] { opacity: .42; }
+/* 说明行与被说明的标签共用同一条明暗/字号声明，只靠字重与位置区分层级。 */
+.setting-label,
+.setting-hint { color: rgba(235, 238, 255, .68); font-size: 11px; line-height: 1.4; }
+.setting-label { display: block; margin-bottom: 11px; font-weight: 600; letter-spacing: .04em; }
+.setting-hint { margin: -5px 0 10px; }
 .segmented-control { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 4px; border-radius: 14px; background: rgba(4, 8, 24, .38); }
 .segmented-control--two { grid-template-columns: repeat(2, 1fr); }
 .segmented-control button { min-height: 36px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent; color: rgba(235, 238, 255, .58); font-size: 11px; cursor: pointer; }
@@ -1135,6 +1142,7 @@ button { font: inherit; }
 :root[data-visual='modern'][data-color-mode='light'] .setting-group,
 :root[data-visual='modern'][data-color-mode='light'] .appearance-panel__footer { border-color: rgba(28, 34, 42, .09); }
 :root[data-visual='modern'][data-color-mode='light'] .setting-label,
+:root[data-visual='modern'][data-color-mode='light'] .setting-hint,
 :root[data-visual='modern'][data-color-mode='light'] .appearance-panel__footer span { color: rgba(38, 43, 51, .58); }
 :root[data-visual='modern'][data-color-mode='light'] .segmented-control { background: rgba(28, 34, 42, .055); }
 :root[data-visual='modern'][data-color-mode='light'] .segmented-control button,
@@ -2173,7 +2181,9 @@ fieldset.setting-group > legend.setting-label {
   margin: 0 0 11px;
   padding: 0;
 }
-fieldset.setting-group > legend.setting-label + * { clear: both; }
+/* Any sibling after the legend must clear it, not just the first one: the PDF row puts a
+   hint line between the legend and the control. */
+fieldset.setting-group > legend.setting-label ~ * { clear: both; }
 :root[data-visual='modern'][data-color-mode='light'] .setting-group {
   box-shadow: inset 0 1px 0 rgba(25, 29, 34, .1);
 }
@@ -2437,6 +2447,7 @@ fieldset.setting-group > legend.setting-label {
   .setting-group { padding-block: 11px; }
   .setting-label,
   fieldset.setting-group > legend.setting-label { margin-bottom: 7px; font-size: 9px; }
+  .setting-hint { margin: -4px 0 7px; font-size: 9px; }
   .segmented-control button { min-height: 30px; font-size: 9px; }
   .background-options button { font-size: 8px; }
   .background-swatch { height: 38px; }
@@ -2830,6 +2841,7 @@ fieldset.setting-group > legend.setting-label {
   border-color: color-mix(in srgb, var(--ink) 11%, transparent);
 }
 :root[data-visual='classic'][data-theme='light'] .setting-label,
+:root[data-visual='classic'][data-theme='light'] .setting-hint,
 :root[data-visual='classic'][data-theme='light'] .range-heading output,
 :root[data-visual='classic'][data-theme='light'] .range-scale {
   color: var(--muted);
