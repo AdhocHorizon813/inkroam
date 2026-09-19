@@ -28,7 +28,7 @@ const readerFailed = ref(false)
 const fallbackNote = computed(() =>
   readerFailed.value
     ? '阅读器没能加载，请改用“打开原文件”。'
-    : '手机浏览器不能把 PDF 嵌进网页：点“在页面内阅读”可在这里翻页，或交给系统阅读器打开。',
+    : '这个浏览器不能把 PDF 嵌进网页：点“在页面内阅读”可在这里翻页，或交给系统阅读器打开。',
 )
 
 function openReader() {
