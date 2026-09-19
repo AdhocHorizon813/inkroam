@@ -3,6 +3,7 @@ const route = useRoute()
 
 const items = [
   { label: '文章', to: '/' },
+  { label: '笔记', to: '/notes' },
   { label: '归档', to: '/archive' },
   { label: '关于', to: '/about' },
   { label: '搜索', to: '/search', icon: 'search' },
@@ -21,10 +22,8 @@ function setLinkElement(element: unknown, index: number) {
 }
 
 function getActiveIndex(path: string) {
-  if (path.startsWith('/archive')) return 1
-  if (path.startsWith('/about')) return 2
-  if (path.startsWith('/search')) return 3
-  return 0
+  const index = items.findIndex(item => item.to !== '/' && (path === item.to || path.startsWith(`${item.to}/`)))
+  return index < 0 ? 0 : index
 }
 
 async function updateIndicator() {

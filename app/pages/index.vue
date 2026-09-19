@@ -7,6 +7,7 @@ useSeoMeta({
 const { data: posts } = await useAsyncData('home-posts', () =>
   queryCollection('posts')
     .where('draft', '=', false)
+    .where('path', 'LIKE', '/posts/%')
     .order('pinned', 'DESC')
     .order('date', 'DESC')
     .all(),
@@ -15,19 +16,29 @@ const { data: posts } = await useAsyncData('home-posts', () =>
 const { data: featuredPosts } = await useAsyncData('home-featured-posts', () =>
   queryCollection('posts')
     .where('draft', '=', false)
+    .where('path', 'LIKE', '/posts/%')
     .where('featured', '=', true)
     .order('date', 'DESC')
     .all(),
 )
 
+const { data: notes } = await useAsyncData('home-notes', () =>
+  queryCollection('posts').where('draft', '=', false).where('path', 'LIKE', '/notes/%').order('date', 'DESC').all(),
+)
+
 type LatestPostCount = 5 | 10 | 'all'
 const latestPostCount = useState<LatestPostCount>('latest-post-count', () => 10)
+const latestNoteCount = useState<LatestPostCount>('latest-note-count', () => 10)
 const visiblePosts = computed(() => {
   const allPosts = posts.value || []
   return latestPostCount.value === 'all'
     ? allPosts
     : allPosts.slice(0, latestPostCount.value)
 })
+
+const visibleNotes = computed(() => latestNoteCount.value === 'all'
+  ? notes.value || []
+  : (notes.value || []).slice(0, latestNoteCount.value))
 
 const formatDate = (date: string) => date.replaceAll('-', '.')
 </script>
@@ -46,44 +57,16 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
       </div>
     </section>
 
-    <section id="latest" class="latest-section">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">LATEST NOTES</p>
-          <h2>最近写下</h2>
-        </div>
-        <span class="issue-number">{{ visiblePosts.length }} 篇</span>
-      </div>
-
-      <NuxtLink
-        v-for="(post, index) in visiblePosts"
-        :key="post.path"
-        :to="post.path"
-        class="story-row"
-      >
-        <span class="story-index">{{ String(index + 1).padStart(2, '0') }}</span>
-        <div class="story-body">
-          <div class="story-meta">
-            <span>{{ post.tags?.[0] || '随笔' }}</span>
-            <time :datetime="post.date">{{ formatDate(post.date) }}</time>
-            <span>{{ post.readingTime }}</span>
-            <PinnedBadge v-if="post.pinned" />
-            <FeaturedBadge v-if="post.featured" />
-            <AiGeneratedBadge v-if="post.aiGenerated" />
-            <AiAssistedBadge v-if="post.aiAssisted" />
-          </div>
-          <h3>{{ post.title }}</h3>
-          <p>{{ post.description }}</p>
-        </div>
-        <span class="story-arrow" aria-hidden="true">↗</span>
-      </NuxtLink>
-
-      <div class="section-footer">
-        <NuxtLink class="archive-link" to="/archive">
-          查看所有文章 <span aria-hidden="true">→</span>
-        </NuxtLink>
-      </div>
-    </section>
+    <RecentEntries
+      id="latest" title="最近写下" eyebrow="LATEST ARTICLES"
+      :posts="visiblePosts" more-to="/archive" more-label="查看所有文章"
+      empty-text="还没有公开文章。"
+    />
+    <RecentEntries
+      id="latest-notes" title="最近笔记" eyebrow="LATEST STUDY NOTES"
+      :posts="visibleNotes" more-to="/notes" more-label="查看所有笔记"
+      empty-text="还没有公开的学习笔记，先去课程目录看看。"
+    />
 
     <section class="latest-section featured-section" aria-labelledby="featured-heading">
       <div class="section-heading">

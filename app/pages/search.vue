@@ -2,7 +2,7 @@
 import { articleExcerptSections, excerptParts } from '~/utils/search-excerpt'
 useSeoMeta({
   title: '搜索',
-  description: '搜索纸上漫游的全部文章与正文内容。',
+  description: '搜索纸上漫游的全部文章、学习笔记与正文内容。',
 })
 
 const route = useRoute()
@@ -94,11 +94,11 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
   <main class="standard-page search-page">
     <section class="page-intro compact-intro">
       <p class="eyebrow">SEARCH</p>
-      <h1>搜索文章</h1>
+      <h1>搜索文章与笔记</h1>
       <p>从标题、章节与正文中寻找留下的文字。</p>
 
       <form class="search-form" role="search" @submit.prevent="submitSearch">
-        <label class="visually-hidden" for="site-search">搜索全部文章</label>
+        <label class="visually-hidden" for="site-search">搜索全部文章与笔记</label>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <circle cx="11" cy="11" r="6.5" />
           <path d="m16 16 4 4" />
@@ -120,7 +120,7 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
     <section class="search-results" aria-live="polite" aria-label="搜索结果">
       <div v-if="query.trim()" class="search-results__heading">
         <span>搜索结果</span>
-        <span>{{ totalResults }} 篇文章</span>
+        <span>{{ totalResults }} 篇内容</span>
       </div>
 
       <div v-if="articleResults.length" class="search-group">
@@ -157,7 +157,7 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
       </div>
 
       <p v-if="query.trim() && !totalResults" class="search-empty">没有找到相关内容，试试更短或不同的关键词。</p>
-      <p v-else-if="!query.trim()" class="search-empty">输入关键词后，将搜索所有已发布文章。</p>
+      <p v-else-if="!query.trim()" class="search-empty">输入关键词后，将搜索所有已发布的文章与笔记。</p>
     </section>
   </main>
 </template>

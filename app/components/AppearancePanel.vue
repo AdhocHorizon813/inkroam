@@ -18,6 +18,7 @@ interface AppearanceState {
   backgroundOverlay: number
   accent: string
   latestPostCount: LatestPostCount
+  latestNoteCount: LatestPostCount
 }
 
 const STORAGE_KEY = 'paper-trail-appearance-v5'
@@ -32,6 +33,7 @@ const panelScroll = ref<HTMLDivElement | null>(null)
 const customBackgroundPreview = ref('')
 const customBackgroundName = ref('')
 const sharedLatestPostCount = useState<LatestPostCount>('latest-post-count', () => 10)
+const sharedLatestNoteCount = useState<LatestPostCount>('latest-note-count', () => 10)
 const state = reactive<AppearanceState>({
   visual: 'modern',
   colorMode: 'auto',
@@ -45,6 +47,7 @@ const state = reactive<AppearanceState>({
   backgroundOverlay: 40,
   accent: '#7892b2',
   latestPostCount: 10,
+  latestNoteCount: 10,
 })
 
 const accents = [
@@ -87,6 +90,10 @@ onMounted(() => {
       state.latestPostCount = 10
     }
     sharedLatestPostCount.value = state.latestPostCount
+    if (state.latestNoteCount !== 5 && state.latestNoteCount !== 10 && state.latestNoteCount !== 'all') {
+      state.latestNoteCount = 10
+    }
+    sharedLatestNoteCount.value = state.latestNoteCount
   } catch {
     status.value = '外观偏好未能读取，已使用默认设置。'
   }
@@ -107,6 +114,7 @@ watch(state, (_state, from) => {
     !!from && DISCRETE_FIELDS.some((key) => state[key] !== from![key])
   const apply = () => {
     sharedLatestPostCount.value = state.latestPostCount
+    sharedLatestNoteCount.value = state.latestNoteCount
     applyAppearance()
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
@@ -266,6 +274,7 @@ function resetAppearance() {
     backgroundOverlay: 40,
     accent: '#7892b2',
     latestPostCount: 10,
+    latestNoteCount: 10,
   })
   localStorage.removeItem(CUSTOM_BG_KEY)
   localStorage.removeItem(CUSTOM_BG_NAME_KEY)
@@ -324,11 +333,20 @@ function resetAppearance() {
         </fieldset>
 
         <fieldset class="setting-group">
-          <legend class="setting-label">最近写下</legend>
+          <legend class="setting-label">最近文章</legend>
           <div class="segmented-control" :style="segmentStyle(state.latestPostCount === 5 ? 0 : state.latestPostCount === 10 ? 1 : 2)">
             <button type="button" :class="{ active: state.latestPostCount === 5 }" @click="state.latestPostCount = 5">5 篇</button>
             <button type="button" :class="{ active: state.latestPostCount === 10 }" @click="state.latestPostCount = 10">10 篇</button>
             <button type="button" :class="{ active: state.latestPostCount === 'all' }" @click="state.latestPostCount = 'all'">所有</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="setting-group">
+          <legend class="setting-label">最近笔记</legend>
+          <div class="segmented-control" :style="segmentStyle(state.latestNoteCount === 5 ? 0 : state.latestNoteCount === 10 ? 1 : 2)">
+            <button type="button" :aria-pressed="state.latestNoteCount === 5" :class="{ active: state.latestNoteCount === 5 }" @click="state.latestNoteCount = 5">5 篇</button>
+            <button type="button" :aria-pressed="state.latestNoteCount === 10" :class="{ active: state.latestNoteCount === 10 }" @click="state.latestNoteCount = 10">10 篇</button>
+            <button type="button" :aria-pressed="state.latestNoteCount === 'all'" :class="{ active: state.latestNoteCount === 'all' }" @click="state.latestNoteCount = 'all'">所有</button>
           </div>
         </fieldset>
 

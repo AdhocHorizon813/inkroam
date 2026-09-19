@@ -4,7 +4,10 @@ export default defineContentConfig({
   collections: {
     posts: defineCollection({
       type: 'page',
-      source: 'posts/*.md',
+      source: [
+        { include: 'posts/*.md', prefix: '/posts' },
+        { include: 'notes/*/*.md', prefix: '/notes' },
+      ],
       schema: z.object({
         title: z.string(),
         description: z.string(),

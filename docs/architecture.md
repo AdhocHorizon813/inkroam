@@ -24,14 +24,18 @@ app/
     ImageLightbox.vue         文章图片灯箱
     *Badge.vue                置顶 / 精选 / AI 生成 / AI 辅助 标识
   pages/
-    index.vue                 首页：hero + 最近文章 + 精选 + 宣言
+    index.vue                 首页：hero + 最近文章 + 最近笔记 + 精选 + 宣言
     archive.vue               按年份分组的归档
     about.vue                 关于页
     search.vue                标题 + 正文分节搜索
     posts/[slug].vue          文章页
+    notes/index.vue           课程目录 + 全部笔记归档
+    notes/[course]/index.vue  单课程时间归档
+    notes/[course]/[slug].vue 笔记正文（复用 ArticleReader）
     tags/[tag].vue            标签聚合页
   utils/tags.ts               标签名 ↔ slug 双向映射
 content/posts/*.md            文章源文件
+content/notes/*/*.md          课程文件夹中的笔记源文件
 content.config.ts             collection 与 frontmatter schema
 public/                       静态资源（图片、og.png、robots.txt）
 docs/                         本目录
@@ -48,8 +52,12 @@ docs/                         本目录
 
 ## 数据流
 
-1. Markdown 存放在 `content/posts/*.md`；
-2. `content.config.ts` 用 Zod 定义 `posts` collection（`type: 'page'`、`source: 'posts/*.md'`）和每个字段的默认值；
+学习笔记复用 `posts` 集合：内容源包括 `posts/*.md` 与 `notes/*/*.md`，分别保留 `/posts` 和 `/notes` 路径前缀，因此归档、标签和分节搜索共用索引与草稿过滤。首页按路径拆分文章与笔记，不混入最近文章或精选文章。
+
+`TimelineArchive.vue` 统一渲染全部归档、全部笔记、单课程笔记；`RecentEntries.vue` 统一渲染首页最近文章和最近笔记；`ArticleReader.vue` 统一处理文章/笔记正文。`courses.ts` 是课程注册表，`/notes` 的普通链接让静态生成器发现所有课程页面，包括空课程。课程磁盘目录用 `.gitkeep` 保留。
+
+1. Markdown 存放在 `content/posts/*.md` 或 `content/notes/*/*.md`；
+2. `content.config.ts` 用 Zod 定义共用的 `posts` collection（`type: 'page'`、两个内容源）和每个字段的默认值；
 3. 页面在构建期用 `queryCollection('posts')` 取数，外层包 `useAsyncData` 做缓存与去重；
 4. 搜索页额外用 `queryCollectionSearchSections('posts', { extraFields: [...] })` 取得按标题分节的索引，再在前端做多词 AND 匹配与打分。
 
@@ -57,19 +65,22 @@ docs/                         本目录
 
 ## 状态管理
 
-没有引入 Pinia。唯一的跨组件共享状态是首页与外观面板共享的「最近文章数量」：
+没有引入 Pinia。首页与外观面板共享独立的「最近文章数量」与「最近笔记数量」：
 
 ```ts
 const latestPostCount = useState<LatestPostCount>('latest-post-count', () => 10)
+const latestNoteCount = useState<LatestPostCount>('latest-note-count', () => 10)
 ```
 
 外观偏好不走全局状态，直接持久化在 `localStorage`（见下），刷新后由 `AppearancePanel` 在 `onMounted` 读回。
+
+旧 v5 配置保留原 `latestPostCount`，缺失的 `latestNoteCount` 使用 10；两项都只接受 5、10、`all`，分别保存与恢复，不修改存储键、不清空其他外观偏好。
 
 ## 外观偏好的存储
 
 | Key | 内容 |
 | --- | --- |
-| `paper-trail-appearance-v5` | 主配置 JSON：`visual` / `colorMode` / 三种材质 / 三档模糊 / 遮罩透明度 / `accent` / `latestPostCount` |
+| `paper-trail-appearance-v5` | 主配置 JSON：`visual` / `colorMode` / 三种材质 / 三档模糊 / 遮罩透明度 / `accent` / `latestPostCount` / `latestNoteCount` |
 | `paper-trail-appearance-v4` | 旧版本配置，首次读取时自动迁移（旧的单一 `blur` 会拆成 nav/content 两档） |
 | `paper-trail-custom-background` | 自定义背景，压缩后的 webp data URL |
 | `paper-trail-custom-background-name` | 自定义背景的文件名，用于按钮文案 |

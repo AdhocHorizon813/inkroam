@@ -1,19 +1,22 @@
 <script setup lang="ts">
+import { resolveActiveHeading } from '~/utils/toc-active'
+const route = useRoute()
 type TocLink = { id: string; text: string; depth: number; children?: TocLink[] }
 const props = defineProps<{ links: TocLink[] }>()
 const entries = computed(() => props.links.flatMap(link => [link, ...(link.children || [])]))
 const activeId = ref('')
 const expanded = ref(false)
 let frame = 0
+let resizeObserver: ResizeObserver | undefined
 function updateActive() {
   frame = 0
   const offset = document.documentElement.dataset.visual === 'modern' ? 100 : 24
-  let current = entries.value[0]?.id || ''
-  for (const entry of entries.value) {
+  const headings = entries.value.flatMap(entry => {
     const heading = document.getElementById(entry.id)
-    if (heading && heading.getBoundingClientRect().top <= offset) current = entry.id
-  }
-  activeId.value = current
+    return heading ? [{ id: entry.id, top: heading.getBoundingClientRect().top, margin: parseFloat(getComputedStyle(heading).scrollMarginTop) || 0 }] : []
+  })
+  const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+  activeId.value = resolveActiveHeading(headings, route.hash, window.scrollY, maxScroll, offset)
 }
 function scheduleUpdate() {
   if (!frame) frame = requestAnimationFrame(updateActive)
@@ -23,13 +26,19 @@ onMounted(() => {
   updateActive()
   window.addEventListener('scroll', scheduleUpdate, { passive: true })
   window.addEventListener('resize', scheduleUpdate, { passive: true })
+  resizeObserver = new ResizeObserver(scheduleUpdate)
+  resizeObserver.observe(document.documentElement)
+  const content = document.querySelector('.article-content')
+  if (content) resizeObserver.observe(content)
 })
 onBeforeUnmount(() => {
   cancelAnimationFrame(frame)
+  resizeObserver?.disconnect()
   window.removeEventListener('scroll', scheduleUpdate)
   window.removeEventListener('resize', scheduleUpdate)
 })
 watch(() => props.links, () => { expanded.value = false; nextTick(scheduleUpdate) })
+watch(() => route.hash, () => nextTick(scheduleUpdate))
 </script>
 
 <template>

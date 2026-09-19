@@ -9,7 +9,27 @@
 
 模板里已经覆盖了标题、引用、列表、任务列表、代码块、表格、图片、分隔线等常用语法，可以直接当排版参考。
 
-## Frontmatter 字段
+## 学习笔记
+
+笔记与文章使用同一套 frontmatter、公式、目录和图片灯箱。复制 `content/notes/_note-template.md` 到对应课程目录，使用英文短横线文件名，完成后设置 `draft: false`；模板本身不进入内容集合。课程由所在目录确定，不需要另填课程字段，也不需要把课程名写成标签。
+
+| 中文课程名 | 磁盘子目录 / 网页路径中的课程名 |
+| --- | --- |
+| 数学物理方程 | `equations-of-mathematical-physics` |
+| 泛函分析 | `functional-analysis` |
+| 数理统计 | `mathematical-statistics` |
+| 智能计算基础 | `fundamentals-of-intelligent-computing` |
+| 随机过程 | `stochastic-processes` |
+
+例如 `content/notes/functional-analysis/normed-spaces.md` 发布到 `/notes/functional-analysis/normed-spaces`，课程主页为 `/notes/functional-analysis`，界面显示“泛函分析”。GitHub Pages 会自动加 `/inkroam/` 前缀，无须写进文件或链接。
+
+`/notes` 显示课程入口与全部公开笔记的时间归档；课程页面只显示本课程笔记。全部归档包含文章与笔记，首页的最近文章和精选文章仍只包含文章，最近笔记单独按日期倒序展示，数量由外观面板的“最近笔记”独立控制。搜索与标签页包含两种内容。空课程也保留入口，草稿不进入公开列表。
+
+新增课程时，在 `app/utils/courses.ts` 添加英文 slug 与中英文名称，再创建同名磁盘目录。当前支持 `课程/笔记.md` 两级结构，不支持课程下继续嵌套目录；避免在 frontmatter 手动覆盖 `path`。
+
+构建后运行 `node --experimental-strip-types scripts/check-notes.mjs` 检查首页模块顺序、导航顺序、五个课程静态页面及中文标题。首次实现已用临时公开/草稿笔记验证课程隔离、正文公式、搜索索引与草稿过滤，测试内容不保留在发布目录。
+
+## Frontmatter 字段（文章与笔记共用）
 
 定义在 `content.config.ts`，字段缺失时使用括号里的默认值：
 
@@ -53,7 +73,22 @@ export const getTagName = (slug: string) => tagNameMap[slug] || decodeURICompone
 
 **新增中文标签时，请同时补一条 ASCII 映射。** 未映射的标签会走 `encodeURIComponent`，在 GitHub Pages 的 `BASE_PATH` 构建里可能触发 `/tags/...` 路由 prerender 500（`nitro.prerender.failOnError: true` 会让整个构建失败）。排查步骤见 [deployment-github-pages.md](deployment-github-pages.md#常见构建失败)。
 
-## 图片
+## 内嵌 PDF
+
+将文件放进 `public/pdfs/`，在笔记 Markdown 中使用：
+
+```md
+::pdf-viewer{src="/pdfs/functional-analysis/lecture-01.pdf" title="泛函分析 · 第一讲"}
+::
+```
+
+上述示例对应磁盘 `public/pdfs/functional-analysis/lecture-01.pdf`。组件会自动添加 GitHub Pages 的 `/inkroam/` 基础路径，不要手动写仓库前缀。只接受本地 PDF 路径，不接受外部网址、查询参数或父目录跳转。
+
+`app/components/content/PdfViewer.vue` 使用浏览器原生 PDF 内嵌能力，在正文中提供响应式阅读区域；翻页、缩放等控件由浏览器提供。部分浏览器尤其移动端可能无法内嵌或体验有限，组件始终保留“打开原文件”入口。当前尚未接入 PDF.js，不能保证跨浏览器统一阅读体验。
+
+Markdown 入口照常进入课程、归档及搜索，但 PDF 内部文字不参与站内搜索；可将摘要和重要概念写在附件前面。PDF 全文索引需要额外文本提取，扫描件还需要 OCR。
+
+## 图片用法
 
 - 图片文件放进 `public/images/`；
 - Markdown 里用**以 `/images/` 开头的绝对路径**：

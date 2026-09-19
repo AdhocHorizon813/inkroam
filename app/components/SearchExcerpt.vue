@@ -21,6 +21,10 @@ const rendered = computed(() => props.parts.map(part => {
 </template>
 
 <style scoped>
-.search-formula { display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden; vertical-align: middle; padding: .25em .12em; color: var(--ink); }
+.search-formula { display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; vertical-align: middle; padding: .25em .12em; color: var(--ink); }
+/* Inline math can overflow by a fraction of a pixel. Do not expose native
+   scrollbar arrows beneath tiny formulas; long formulas remain scrollable. */
+.search-formula::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.search-formula::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 .search-formula :deep(.katex) { font-size: 1.05em; }
 </style>
