@@ -86,7 +86,7 @@ export const getTagName = (slug: string) => tagNameMap[slug] || decodeURICompone
 
 上述示例对应磁盘 `public/pdfs/functional-analysis/lecture-01.pdf`。组件会自动添加 GitHub Pages 的 `/inkroam/` 基础路径，不要手动写仓库前缀。只接受本地 PDF 路径，不接受外部网址、查询参数或父目录跳转。
 
-`app/components/content/PdfViewer.vue` 使用浏览器原生 PDF 内嵌能力，在正文中提供响应式阅读区域；翻页、缩放等控件由浏览器提供。部分浏览器尤其移动端可能无法内嵌或体验有限，组件始终保留“打开原文件”入口。当前尚未接入 PDF.js，不能保证跨浏览器统一阅读体验。
+`app/components/content/PdfViewer.vue` 使用浏览器原生 PDF 内嵌能力，在正文中提供响应式阅读区域；翻页、缩放等控件由浏览器提供。部分浏览器尤其移动端可能无法内嵌或体验有限。Android / iOS 浏览器完全没有内嵌 PDF 的能力：`<object>` 只会渲染成一个空白框，写在里面的兜底文案也不会显示，因此组件在这类环境改渲染「打开 PDF」卡片（文件名 + 一句说明 + 一键打开），桌面仍用浏览器原生阅读器。组件默认按卡片输出，挂载后确认浏览器能内嵌才替换成 `<object>`，好处是手机不会白白下载整份附件；代价是桌面首次渲染时会看到卡片被阅读器替换。当前尚未接入 PDF.js，手机端不能页内翻页，也不保证跨浏览器统一体验。
 
 Markdown 入口照常进入课程、归档及搜索，但 PDF 内部文字不参与站内搜索；可将摘要和重要概念写在附件前面。PDF 全文索引需要额外文本提取，扫描件还需要 OCR。
 
