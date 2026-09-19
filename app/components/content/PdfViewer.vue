@@ -85,7 +85,13 @@ function onReaderFailed() {
 </template>
 
 <style scoped>
-.pdf-viewer { margin-block: 2em; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+/* 强调色上的前景色：浅色模式用白色、深色模式用深色（与经典主题 --paper 的明暗关系一致）。
+   强调色在两套主题的浅色模式里都是中深色调，深色模式里都偏亮，所以前景要跟着模式翻。 */
+:root[data-color-mode='dark'] .pdf-viewer { --pdf-on-accent: #171a17; }
+.pdf-viewer {
+  --pdf-on-accent: #fff;
+  margin-block: 2em; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+}
 .pdf-viewer__header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .pdf-viewer__header strong { font-size: 15px; overflow-wrap: anywhere; }
 .pdf-viewer__header a { font-size: 12px; white-space: nowrap; }
@@ -103,7 +109,7 @@ function onReaderFailed() {
 }
 .pdf-viewer__box::after {
   content: ''; width: 7px; height: 3px;
-  border-left: 2px solid var(--paper); border-bottom: 2px solid var(--paper);
+  border-left: 2px solid var(--pdf-on-accent); border-bottom: 2px solid var(--pdf-on-accent);
   opacity: 0; transform: rotate(-45deg) translate(0, -1px);
 }
 .pdf-viewer__always input:checked + .pdf-viewer__box { border-color: var(--accent); background: var(--accent); }
@@ -127,14 +133,12 @@ function onReaderFailed() {
 :root[data-visual='modern'] .pdf-viewer,
 :root[data-visual='modern'] .pdf-viewer__header { border-color: var(--modern-line); }
 button.pdf-viewer__open { cursor: pointer; font-family: inherit; font-size: 14px; background: transparent; }
-.pdf-viewer__open.pdf-viewer__open--primary { border-color: var(--accent); background: var(--accent); color: var(--paper); }
+.pdf-viewer__open.pdf-viewer__open--primary { border-color: var(--accent); background: var(--accent); color: var(--pdf-on-accent); }
 .pdf-viewer__open.pdf-viewer__open--primary span { color: currentColor; }
 :root[data-visual='modern'] .pdf-viewer__always { color: var(--modern-muted); }
 :root[data-visual='modern'] .pdf-viewer__box { border-color: var(--modern-line); }
-/* 现代主题的 --paper 是透明色，勾要用主按钮那套深色（见下方 --primary）。 */
-:root[data-visual='modern'] .pdf-viewer__box::after { border-color: #12161d; }
 :root[data-visual='modern'] .pdf-viewer__open.pdf-viewer__open--primary {
-  border-color: var(--modern-accent); background: var(--modern-accent); color: #12161d;
+  border-color: var(--modern-accent); background: var(--modern-accent); color: var(--pdf-on-accent);
 }
 :root[data-visual='modern'] .pdf-viewer__open.pdf-viewer__open--primary:hover,
 :root[data-visual='modern'] .pdf-viewer__open.pdf-viewer__open--primary:focus-visible {
