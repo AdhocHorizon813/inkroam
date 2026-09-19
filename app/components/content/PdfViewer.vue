@@ -9,33 +9,62 @@ const pdfUrl = computed(() => {
 })
 const fileName = computed(() => props.src.split('/').pop() || 'PDF 文档')
 
-/* Android / iOS 浏览器没有内嵌 PDF 的能力：<object> 只会留一个空白框，写在里面的
-   兜底文案浏览器也不会显示。这些环境改成“打开 PDF”卡片。SSR 与首次渲染先输出卡片
-   （没有 JS 也有可用入口），挂载后确认浏览器真的能内嵌再升级为 <object>，
-   这样手机不会白白下载整份附件。 */
+/* 判据只看“浏览器能不能内嵌 PDF”，不看设备类型，也不看屏幕宽度：平板、手机横屏、
+   “请求桌面版网站”都走同一套逻辑，避免把能内嵌的平板误判成手机。
+   1) navigator.pdfViewerEnabled 有值：直接采信（Chrome / Firefox for Android 为 false）；
+   2) 老浏览器没有该属性：只把 Android 当作不能内嵌（旧版 Android Chrome），其余保持内嵌；
+   3) 不能内嵌时才显示卡片，用户点「在页面内阅读」再用 PDF.js 画到 canvas。 */
 const canEmbed = ref(false)
 onMounted(() => {
   const supported = (navigator as Navigator & { pdfViewerEnabled?: boolean }).pdfViewerEnabled
-  const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-  if (supported !== false && !mobile) canEmbed.value = true
+  canEmbed.value = supported === undefined ? !/Android/i.test(navigator.userAgent) : supported
 })
+
+/* 不能内嵌的环境走自带阅读器：pdfjs-dist 的分块与 worker 只在用户点「在页面内阅读」
+   时才下载，桌面浏览器永远不会拉它。加载失败就退回卡片，附件入口始终可用。 */
+const PdfCanvasReader = defineAsyncComponent(() => import('~/components/PdfCanvasReader.vue'))
+const readerOpen = ref(false)
+const readerFailed = ref(false)
+const fallbackNote = computed(() =>
+  readerFailed.value
+    ? '阅读器没能加载，请改用“打开原文件”。'
+    : '手机浏览器不能把 PDF 嵌进网页：点“在页面内阅读”可在这里翻页，或交给系统阅读器打开。',
+)
+
+function openReader() {
+  readerFailed.value = false
+  readerOpen.value = true
+}
+
+function onReaderFailed() {
+  readerFailed.value = true
+}
 </script>
 
 <template>
   <section class="pdf-viewer" :aria-label="title">
     <header class="pdf-viewer__header">
       <strong>{{ title }}</strong>
-      <a v-if="pdfUrl && canEmbed" :href="pdfUrl" target="_blank" rel="noopener noreferrer">打开原文件 ↗</a>
+      <a v-if="pdfUrl && (canEmbed || readerOpen)" :href="pdfUrl" target="_blank" rel="noopener noreferrer">打开原文件 ↗</a>
     </header>
-    <template v-if="pdfUrl && canEmbed">
+    <template v-if="pdfUrl && canEmbed && !readerOpen">
       <object class="pdf-viewer__document" :data="pdfUrl" type="application/pdf" :aria-label="title">
         <p>当前浏览器无法内嵌显示 PDF，请使用上方“打开原文件”查看或下载。</p>
       </object>
     </template>
+    <PdfCanvasReader
+      v-else-if="pdfUrl && readerOpen && !readerFailed"
+      :src="pdfUrl"
+      :title="title"
+      @failed="onReaderFailed"
+    />
     <div v-else-if="pdfUrl" class="pdf-viewer__fallback">
       <p class="pdf-viewer__file">{{ fileName }}</p>
-      <p class="pdf-viewer__note">手机浏览器不能把 PDF 嵌进网页，点击下方按钮会在系统阅读器或新标签页里打开。</p>
-      <a class="pdf-viewer__open" :href="pdfUrl" target="_blank" rel="noopener noreferrer">打开 PDF <span aria-hidden="true">↗</span></a>
+      <p class="pdf-viewer__note">{{ fallbackNote }}</p>
+      <div class="pdf-viewer__actions">
+        <button type="button" class="pdf-viewer__open pdf-viewer__open--primary" @click="openReader">在页面内阅读</button>
+        <a class="pdf-viewer__open" :href="pdfUrl" target="_blank" rel="noopener noreferrer">打开原文件 <span aria-hidden="true">↗</span></a>
+      </div>
     </div>
     <p v-else role="status">PDF 路径无效，请使用 /pdfs/ 开头的本地 .pdf 文件路径。</p>
   </section>
@@ -49,6 +78,7 @@ onMounted(() => {
 .pdf-viewer__document { display: block; width: 100%; height: clamp(360px, 75vh, 960px); background: #f5f5f5; color: #222; }
 .pdf-viewer__document p { padding: 24px; }
 .pdf-viewer__fallback { display: grid; justify-items: start; gap: 10px; padding: 16px; }
+.pdf-viewer__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .pdf-viewer__file { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .pdf-viewer__note { max-width: 46ch; margin: 0; color: var(--muted); font: 13px/1.75 var(--serif); }
 .pdf-viewer__open {
@@ -65,4 +95,14 @@ onMounted(() => {
 :root[data-visual='modern'] .pdf-viewer__open:focus-visible { border-color: var(--modern-accent); background: rgba(255, 255, 255, .1); }
 :root[data-visual='modern'] .pdf-viewer,
 :root[data-visual='modern'] .pdf-viewer__header { border-color: var(--modern-line); }
+button.pdf-viewer__open { cursor: pointer; font-family: inherit; font-size: 14px; background: transparent; }
+.pdf-viewer__open.pdf-viewer__open--primary { border-color: var(--accent); background: var(--accent); color: var(--paper); }
+.pdf-viewer__open.pdf-viewer__open--primary span { color: currentColor; }
+:root[data-visual='modern'] .pdf-viewer__open.pdf-viewer__open--primary {
+  border-color: var(--modern-accent); background: var(--modern-accent); color: #12161d;
+}
+:root[data-visual='modern'] .pdf-viewer__open.pdf-viewer__open--primary:hover,
+:root[data-visual='modern'] .pdf-viewer__open.pdf-viewer__open--primary:focus-visible {
+  border-color: var(--modern-accent); background: color-mix(in srgb, var(--modern-accent) 88%, white);
+}
 </style>
