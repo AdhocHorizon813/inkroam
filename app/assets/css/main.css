@@ -3423,10 +3423,23 @@ fieldset.setting-group > legend.setting-label {
 @media (max-width: 767.98px) {
   .main-nav { gap: 8px; }
 }
+/* Phone header keeps the desktop split: brand against the left edge, navigation
+   against the right. Centring both as one cluster left an empty band on either
+   side of the bar and pushed the navigation ~20px off the bar's centre line, so
+   nothing lined up with anything. `flex-wrap` remains a fallback only: the
+   modern pill clips its own overflow, so wrapping beats a link escaping the bar. */
 @media (max-width: 540px) {
   .course-link { column-gap: 12px; padding-inline: 2px; }
   .course-title { font-size: 16px; }
-  .site-header, :root[data-visual='modern'] .site-header { height: auto; min-height: 60px; flex-wrap: wrap; justify-content: center; gap: 12px; padding-block: 12px; }
+  .site-header, :root[data-visual='modern'] .site-header { height: auto; min-height: 60px; flex-wrap: wrap; gap: 12px; padding-block: 12px; }
   .main-nav { flex-shrink: 0; }
   .main-nav a { white-space: nowrap; }
 }
+
+/* Classic keeps the wordmark on phones, but below ~360px it no longer fits beside
+   five navigation links. The mark alone carries the brand there — the link keeps
+   its "纸上漫游首页" label — which is what the modern theme already does on phones. */
+@media (max-width: 400px) {
+  .brand > span:last-child { display: none; }
+}
+

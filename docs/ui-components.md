@@ -88,13 +88,32 @@ watch(route.path)
 `.site-header` 是「品牌 + 导航」两段式：
 
 - `.brand`：`.brand-mark`（圆角方块里的「纸」字）+ 文字「纸上漫游」，整块是回首页的链接，带 `aria-label`；
-- `SlidingNav`：`<nav aria-label="主导航">`，内含一个绝对定位的 `.nav-highlight`、四个链接（文章 / 归档 / 关于 / 搜索）和 `ThemeToggle`。
+- `SlidingNav`：`<nav aria-label="主导航">`，内含一个绝对定位的 `.nav-highlight`、五个链接（文章 / 笔记 / 归档 / 关于 / 搜索）和 `ThemeToggle`。
 
 ### 审美
 
 顶栏是一枚**悬浮胶囊**：sticky 定位、圆角 14px、高度 54px（modern 校准后的值），距顶部留 14px，材质由 `data-nav-material` 决定。它不和页面内容贴边，所以看起来像「浮在纸上的一层玻璃」，而不是一条压住内容的横条。
 
 classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要「悬浮」这个隐喻。
+
+### 窄屏
+
+手机（`≤540px`）顶栏保留桌面的**两端布局**：品牌贴左、导航贴右，也就是基础的 `justify-content: space-between`；断点里只把高度放开成 `height: auto; min-height: 60px`，并补上 `padding-block: 12px`。
+
+**不要把「品牌 + 导航」当成一组居中。** 曾经的 `justify-content: center` 会在 393px 视口下把整组内容居中于胶囊：两端各留一条空白带，而导航的中线（216.5px）比胶囊中线（196.5px）右偏 20px——没有任何两件东西互相对齐，看上去就是「错位」。
+
+`flex-wrap: wrap` 只作兜底：modern 的胶囊自带 `overflow: hidden`，与其让链接被裁掉，不如让它们换行。
+
+要让一行放得下，品牌需要让位，两条规则：
+
+| 场景 | 规则 |
+| --- | --- |
+| modern（`≤768px`） | 隐藏文字「纸上漫游」，只留 `.brand-mark` |
+| classic（`≤400px`） | 同样隐藏文字：「纸上漫游」(110px) + 间距 + 五个链接 (207px) 约需 329px，而该断点下站点宽度只有 `100% - 28px`，实测 357px 以下就放不下，400px 是留出的余量 |
+
+两种情况下 `.brand` 都保留 `aria-label="纸上漫游首页"`，品牌语义不丢。
+
+验证方式：在手机宽度下量 `.site-header` 与 `.brand` / `.main-nav` 的 `getBoundingClientRect()`，左右内缩应当接近且对称（393px 下为 12px / 14px，与桌面一致），同时确认 `document.scrollingElement.scrollWidth === window.innerWidth`（不产生横向滚动），且没有链接越出胶囊边界。320 / 360 / 393 / 412 / 480 / 540px 六档、modern 与 classic 两个主题目前都通过。
 
 ### 动效
 
