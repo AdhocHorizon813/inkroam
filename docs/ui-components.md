@@ -246,6 +246,7 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 | 能内嵌的浏览器（桌面、iPad） | 原生 `<object type="application/pdf">` | 翻页、缩放、打印由浏览器提供 |
 | `navigator.pdfViewerEnabled === false`（Chrome / Firefox for Android 等） | 卡片 | 文件名 + 说明 + 「在页面内阅读」/「打开原文件」 |
 | 卡片上点了「在页面内阅读」 | `app/components/PdfCanvasReader.vue` | PDF.js 画到 canvas，页码 / 缩放 / 横向滑动翻页 |
+| 面板选「直接阅读」，或卡片勾上「始终在页面内阅读」后点按钮 | 同上，直接打开 | 偏好写在 `paper-trail-appearance-v5` 的 `pdfFallback`，卡片与面板双向同步 |
 
 几个刻意的选择：
 
@@ -254,8 +255,10 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 - **不要依赖 `<object>` 内部的兜底文案**：不能内嵌的浏览器不会显示它，手机用户看到的只是一个空白框——这就是最初「手机上什么都没显示」的原因；
 - **PDF.js 按需加载**：`defineAsyncComponent` + 动态 `import('pdfjs-dist')`，worker 用 `?url` 交给打包器处理，`BASE_PATH` 部署不会丢路径；桌面路径完全不请求这两个分块；
 - **画布没有文本层**：PDF 内的文字不能选中、不参与站内搜索，需要被搜到的内容写在附件前面。
+- **偏好两个入口、一份状态**：外观面板的「PDF 附件」分段控件与卡片上的「始终在页面内阅读」勾选框都只改 `useState('pdf-fallback')`；面板 `watch` 这份共享状态回写 `state.pdfFallback`，再由既有 `watch(state)` 统一持久化，因此不存在两处各自写 localStorage 的竞争。偏好只在不能内嵌时生效：能内嵌的浏览器永远走原生阅读器，面板里选了「直接阅读」也不会改变它。
+- **能内嵌时该项直接禁用**：面板的可用性与标注同样由 `supportsEmbeddedPdf()`（`app/utils/pdf-embed.ts`，与 `PdfViewer` 共用）决定——能内嵌的浏览器上这一栏 `disabled`（复用 `.setting-group:disabled` 的淡化），标签变成「PDF 附件 · 支持内嵌」；判断前（SSR 与首次渲染）保持可用且不加断言，避免在手机上先显示一句错误的「支持内嵌」。
 
-验证方式（无头 Chrome + CDP，临时探针放 `tmp/`，不提交）：用 `Page.addScriptToEvaluateOnNewDocument` 覆盖 `navigator.pdfViewerEnabled = false` 来模拟 Android（只改 UA 不够，桌面内核仍会报告 true），点击「在页面内阅读」后应出现 `.pdf-reader__canvas`、页码为 `1 / 3`，网络里能看到 `pdf.worker` 与 PDF 请求；能力为 true 时（桌面、iPad、平板桌面模式）应只有 `<object>`，网络里不应出现 pdfjs 分块。回归命令：`node --experimental-strip-types scripts/check-pdf-embed.mjs`（加 `--built` 时检查 `/inkroam/` 产物）。
+验证方式（无头 Chrome + CDP，临时探针放 `tmp/`，不提交）：用 `Page.addScriptToEvaluateOnNewDocument` 覆盖 `navigator.pdfViewerEnabled = false` 来模拟 Android（只改 UA 不够，桌面内核仍会报告 true），点击「在页面内阅读」后应出现 `.pdf-reader__canvas`、页码为 `1 / 3`，网络里能看到 `pdf.worker` 与 PDF 请求；勾上「始终在页面内阅读」再点按钮，`localStorage` 里的 `pdfFallback` 应变成 `reader`（面板分段控件同步高亮），刷新后不必再点；能力为 true 时（桌面、iPad、平板桌面模式）应只有 `<object>`，网络里不应出现 pdfjs 分块。回归命令：`node --experimental-strip-types scripts/check-pdf-embed.mjs`（加 `--built` 时检查 `/inkroam/` 产物）。
 
 ## 列表页：归档 / 标签 / 搜索
 

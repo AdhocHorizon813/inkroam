@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { supportsEmbeddedPdf } from '~/utils/pdf-embed'
+
 type VisualMode = 'modern' | 'classic'
 type ColorMode = 'dark' | 'light' | 'auto'
 type MaterialMode = 'liquid' | 'acrylic' | 'mica'
 type BackgroundMode = 'flat' | 'art' | 'aurora' | 'custom'
 type LatestPostCount = 5 | 10 | 'all'
+type PdfFallbackMode = 'card' | 'reader'
 
 interface AppearanceState {
   visual: VisualMode
@@ -19,6 +22,7 @@ interface AppearanceState {
   accent: string
   latestPostCount: LatestPostCount
   latestNoteCount: LatestPostCount
+  pdfFallback: PdfFallbackMode
 }
 
 const STORAGE_KEY = 'paper-trail-appearance-v5'
@@ -28,12 +32,16 @@ const CUSTOM_BG_NAME_KEY = 'paper-trail-custom-background-name'
 
 const isOpen = ref(false)
 const status = ref('')
+/* 能内嵌 PDF 的浏览器上，PDF 附件这一项没有意义：禁用并按「支持内嵌」标注。
+   null 表示还没判断（SSR 与首次渲染），此时保持可用、不做出任何断言。 */
+const pdfEmbedSupported = ref<boolean | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const panelScroll = ref<HTMLDivElement | null>(null)
 const customBackgroundPreview = ref('')
 const customBackgroundName = ref('')
 const sharedLatestPostCount = useState<LatestPostCount>('latest-post-count', () => 10)
 const sharedLatestNoteCount = useState<LatestPostCount>('latest-note-count', () => 10)
+const sharedPdfFallback = useState<PdfFallbackMode>('pdf-fallback', () => 'card')
 const state = reactive<AppearanceState>({
   visual: 'modern',
   colorMode: 'auto',
@@ -48,6 +56,7 @@ const state = reactive<AppearanceState>({
   accent: '#7892b2',
   latestPostCount: 10,
   latestNoteCount: 10,
+  pdfFallback: 'card',
 })
 
 const accents = [
@@ -72,6 +81,7 @@ function onSystemThemeChange() {
 }
 
 onMounted(() => {
+  pdfEmbedSupported.value = supportsEmbeddedPdf()
   try {
     customBackgroundPreview.value = localStorage.getItem(CUSTOM_BG_KEY) || ''
     customBackgroundName.value = localStorage.getItem(CUSTOM_BG_NAME_KEY) || ''
@@ -93,6 +103,10 @@ onMounted(() => {
     if (state.latestNoteCount !== 5 && state.latestNoteCount !== 10 && state.latestNoteCount !== 'all') {
       state.latestNoteCount = 10
     }
+    if (state.pdfFallback !== 'card' && state.pdfFallback !== 'reader') {
+      state.pdfFallback = 'card'
+    }
+    sharedPdfFallback.value = state.pdfFallback
     sharedLatestNoteCount.value = state.latestNoteCount
   } catch {
     status.value = '外观偏好未能读取，已使用默认设置。'
@@ -115,6 +129,7 @@ watch(state, (_state, from) => {
   const apply = () => {
     sharedLatestPostCount.value = state.latestPostCount
     sharedLatestNoteCount.value = state.latestNoteCount
+    sharedPdfFallback.value = state.pdfFallback
     applyAppearance()
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
@@ -151,6 +166,12 @@ watch(state, (_state, from) => {
     apply()
   }
 }, { deep: true })
+
+/* 卡片上的「始终在页面内阅读」也会改写这份偏好：同步回 state，由上面的 watcher
+   统一写入 localStorage，并让分段控件的选中态跟着走。 */
+watch(sharedPdfFallback, (value) => {
+  if (value !== state.pdfFallback) state.pdfFallback = value
+})
 
 watch(isOpen, async (open) => {
   if (!open) return
@@ -275,6 +296,7 @@ function resetAppearance() {
     accent: '#7892b2',
     latestPostCount: 10,
     latestNoteCount: 10,
+    pdfFallback: 'card',
   })
   localStorage.removeItem(CUSTOM_BG_KEY)
   localStorage.removeItem(CUSTOM_BG_NAME_KEY)
@@ -347,6 +369,14 @@ function resetAppearance() {
             <button type="button" :aria-pressed="state.latestNoteCount === 5" :class="{ active: state.latestNoteCount === 5 }" @click="state.latestNoteCount = 5">5 篇</button>
             <button type="button" :aria-pressed="state.latestNoteCount === 10" :class="{ active: state.latestNoteCount === 10 }" @click="state.latestNoteCount = 10">10 篇</button>
             <button type="button" :aria-pressed="state.latestNoteCount === 'all'" :class="{ active: state.latestNoteCount === 'all' }" @click="state.latestNoteCount = 'all'">所有</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="setting-group" :disabled="pdfEmbedSupported === true">
+          <legend class="setting-label">PDF 附件 · {{ pdfEmbedSupported === true ? '支持内嵌' : '浏览器不能内嵌时' }}</legend>
+          <div class="segmented-control segmented-control--two" :style="segmentStyle(state.pdfFallback === 'card' ? 0 : 1)">
+            <button type="button" :aria-pressed="state.pdfFallback === 'card'" :class="{ active: state.pdfFallback === 'card' }" title="先显示文件卡片，点“在页面内阅读”再打开阅读器" @click="state.pdfFallback = 'card'">显示卡片</button>
+            <button type="button" :aria-pressed="state.pdfFallback === 'reader'" :class="{ active: state.pdfFallback === 'reader' }" title="直接打开页面内阅读器，省去一次点击" @click="state.pdfFallback = 'reader'">直接阅读</button>
           </div>
         </fieldset>
 

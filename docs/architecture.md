@@ -18,7 +18,7 @@ app/
   app.vue                     持久外壳：header + route-frame + footer + 外观面板
   assets/css/main.css         全部样式（约 3200 行）
   components/
-    AppearancePanel.vue       外观面板（主题/材质/背景/氛围色/文章数量）
+    AppearancePanel.vue       外观面板（主题/材质/背景/氛围色/文章数量/PDF 附件）
     SlidingNav.vue            主导航 + 滑动指示器
     ThemeToggle.vue           深浅色快捷开关
     ImageLightbox.vue         文章图片灯箱
@@ -34,6 +34,7 @@ app/
     notes/[course]/[slug].vue 笔记正文（复用 ArticleReader）
     tags/[tag].vue            标签聚合页
   utils/tags.ts               标签名 ↔ slug 双向映射
+  utils/pdf-embed.ts          能否内嵌 PDF 的判据（PdfViewer 与外观面板共用）
 content/posts/*.md            文章源文件
 content/notes/*/*.md          课程文件夹中的笔记源文件
 content.config.ts             collection 与 frontmatter schema
@@ -76,11 +77,13 @@ const latestNoteCount = useState<LatestPostCount>('latest-note-count', () => 10)
 
 旧 v5 配置保留原 `latestPostCount`，缺失的 `latestNoteCount` 使用 10；两项都只接受 5、10、`all`，分别保存与恢复，不修改存储键、不清空其他外观偏好。
 
+PDF 附件的呈现偏好也走共享状态：`useState('pdf-fallback', () => 'card')`，取值 `card`（先给文件卡片）或 `reader`（直接打开页面内阅读器）。外观面板的分段控件与 `PdfViewer` 卡片上的「始终在页面内阅读」勾选框都只改这一份状态，面板 `watch` 它回写 `state.pdfFallback`，再交给既有的 `watch(state)` 统一持久化——两处入口不会各自去写 `localStorage`。旧配置没有该字段时默认为 `card`，不需要升级存储键。该偏好只在浏览器不能内嵌 PDF 时生效：能内嵌的浏览器上面板里的这一项 `disabled` 并标注「支持内嵌」，判断用的 `supportsEmbeddedPdf()`（`utils/pdf-embed.ts`）与 `PdfViewer` 是同一份实现。
+
 ## 外观偏好的存储
 
 | Key | 内容 |
 | --- | --- |
-| `paper-trail-appearance-v5` | 主配置 JSON：`visual` / `colorMode` / 三种材质 / 三档模糊 / 遮罩透明度 / `accent` / `latestPostCount` / `latestNoteCount` |
+| `paper-trail-appearance-v5` | 主配置 JSON：`visual` / `colorMode` / 三种材质 / 三档模糊 / 遮罩透明度 / `accent` / `latestPostCount` / `latestNoteCount` / `pdfFallback` |
 | `paper-trail-appearance-v4` | 旧版本配置，首次读取时自动迁移（旧的单一 `blur` 会拆成 nav/content 两档） |
 | `paper-trail-custom-background` | 自定义背景，压缩后的 webp data URL |
 | `paper-trail-custom-background-name` | 自定义背景的文件名，用于按钮文案 |
