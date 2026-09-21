@@ -11,6 +11,7 @@ const { data: posts } = await useAsyncData('archive-posts', () =>
       <p class="eyebrow">THE ARCHIVE</p>
       <h1>文章归档</h1>
       <p>按时间回望文章与学习笔记。观点会变化，诚实的记录会留下来。</p>
+      <NuxtLink class="text-link" to="/tags">按话题浏览 <span aria-hidden="true">↗</span></NuxtLink>
     </header>
     <TimelineArchive :posts="posts || []" />
   </main>

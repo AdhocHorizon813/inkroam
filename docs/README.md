@@ -4,6 +4,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [todo.md](todo.md) | 后续待办与调研：话题聚合、标签目录及入口可发现性 |
 | [architecture.md](architecture.md) | 技术栈、目录结构、渲染模型、数据流与 SEO |
 | [visual-system.md](visual-system.md) | 双主题视觉系统：颜色、字体、排版、材质、背景 |
 | [aesthetic-principles.md](aesthetic-principles.md) | 审美原则：克制、动效性格、层次与取舍（几乎不含代码） |

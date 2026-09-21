@@ -5,6 +5,7 @@ const items = [
   { label: '文章', to: '/' },
   { label: '笔记', to: '/notes' },
   { label: '归档', to: '/archive' },
+  { label: '话题', to: '/tags' },
   { label: '关于', to: '/about' },
   { label: '搜索', to: '/search', icon: 'search' },
 ]

@@ -101,6 +101,8 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
       <p v-if="!featuredPosts?.length" class="section-empty">尚未选出精选文章。</p>
     </section>
 
+    <TopicExplore />
+
     <section class="manifesto">
       <p>“有些东西，不能只让它停在脑海里。”</p>
       <NuxtLink to="/about">— 关于这个博客</NuxtLink>

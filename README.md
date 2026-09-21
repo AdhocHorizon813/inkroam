@@ -69,6 +69,10 @@ $env:BASE_PATH='/inkroam/'; npm run generate; npm run preview
 
 ## 文档
 
+首页“按话题探索”提供常用主题入口，话题页支持全部/文章/笔记筛选，正文“继续阅读”自动关联同主题内容（不依据 AI 模型归属标签推荐）。
+
+归档页的“按话题浏览”进入话题目录（`/tags`），可按名称筛选、查看篇数并打开该话题的文章与笔记。正文侧栏“相关话题”提供同样入口。后续功能计划与调研记录在 [待办清单](docs/todo.md)。
+
 设计与实现细节记录在 [`docs/`](docs/README.md)：
 
 - [架构与技术选型](docs/architecture.md)

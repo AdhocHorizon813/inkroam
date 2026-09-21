@@ -103,10 +103,11 @@ watch(() => route.fullPath, async () => {
 
     <div class="article-grid">
       <aside class="article-aside">
-        <span>主题</span>
+        <span>相关话题</span>
         <div class="tag-list">
           <NuxtLink v-for="tag in (post.tags || [])" :key="tag" :to="`/tags/${getTagSlug(tag)}`">{{ tag }}</NuxtLink>
         </div>
+        <NuxtLink class="topic-directory-link" to="/tags">浏览全部话题 ↗</NuxtLink>
         <ArticleToc :links="post.body?.toc?.links || []" />
       </aside>
       <article
@@ -118,6 +119,8 @@ watch(() => route.fullPath, async () => {
         <ContentRenderer :value="post" :components="{ 'pdf-viewer': PdfViewer, PdfViewer }" />
       </article>
     </div>
+
+    <RelatedEntries :current="post" />
 
     <footer class="article-end">
       <span>完</span>
@@ -132,3 +135,14 @@ watch(() => route.fullPath, async () => {
     />
   </main>
 </template>
+
+<style scoped>
+.article-aside .tag-list a { display: inline-flex; align-items: center; min-height: 32px; padding: 4px 6px; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; overflow-wrap: anywhere; }
+.article-aside .tag-list a:hover { text-decoration-thickness: 2px; }
+.article-aside .tag-list a:focus-visible,
+.topic-directory-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.topic-directory-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 8px; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; }
+@media (max-width: 767.98px) {
+  .article-aside .tag-list a { min-height: 44px; }
+}
+</style>

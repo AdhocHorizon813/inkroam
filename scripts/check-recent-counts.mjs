@@ -5,7 +5,8 @@ import ts from 'typescript'
 
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-const compiled = ts.transpile(source.replaceAll('import.meta.client', 'false'), { target: ts.ScriptTarget.ES2022 })
+// This harness tests count preferences, not browser PDF capabilities.
+const compiled = ts.transpile(source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replaceAll('import.meta.client', 'false'), { target: ts.ScriptTarget.ES2022 })
 
 function mount(saved) {
   const shared = {}
@@ -13,6 +14,7 @@ function mount(saved) {
   const watchers = []
   let stored
   const context = vm.createContext({
+    supportsEmbeddedPdf: () => false,
     ref: value => ({ value }), reactive: value => value,
     useState: (key, init) => shared[key] ||= { value: init() },
     onMounted: callback => mounted.push(callback), onUnmounted: () => {},

@@ -29,4 +29,7 @@ const tagNameMap = Object.fromEntries(
 ) as Record<string, string>
 
 export const getTagSlug = (name: string) => tagSlugMap[name] || encodeURIComponent(name)
-export const getTagName = (slug: string) => tagNameMap[slug] || decodeURIComponent(slug)
+export const getTagName = (slug: string) => {
+  if (tagNameMap[slug]) return tagNameMap[slug]
+  try { return decodeURIComponent(slug) } catch { return slug }
+}
