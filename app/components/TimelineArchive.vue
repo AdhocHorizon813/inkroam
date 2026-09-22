@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { PostsCollectionItem } from '@nuxt/content'
+import type { EntrySummary } from '~/utils/entry-summary'
 import { courseForPath } from '~/utils/courses'
-const props = withDefaults(defineProps<{ posts: PostsCollectionItem[]; emptyText?: string }>(), { emptyText: '暂无公开内容。' })
+const props = withDefaults(defineProps<{ posts: EntrySummary[]; emptyText?: string }>(), { emptyText: '暂无公开内容。' })
 const groups = computed(() => {
-  const result = new Map<string, PostsCollectionItem[]>()
+  const result = new Map<string, EntrySummary[]>()
   for (const post of [...props.posts].sort((a, b) => b.date.localeCompare(a.date) || a.path.localeCompare(b.path))) {
     const year = post.date.slice(0, 4)
     if (!result.has(year)) result.set(year, [])

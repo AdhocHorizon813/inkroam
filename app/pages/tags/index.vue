@@ -6,7 +6,12 @@ useSeoMeta({ title: '话题目录', description: '按话题探索纸上漫游的
 const { data: posts } = await useAsyncData('topic-directory', () =>
   queryCollection('posts').where('draft', '=', false).select('path', 'tags').all(),
 )
-const query = ref('')
+const route = useRoute()
+const router = useRouter()
+const query = computed({
+  get: () => typeof route.query.q === 'string' ? route.query.q : '',
+  set: (value: string) => { void router.replace({ query: { ...route.query, q: value || undefined }, hash: route.hash }) },
+})
 const topics = computed(() => collectTopics(posts.value || []))
 const visibleTopics = computed(() => filterTopics(topics.value, query.value))
 </script>
@@ -29,7 +34,7 @@ const visibleTopics = computed(() => filterTopics(topics.value, query.value))
     <p class="topic-summary" role="status">{{ visibleTopics.length }} / {{ topics.length }} 个话题</p>
     <ul v-if="visibleTopics.length" class="topic-directory">
       <li v-for="topic in visibleTopics" :key="topic.name">
-        <NuxtLink :to="`/tags/${getTagSlug(topic.name)}`" class="topic-link">
+        <NuxtLink :to="{ path: `/tags/${getTagSlug(topic.name)}`, query: { q: query || undefined } }" class="topic-link">
           <span class="topic-name">{{ topic.name }}</span>
           <span class="topic-count">{{ topic.count }} 篇</span>
           <span aria-hidden="true">↗</span>

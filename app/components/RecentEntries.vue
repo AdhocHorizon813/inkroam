@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { PostsCollectionItem } from '@nuxt/content'
+import type { EntrySummary } from '~/utils/entry-summary'
 import { courseForPath } from '~/utils/courses'
-defineProps<{ id: string; title: string; eyebrow: string; posts: PostsCollectionItem[]; moreTo: string; moreLabel: string; emptyText: string }>()
+defineProps<{ id: string; title: string; eyebrow: string; posts: EntrySummary[]; moreTo: string; moreLabel: string; emptyText: string }>()
 const formatDate = (date: string) => date.replaceAll('-', '.')
 </script>
 

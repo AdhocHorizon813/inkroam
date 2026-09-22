@@ -12,6 +12,7 @@ export default defineContentConfig({
         title: z.string(),
         description: z.string(),
         date: z.string(),
+        order: z.number().int().nonnegative().optional(),
         tags: z.array(z.string()).default([]),
         readingTime: z.string().default('5 分钟'),
         aiGenerated: z.boolean().default(false),

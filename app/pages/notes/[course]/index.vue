@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { entrySummaryFields } from '~/utils/entry-summary'
 import { courses } from '~/utils/courses'
 const route = useRoute()
 const course = courses.find(item => item.slug === route.params.course)
 if (!course) throw createError({ statusCode: 404, statusMessage: '课程未找到' })
 useSeoMeta({ title: `${course.name} · 学习笔记`, description: `${course.name}课程的全部学习笔记，按时间排列。` })
 const { data: notes } = await useAsyncData(`course-notes-${course.slug}`, () =>
-  queryCollection('posts').where('draft', '=', false).where('path', 'LIKE', `/notes/${course.slug}/%`).order('date', 'DESC').all(),
+  queryCollection('posts').select(...entrySummaryFields).where('draft', '=', false).where('path', 'LIKE', `/notes/${course.slug}/%`).order('date', 'DESC').all(),
 )
 </script>
 

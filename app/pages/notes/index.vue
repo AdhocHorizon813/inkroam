@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { entrySummaryFields } from '~/utils/entry-summary'
 import { courses } from '~/utils/courses'
 useSeoMeta({ title: '学习笔记', description: '按课程整理、按时间记录的学习笔记。' })
 const { data: notes } = await useAsyncData('all-notes', () =>
-  queryCollection('posts').where('draft', '=', false).where('path', 'LIKE', '/notes/%').order('date', 'DESC').all(),
+  queryCollection('posts').select(...entrySummaryFields).where('draft', '=', false).where('path', 'LIKE', '/notes/%').order('date', 'DESC').all(),
 )
 </script>
 

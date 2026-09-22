@@ -53,6 +53,12 @@ docs/                         本目录
 
 ## 数据流
 
+数据精简的完整实现说明、字段清单与前后测量见 [页面数据精简](payload-optimization.md)。
+
+列表与相关阅读统一使用 `entrySummaryFields` / `EntrySummary`，只读取标题、摘要、日期、路径、标签、阅读时长、标识与可选课程序号，不携带整篇 `body`。正文阅读页仍读取当前篇完整内容；搜索为支持公式摘要保留正文数据。课程前后篇独立只查询当前课程的 path/title/date/order，不混入其他课程或草稿。
+
+回归：`node --experimental-strip-types scripts/check-reading-polish.mjs --built` 验证课程边界和生成 payload 不含列表正文；本地开发服务运行在 127.0.0.1:3000 后，可添加 `--live` 检查筛选网址的服务端输出。2026-09-22 同内容构建对比：首页未压缩 payload 从 430326 降到 6667 字节，黑洞文章从 413606 降到 131561 字节；这些是构建数据文件大小，不是总页面传输量或测速结果。
+
 学习笔记复用 `posts` 集合：内容源包括 `posts/*.md` 与 `notes/*/*.md`，分别保留 `/posts` 和 `/notes` 路径前缀，因此归档、标签和分节搜索共用索引与草稿过滤。首页按路径拆分文章与笔记，不混入最近文章或精选文章。
 
 `TimelineArchive.vue` 统一渲染全部归档、全部笔记、单课程笔记；`RecentEntries.vue` 统一渲染首页最近文章和最近笔记；`ArticleReader.vue` 统一处理文章/笔记正文。`courses.ts` 是课程注册表，`/notes` 的普通链接让静态生成器发现所有课程页面，包括空课程。课程磁盘目录用 `.gitkeep` 保留。

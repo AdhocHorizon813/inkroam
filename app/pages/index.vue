@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { entrySummaryFields } from '~/utils/entry-summary'
 useSeoMeta({
   title: '首页',
   description: '关于技术、生活与长期思考的个人博客。',
 })
 
 const { data: posts } = await useAsyncData('home-posts', () =>
-  queryCollection('posts')
+  queryCollection('posts').select(...entrySummaryFields)
     .where('draft', '=', false)
     .where('path', 'LIKE', '/posts/%')
     .order('pinned', 'DESC')
@@ -14,7 +15,7 @@ const { data: posts } = await useAsyncData('home-posts', () =>
 )
 
 const { data: featuredPosts } = await useAsyncData('home-featured-posts', () =>
-  queryCollection('posts')
+  queryCollection('posts').select(...entrySummaryFields)
     .where('draft', '=', false)
     .where('path', 'LIKE', '/posts/%')
     .where('featured', '=', true)
@@ -23,7 +24,7 @@ const { data: featuredPosts } = await useAsyncData('home-featured-posts', () =>
 )
 
 const { data: notes } = await useAsyncData('home-notes', () =>
-  queryCollection('posts').where('draft', '=', false).where('path', 'LIKE', '/notes/%').order('date', 'DESC').all(),
+  queryCollection('posts').select(...entrySummaryFields).where('draft', '=', false).where('path', 'LIKE', '/notes/%').order('date', 'DESC').all(),
 )
 
 type LatestPostCount = 5 | 10 | 'all'

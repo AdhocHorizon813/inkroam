@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { entrySummaryFields } from '~/utils/entry-summary'
 useSeoMeta({ title: '文章归档', description: '纸上漫游的全部文章与学习笔记，按时间排列。' })
 const { data: posts } = await useAsyncData('archive-posts', () =>
-  queryCollection('posts').where('draft', '=', false).order('date', 'DESC').all(),
+  queryCollection('posts').select(...entrySummaryFields).where('draft', '=', false).order('date', 'DESC').all(),
 )
 </script>
 

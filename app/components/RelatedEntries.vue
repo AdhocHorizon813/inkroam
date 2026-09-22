@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import type { PostsCollectionItem } from '@nuxt/content'
+import { entrySummaryFields } from '~/utils/entry-summary'
+import type { EntrySummary } from '~/utils/entry-summary'
 import { relatedEntries } from '~/utils/topics'
-const props = defineProps<{ current: PostsCollectionItem }>()
+const props = defineProps<{ current: EntrySummary }>()
 const { data } = await useAsyncData('related-public-entries', () =>
-  queryCollection('posts').where('draft', '=', false).order('date', 'DESC').all(),
+  queryCollection('posts').select(...entrySummaryFields).where('draft', '=', false).order('date', 'DESC').all(),
 )
 const related = computed(() => relatedEntries(props.current, data.value || []))
 </script>

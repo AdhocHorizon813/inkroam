@@ -6,6 +6,7 @@
 | --- | --- |
 | [todo.md](todo.md) | 后续待办与调研：话题聚合、标签目录及入口可发现性 |
 | [architecture.md](architecture.md) | 技术栈、目录结构、渲染模型、数据流与 SEO |
+| [payload-optimization.md](payload-optimization.md) | 页面数据精简的代码改法、保留能力、前后实测及复现方法 |
 | [visual-system.md](visual-system.md) | 双主题视觉系统：颜色、字体、排版、材质、背景 |
 | [aesthetic-principles.md](aesthetic-principles.md) | 审美原则：克制、动效性格、层次与取舍（几乎不含代码） |
 | [motion-and-interaction.md](motion-and-interaction.md) | 缓动曲线、导航指示器、面板展开、路由动画 |

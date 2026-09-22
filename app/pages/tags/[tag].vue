@@ -1,18 +1,23 @@
 <script setup lang="ts">
+import { entrySummaryFields } from '~/utils/entry-summary'
 import { getTagName } from '~/utils/tags'
 
 const route = useRoute()
+const router = useRouter()
 const tag = computed(() => getTagName(String(route.params.tag)))
 
 const { data: allPosts } = await useAsyncData(`tag-posts-${tag.value}`, () =>
-  queryCollection('posts').where('draft', '=', false).order('date', 'DESC').all(),
+  queryCollection('posts').select(...entrySummaryFields).where('draft', '=', false).order('date', 'DESC').all(),
 )
 const posts = computed(() => allPosts.value?.filter(post => post.tags?.includes(tag.value)) || [])
-const kind = ref<'all' | 'posts' | 'notes'>('all')
+const kind = computed<'all' | 'posts' | 'notes'>({
+  get: () => route.query.type === 'posts' || route.query.type === 'notes' ? route.query.type : 'all',
+  set: value => { void router.replace({ query: { ...route.query, type: value === 'all' ? undefined : value }, hash: route.hash }) },
+})
+const directoryQuery = computed(() => typeof route.query.q === 'string' ? route.query.q : undefined)
 const filters = [{ value: 'all', label: '全部' }, { value: 'posts', label: '文章' }, { value: 'notes', label: '笔记' }] as const
 const countFor = (value: string) => posts.value.filter(post => value === 'all' || post.path.startsWith(`/${value}/`)).length
 const visiblePosts = computed(() => posts.value.filter(post => kind.value === 'all' || post.path.startsWith(`/${kind.value}/`)))
-watch(tag, () => { kind.value = 'all' })
 
 useSeoMeta({
   title: () => `标签：${tag.value}`,
@@ -23,7 +28,7 @@ useSeoMeta({
 <template>
   <main class="standard-page">
     <header class="page-intro compact-intro">
-      <NuxtLink class="back-link" to="/tags">← 全部话题</NuxtLink>
+      <NuxtLink class="back-link" :to="{ path: '/tags', query: { q: directoryQuery } }">← 全部话题</NuxtLink>
       <p class="eyebrow">TOPIC</p>
       <h1>“{{ tag }}”</h1>
       <p>共 {{ posts.length }} 篇内容 · 文章与笔记</p>

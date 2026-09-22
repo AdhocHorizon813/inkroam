@@ -2,6 +2,7 @@
 title: 笔记标题
 description: 本节学习内容与关键问题。
 date: 2026-09-19
+# order: 1 # 可选：课程内阅读顺序，越小越靠前
 tags: []
 readingTime: 5 分钟
 aiGenerated: false
