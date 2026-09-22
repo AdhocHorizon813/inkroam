@@ -2,7 +2,7 @@
 title: 黑色星期一
 description: 记录 2026 年 9 月 21 日这一天。
 date: 2026-09-21
-tags: [日记, 生活, 随笔]
+tags: [随笔]
 readingTime: 4 分钟
 aiGenerated: false
 aiAssisted: false
