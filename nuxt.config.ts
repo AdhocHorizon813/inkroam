@@ -17,6 +17,16 @@ export default defineNuxtConfig({
     },
   },
   nitro: {
+    hooks: {
+      'prerender:generate'(route) {
+        if (route.route !== '/404.html' || typeof route.contents !== 'string') return
+        const base = ((globalThis as any)?.process?.env?.BASE_PATH || '/') as string
+        const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+        // Nuxt's static 404 is a client fallback. Keep a way out without JS.
+        const fallback = `<noscript><div class="site-shell"><main class="standard-page"><header class="page-intro"><p class="eyebrow">404 / PAGE NOT FOUND</p><h1>这一页不在这里。</h1><p>可以从首页、归档或搜索继续浏览。</p></header><p><a class="text-link" href="${escape(base)}">返回首页</a></p><p><a class="text-link" href="${escape(base)}archive/">浏览归档</a></p><p><a class="text-link" href="${escape(base)}search/">搜索文章与笔记</a></p></main></div></noscript>`
+        route.contents = route.contents.replace('</body>', `${fallback}</body>`)
+      },
+    },
     prerender: {
       failOnError: true,
     },

@@ -10,10 +10,13 @@
 
 ## 阅读功能
 
+- **复制链接**：文章与笔记页尾提供复制本文链接入口，去除查询参数和章节锚点；剪贴板不可用时显示可手动复制的地址。
+
 - **文章目录**：由正文的二、三级标题自动生成，标记当前章节；电脑和手机均支持带缓动的展开、收起，点击目录在页内平滑滚动到章节。
 - **全文搜索**：按文章归并标题和正文匹配，关键词高亮；每篇先展示三处命中，其余可展开，章节链接可直接定位。
 - **阅读设置**：右下角面板提供主题、材质和背景调整，滚动区域上下边缘使用对称淡出过渡。
 - **最近内容数量**：最近文章与最近笔记分别设置 5 篇、10 篇或所有，独立保存到浏览器。
+- **错误页**：找不到页面时提供首页、归档与搜索入口；静态 404 另有禁用 JavaScript 时的返回链接。
 
 内容格式与搜索规则见 [内容创作指南](docs/content-authoring.md)，目录和面板维护见 [界面组分](docs/ui-components.md)。
 
@@ -65,6 +68,10 @@ $env:BASE_PATH='/inkroam/'; npm run generate; npm run preview
 
 ## 部署
 
+### 回归检查
+
+`npm run check` 运行不需要构建或浏览器的逻辑检查。先以 `BASE_PATH=/inkroam/` 生成静态站点，再运行 `npm run check -- --built`，额外检查内容产物和站内链接（既有构建测试以生产子路径为基准）。已有根路径开发服务 `localhost:3000` 时可追加 `--live`，检查笔记搜索和 PDF 服务响应。测试不替代真实浏览器下的布局、动效及权限验收。
+
 推送到 `main` 即触发 GitHub Actions：`npm run generate` → 上传 `.output/public` → 发布到 GitHub Pages 的 `/inkroam/` 子路径。也可以在仓库 Actions 页面手动触发（`workflow_dispatch`）。
 
 细节与排查见 [`docs/deployment-github-pages.md`](docs/deployment-github-pages.md)。
@@ -72,6 +79,8 @@ $env:BASE_PATH='/inkroam/'; npm run generate; npm run preview
 ## 文档
 
 About 页在原有正文后设有原创角色「林澈 / Lin Che」的小节。插图位于 `public/images/lin-che.png`，共享两种视觉模式的排版与颜色变量；布局和换图注意事项见 [视觉系统](docs/visual-system.md#about-页的-another-resident)。
+
+该模块的源码回归检查：`node scripts/check-about-resident.mjs`；静态生成后加 `--built` 检查部署路径与图片产物。实际响应式和主题视觉仍需浏览器验收。
 
 首页“按话题探索”提供常用主题入口，话题页支持全部/文章/笔记筛选，正文“继续阅读”自动关联同主题内容（不依据 AI 模型归属标签推荐）。
 

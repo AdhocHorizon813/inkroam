@@ -127,6 +127,7 @@ watch(() => route.fullPath, async () => {
       <span>完</span>
       <p>如果这篇文章与你产生了共鸣，欢迎继续阅读归档中的其他文字。</p>
       <NuxtLink class="text-link" to="/archive">查看全部归档 <span>↗</span></NuxtLink>
+      <CopyArticleLink />
     </footer>
 
     <ImageLightbox

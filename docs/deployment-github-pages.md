@@ -56,6 +56,16 @@ npm run preview
 
 ## 常见构建失败
 
+### 自定义错误页
+
+`app/error.vue` 负责 404 与其他运行错误，复用主题变量和外观设置，不显示错误堆栈或内部消息。恢复入口使用带 `app.baseURL` 的普通链接，完整重新加载目标页。
+
+静态生成的 `404.html` 是 Nuxt 客户端 fallback：正常开启 JavaScript 时由客户端识别不存在的路由并显示错误页。`nuxt.config.ts` 的 `prerender:generate` 钩子仅给该文件补充 `<noscript>` 首页/归档/搜索链接，供禁用 JavaScript 时使用；搜索本身仍需要 JavaScript。没有自动跳转或改写访问地址。此兜底不处理“JavaScript 已开启但资源下载失败”的情况。
+
+验收时检查 `.output/public/404.html` 的静态链接和 `_nuxt` 资源均带部署前缀；线上还需访问一个不存在的 URL 确认 Pages 返回 HTTP 404，而不是仅访问 `/404.html`。浏览器尚不可用时，不将主题切换及真实未知路由恢复记为已验收。
+
+自动回归：`node scripts/check-error-page.mjs` 验证根路径/子路径、HTML 属性转义、普通页面不受注入影响；生成后加 `--built` 检查 404 产物（默认 `/inkroam/`，可用 `BASE_PATH` 覆盖）。
+
 ### `/tags/...` 路由 prerender 500
 
 **症状**：`build` 作业在 `npm run generate` 阶段失败，日志里某个 `/tags/<中文或编码后的标签>` 路由返回 500。

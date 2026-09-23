@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { articleExcerptSections, excerptParts } from '~/utils/search-excerpt'
+import { groupSearchMatches } from '~/utils/search-results'
 useSeoMeta({
   title: '搜索',
   description: '搜索纸上漫游的全部文章、学习笔记与正文内容。',
@@ -61,12 +62,14 @@ const contentResults = computed(() => {
     .sort((a, b) => b.score - a.score || String(b.date).localeCompare(String(a.date)))
 })
 
+const matchesByPath = computed(() => groupSearchMatches(contentResults.value))
+
 const articleResults = computed(() => {
   const terms = searchTerms.value
   if (!terms.length) return []
   return (posts.value || []).map(post => {
     const titleMatch = terms.every(term => normalize(post.title).includes(term))
-    const matches = contentResults.value.filter(section => section.id.split('#')[0] === post.path)
+    const matches = matchesByPath.value.get(post.path) || []
     return { ...post, titleMatch, matches, score: titleMatch ? 100 : Math.max(0, ...matches.map(section => section.score)) }
   }).filter(post => post.titleMatch || post.matches.length)
     .sort((a, b) => b.score - a.score || b.date.localeCompare(a.date))
