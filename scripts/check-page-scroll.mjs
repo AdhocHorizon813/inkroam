@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  PAGE_SCROLLABLE_ATTRIBUTE, PAGE_SCROLLABLE_SETTLED_ATTRIBUTE, PAGE_SCROLL_QUERY, findHashTarget,
-  pageMaxScroll, pageNeedsScroll, pageScrollTop, rememberScrollPosition, resolveDestinationTop,
-  resolvePageScroller, scrollPageTo,
+  PAGE_SCROLLABLE_ATTRIBUTE, PAGE_SCROLLABLE_SETTLED_ATTRIBUTE, PAGE_SCROLLBAR_OFFSET_PROPERTY,
+  PAGE_SCROLLBAR_SIZE_PROPERTY, PAGE_SCROLL_QUERY, findHashTarget, pageMaxScroll, pageNeedsScroll,
+  pageScrollTop, rememberScrollPosition, resolveDestinationTop, resolvePageScroller, scrollPageTo,
 } from '../app/utils/page-scroll.ts'
 
 /* 经典滚动条的槽位在文档绘制区之外，永远只有 canvas 色；桌面把滚动搬进 .page-scroll
@@ -102,22 +102,27 @@ assert.equal(PAGE_SCROLLABLE_SETTLED_ATTRIBUTE, 'data-scrollable-settled')
 assert.equal(pageNeedsScroll({ scrollHeight: 901, clientHeight: 900 }), false, 'A single pixel may still be rounding')
 assert.equal(pageNeedsScroll({ scrollHeight: 902, clientHeight: 900 }), true)
 assert.equal(pageNeedsScroll({ scrollHeight: 900.4, clientHeight: 900 }), false, 'Sub-pixel rounding must not flash the bar')
-assert.match(css, /@property --page-scrollbar-alpha \{[\s\S]*?syntax: '<number>';[\s\S]*?inherits: true;/, 'A registered property is what makes the fade animatable')
-assert.match(css, /\.page-scroll\[data-scrollable='false'\] \{\s*--page-scrollbar-alpha: 0;/, 'The state only moves the alpha, never the element')
-/* 时长照原生滚动条的规则取（docs/scrollbar.md「参考规则」）：淡出先等 300ms
-   （Android 的 SCROLL_BAR_DEFAULT_DELAY）；两个方向的时长当前是 500ms（临时值）；
-   首帧例外由 data-scrollable-settled='false' 关掉延迟。 */
-assert.match(css, /\.page-scroll \{\s*--page-scrollbar-alpha: 1;[\s\S]*?transition: --page-scrollbar-alpha 500ms var\(--ease-fluid\);/, 'Fading in uses the current 500ms')
-assert.match(css, /\.page-scroll\[data-scrollable='false'\] \{\s*--page-scrollbar-alpha: 0;\s*transition-duration: 500ms;\s*transition-timing-function: var\(--ease-exit\);(?:\s|\/\*[\s\S]*?\*\/)*transition-delay: var\(--page-scrollbar-delay, 300ms\);/, 'Hiding waits, then fades on the exit curve')
+/* 自绘拇指（2026-09-25 追加）：原生拇指在容器不再可滚的那一瞬间就被浏览器撤掉，
+   实测内容变短后第一帧像素已回到底色，而状态还没变——淡出永远画不出来，所以外观
+   改由 .page-scrollbar__thumb 承担，原生拇指只保留行为（拖动/翻页/滚轮）。
+   Chrome/Edge 走这条；Firefox 没有 ::-webkit-* 伪元素，@supports 不匹配即回落原生。 */
+assert.match(css, /\.page-scrollbar \{ display: none; \}/, 'The drawn bar starts hidden')
+assert.match(css, /\.page-scroll::-webkit-scrollbar-thumb \{ background: transparent; \}/, 'The native thumb keeps its behaviour but loses its paint')
+assert.match(css, /\.page-scrollbar__thumb \{[\s\S]*?height: var\(--page-scrollbar-thumb-size, 0px\);[\s\S]*?transform: translateY\(var\(--page-scrollbar-thumb-offset, 0px\)\);[\s\S]*?transition: opacity 500ms var\(--ease-fluid\);/, 'Geometry comes from the composable, the fade-in from opacity')
+assert.match(css, /\.page-scrollbar \{[\s\S]*?pointer-events: none;/, 'Native drag, track paging and the wheel stay in charge')
+/* 淡出先等 300ms（Android 的 SCROLL_BAR_DEFAULT_DELAY），时长当前 500ms（临时值）；
+   延迟存在的意义是别让淡出和造成它的内容重排挤在同一帧。 */
+assert.match(css, /\.page-scroll\[data-scrollable='false'\] \.page-scrollbar__thumb \{[\s\S]*?opacity: 0;[\s\S]*?transition-duration: 500ms;[\s\S]*?transition-timing-function: var\(--ease-exit\);[\s\S]*?transition-delay: var\(--page-scrollbar-delay, 300ms\);/, 'Hiding waits, then fades on the exit curve')
 assert.match(css, /\.page-scroll\[data-scrollable-settled='false'\] \{ --page-scrollbar-delay: 0ms; \}/, 'The very first measurement must not wait')
+assert.match(css, /\.page-scrollbar__thumb,\s*\.page-scroll\[data-scrollable='false'\] \.page-scrollbar__thumb \{ transition: none; \}/, 'Reduced motion resets both fade directions')
+assert.doesNotMatch(css, /--page-scrollbar-alpha/, 'The color-mix opacity hack is gone: the drawn bar owns its opacity')
 assert.doesNotMatch(css, /\.page-scroll\[data-scrollable='true'\] \{[\s\S]*?transition:/, 'Coming back must not redeclare the transition: delay 0 comes from the base rule')
-assert.match(css, /background-color: color-mix\(in srgb, var\(--scrollbar-thumb\) calc\(var\(--page-scrollbar-alpha\) \* 100%\), transparent\)/)
 assert.match(css, /\.page-scroll::-webkit-scrollbar \{ width: 10px/, 'Same gutter as the native thin scrollbar')
 assert.match(css, /@supports selector\(::-webkit-scrollbar\) \{\s*\.page-scroll \{\s*scrollbar-width: auto/, 'Chrome only honours ::-webkit-scrollbar once scrollbar-width is auto')
 assert.doesNotMatch(css, /\.page-scroll::-webkit-scrollbar-button|\.page-scroll::-webkit-scrollbar-corner/, 'Arrow buttons and the corner are none of our business')
 assert.match(css, /\.page-scroll::-webkit-scrollbar-track \{ background: transparent; \}/, 'The track keeps revealing the ambient layer')
-assert.doesNotMatch(/\.page-scroll::-webkit-scrollbar-thumb \{([\s\S]*?)\n  \}/.exec(css)[1], /transition:/, 'Native scrollbar pseudo-elements never repaint transitions')
-assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\/\*[^\n]*\*\/\s*\.page-scroll, \.page-scroll\[data-scrollable='false'\] \{ transition: none; \}/, 'Reset the delay too: the global reduced-motion rule only zeroes the duration')
+assert.doesNotMatch(/(\.page-scroll::-webkit-scrollbar-thumb \{[^}]*\})/.exec(css)[1], /transition:/, 'Native scrollbar pseudo-elements never repaint transitions')
+assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.page-scrollbar__thumb,/, 'Reduced motion must switch off the drawn fade')
 assert.match(css, /html\.no-transition \.page-scroll \{ transition: none !important; \}/, 'Theme switching must not fade the bar')
 
 const composable = readFileSync('app/composables/usePageScrollable.ts', 'utf8')
@@ -127,6 +132,13 @@ assert.match(composable, /childList: true/, 'Page swaps replace children, so re-
 assert.match(composable, /PAGE_SCROLL_QUERY/, 'Touch devices fall back to native document scrolling')
 assert.match(composable, /PAGE_SCROLLABLE_SETTLED_ATTRIBUTE\) !== 'false'/, 'Only the first measurement skips the fade delay')
 assert.match(composable, /requestAnimationFrame\(\(\) => requestAnimationFrame\(/, 'One frame is still before the paint that starts the transition')
+assert.equal(PAGE_SCROLLBAR_SIZE_PROPERTY, '--page-scrollbar-thumb-size')
+assert.equal(PAGE_SCROLLBAR_OFFSET_PROPERTY, '--page-scrollbar-thumb-offset')
+assert.match(composable, /MIN_THUMB_SIZE = 40/, 'The thumb must stay grabbable')
+assert.match(composable, /PAGE_SCROLLBAR_SIZE_PROPERTY/, 'The composable owns the drawn thumb geometry')
+assert.match(composable, /onPageScroll\(scheduleThumb\)/, 'The thumb follows the container scroll, not window')
+assert.match(app, /<PageScrollbar \/>/)
+assert.match(error, /<PageScrollbar \/>/, 'The error page needs the same drawn bar')
 assert.match(app, /usePageScrollable\(pageScroll\)/)
 assert.match(error, /usePageScrollable\(pageScroll\)/, 'The error page needs the same bar state')
 
@@ -141,4 +153,4 @@ assert.doesNotMatch(catchAllError, /fatal/, 'Non-fatal keeps the dev terminal qu
 assert.doesNotMatch(catchAllError, /statusMessage/, 'h3 deprecates statusMessage for long messages')
 assert.match(catchAll, /<template>/, 'A template avoids the missing-render-function warning')
 
-console.log('PASS: desktop container scrolling, document fallback, remembered positions, encoded anchors, scrollbar fade state, and CSS/JS media-query coupling. No real browser pixel measurements.')
+console.log('PASS: desktop container scrolling, document fallback, remembered positions, encoded anchors, drawn scrollbar state/geometry and CSS/JS coupling. No real browser pixel measurements.')

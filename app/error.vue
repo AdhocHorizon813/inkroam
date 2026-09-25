@@ -46,6 +46,7 @@ useSeoMeta({
         </nav>
       </main>
     </div>
+    <PageScrollbar />
   </div>
   <AppearancePanel />
 </template>

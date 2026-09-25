@@ -19,15 +19,6 @@
 * { box-sizing: border-box; }
 /* Keep viewport width stable; scrollbar appearance comes from the same rules as the TOC. */
 html { scroll-behavior: smooth; overflow-y: scroll; }
-/* 滑动条透明度挂在一个可动画的注册属性上。
-   实测：::-webkit-scrollbar-thumb 上写 transition 也不会逐帧重绘，颜色直接跳变；
-   @property 注册过的自定义属性则可以被 transition 平滑，伪元素用 color-mix 读它。
-   细节、夹具与验收方法见 docs/scrollbar.md。 */
-@property --page-scrollbar-alpha {
-  syntax: '<number>';
-  inherits: true;
-  initial-value: 1;
-}
 
 /* 经典滚动条的槽位落在文档绘制区之外：fixed 图层和自绘轨道都盖不到它，那里永远只有 canvas
    （body 的背景色），紧挨一张底图时就是右边缘那条白边（实测同一行相邻像素差 94/255）。
@@ -37,6 +28,9 @@ html { scroll-behavior: smooth; overflow-y: scroll; }
    宽度也不变：容器 offsetWidth 仍是 1478，扣掉自己的滚动条后正文可用宽度与以前一致。
    手机（指针粗、无 hover）是覆盖式滚动条，本来就浮在内容上，保持原生文档滚动。
    app/utils/page-scroll.ts 的 PAGE_SCROLL_QUERY 必须与这条媒体查询保持一致。 */
+/* 自绘滑条默认不出现：只有支持 ::-webkit-scrollbar 的桌面环境（也就是能自绘的环境）才显示。 */
+.page-scrollbar { display: none; }
+
 @media (hover: hover) and (pointer: fine) {
   html { overflow-y: hidden; }
   .page-scroll {
@@ -59,43 +53,57 @@ html { scroll-behavior: smooth; overflow-y: scroll; }
   }
   .page-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
   .page-scroll::-webkit-scrollbar-track { background: transparent; }
-  .page-scroll::-webkit-scrollbar-thumb {
-    border: 2px solid transparent;
-    border-radius: 999px;
-    background-color: color-mix(in srgb, var(--scrollbar-thumb) calc(var(--page-scrollbar-alpha) * 100%), transparent);
-    background-clip: padding-box;
-  }
-  .page-scroll::-webkit-scrollbar-thumb:hover {
-    background-color: color-mix(in srgb, var(--scrollbar-thumb-hover) calc(var(--page-scrollbar-alpha) * 100%), transparent);
-  }
-  /* 滑条显隐：透明度挂在宿主元素上，伪元素只是读它。元素、轨道、槽位全程留着，
-     所以「能滚 ↔ 不能滚」不会让布局位移。
-     时长不按正文的动效约定走，而是照原生滚动条自己的规则（出处与实测值见
-     docs/scrollbar.md「参考规则」）：原生滑条**不淡入**，只做「先等一会儿，再很快地消失」
-     ——Android 300ms 延迟 + 250ms 淡出、Chrome 750ms + 100ms、Flutter 600ms + 300ms。
-     当前取值：延迟 300ms、时长 500ms（时长是临时拉长给肉眼看的，桌面区间本来是 150–200ms）。
-     拉长时间并不等于更显眼——原生滑条是靠「被关注时变粗、变实」表达状态的（Chrome 空闲厚度
-     只有激活态的 0.4 倍），淡入淡出本身只是收尾。
+  /* 原生拇指涂成全透明：外观交给下面自绘的那条，但拖动、轨道翻页、滚轮这些原生行为
+     仍然由它承担，所以它必须继续存在（只是看不见）。 */
+  .page-scroll::-webkit-scrollbar-thumb { background: transparent; }
+  /* 自绘拇指（app/components/PageScrollbar.vue）。为什么必须自绘：原生拇指在容器不再
+     可滚的那一瞬间就被浏览器撤掉——实测内容变短后第一帧像素已回到底色，而状态还没变，
+     所以淡出永远画不出来（见 docs/scrollbar.md）。槽位仍由 overflow-y: scroll 占着，
+     于是「只改透明度、不增删元素、布局不位移」这几条约定继续成立。
+     整块 pointer-events: none：拖动、轨道翻页、滚轮仍由那条透明的原生拇指承担，
+     这里只画外观，不重复实现一遍原生行为。
+     Firefox 没有 ::-webkit-* 伪元素，@supports 不匹配时整段不生效，那边保持原生细滚动条。
      不碰 ::-webkit-scrollbar-button / -corner：原生自绘滚动条本来就不画箭头。 */
-  .page-scroll {
-    --page-scrollbar-alpha: 1;
-    /* 淡入方向：只在这里声明 transition，离场那侧只覆盖时长/缓动/延迟，
-       免得把「只改透明度」的契约写成两套。 */
-    transition: --page-scrollbar-alpha 500ms var(--ease-fluid);
-  }
-  .page-scroll[data-scrollable='false'] {
-    --page-scrollbar-alpha: 0;
-    transition-duration: 500ms;
-    transition-timing-function: var(--ease-exit);
-    /* 先等 300ms 再消失：取消滚动能力往往伴随着内容重排，淡出挤在同一帧里会被它盖掉。 */
-    transition-delay: var(--page-scrollbar-delay, 300ms);
-  }
-  /* 首次测量（挂载后的第一帧）立刻到位：短页面不该先画出一条滑条，再等 300ms 才收起来。
-     usePageScrollable 先写 'false'，等这次绘制过去（两帧）再翻成 'true'。 */
-  .page-scroll[data-scrollable-settled='false'] { --page-scrollbar-delay: 0ms; }
-  @media (prefers-reduced-motion: reduce) {
-    /* 带上属性选择器：同权重再靠后，才能压住上面那条 transition-duration/-delay。 */
-    .page-scroll, .page-scroll[data-scrollable='false'] { transition: none; }
+  @supports selector(::-webkit-scrollbar) {
+    .page-scrollbar {
+      position: fixed;
+      inset: 0 0 0 auto;        /* 右缘那条 10px */
+      z-index: 40;              /* 要压住 sticky 顶栏（30），但在外观面板（80）之下 */
+      width: 10px;
+      display: block;
+      pointer-events: none;
+    }
+    .page-scrollbar__thumb {
+      position: absolute;
+      top: 0;
+      left: 2px;
+      right: 2px;
+      height: var(--page-scrollbar-thumb-size, 0px);
+      transform: translateY(var(--page-scrollbar-thumb-offset, 0px));
+      border-radius: 999px;
+      background-color: var(--scrollbar-thumb);
+      /* 淡入 500ms；离场那侧只覆盖时长/缓动/延迟，免得把「只改透明度」写成两套。 */
+      opacity: 1;
+      transition: opacity 500ms var(--ease-fluid);
+    }
+    /* 淡出先等 300ms（Android 的 SCROLL_BAR_DEFAULT_DELAY）再消失——延迟的意义是别让
+       淡出和造成它的内容重排挤在同一帧里。时长不按正文的动效约定走，而是照原生滚动条
+       自己的规则（出处与实测值见 docs/scrollbar.md「参考规则」）：原生滑条不淡入，
+       只做「先等一会儿，再很快地消失」；时长 500ms 是定稿值，刻意比桌面区间长。
+       拉长时间并不等于更显眼——原生滑条是靠「被关注时变粗、变实」表达状态的。 */
+    .page-scroll[data-scrollable='false'] .page-scrollbar__thumb {
+      opacity: 0;
+      transition-duration: 500ms;
+      transition-timing-function: var(--ease-exit);
+      transition-delay: var(--page-scrollbar-delay, 300ms);
+    }
+    /* 首次测量（挂载后的第一帧）立刻到位：短页面不该先画出一条滑条，再等 300ms 才收起来。
+       usePageScrollable 先写 'false'，等这次绘制过去（两帧）再翻成 'true'。 */
+    .page-scroll[data-scrollable-settled='false'] { --page-scrollbar-delay: 0ms; }
+    @media (prefers-reduced-motion: reduce) {
+      .page-scrollbar__thumb,
+      .page-scroll[data-scrollable='false'] .page-scrollbar__thumb { transition: none; }
+    }
   }
 }
 body {

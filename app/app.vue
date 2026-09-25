@@ -181,6 +181,7 @@ useHead(() => ({
         <span>© {{ new Date().getFullYear() }} 纸上漫游</span>
       </footer>
     </div>
+    <PageScrollbar />
   </div>
   <AppearancePanel />
 </template>

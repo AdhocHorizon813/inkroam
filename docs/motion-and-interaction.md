@@ -19,7 +19,7 @@
 
 ## 滚动条显隐（2026-09-25）
 
-页面滑条的淡入淡出**不能**写在 `::-webkit-scrollbar-thumb` 上：Chrome 不会对它逐帧重绘，实测颜色直接跳变（夹具判定见 [scrollbar.md](scrollbar.md)）。透明度因此做在宿主元素上——`@property` 注册 `--page-scrollbar-alpha`，`.page-scroll` 上 `transition: --page-scrollbar-alpha 200ms var(--ease-fluid)`，伪元素用 `color-mix` 读它。**时长不跟正文的动效约定走，而是照原生滚动条自己的**：淡入 200ms，淡出 200ms 但先等 300ms（原生滑条不做淡入、只做「先等再很快消失」，Android 300/250、Chrome 750/100、Flutter 600/300；小元素上「更显眼」靠对比度不靠时长，出处与实测值见 [scrollbar.md](scrollbar.md) 的「参考规则」）。`prefers-reduced-motion` 与主题切换（`html.no-transition`）下把这条过渡关掉：那两个场景要的是立刻到位。
+页面滑条**自绘**：`::-webkit-scrollbar-thumb` 既不吃 `transition`（不逐帧重绘，夹具判定见 [scrollbar.md](scrollbar.md)），也会在容器不再可滚的那一瞬间被浏览器撤掉（内容变短的第一帧像素就回到底色，而状态还没写）——原生拇指的淡出无解。所以拇指交给 `app/components/PageScrollbar.vue`（整块 `pointer-events: none`，拖动/轨道翻页/滚轮仍由涂成透明的原生拇指承担），过渡写在它自己的 `opacity` 上。**时长不跟正文的动效约定走，而是照原生滚动条自己的**：定稿 500ms，淡出还要先等 300ms（原生滑条不做淡入、只做「先等再很快消失」，Android 300/250、Chrome 750/100、Flutter 600/300；小元素上「更显眼」靠对比度不靠时长。出处与实测值见 [scrollbar.md](scrollbar.md) 的「参考规则」）。`prefers-reduced-motion` 下这条过渡整个关掉：那个场景要的是立刻到位。
 
 ## 路由入场动画
 

@@ -4,9 +4,9 @@
 
 | 位置 | 谁在画 | 宽度 | 颜色 | 显隐 |
 | --- | --- | --- | --- | --- |
-| 页面（桌面） | 浏览器，规则写在 `main.css` 的 `.page-scroll` 里 | **10px** | `--scrollbar-thumb` / `--scrollbar-thumb-hover` | 内容不够长时淡出（`data-scrollable="false"`） |
+| 页面（桌面） | **自绘**（`PageScrollbar.vue` + `main.css`；原生拇指涂透明，只留拖动/翻页/滚轮） | **10px** | `--scrollbar-thumb` | 内容不够长时淡出（`data-scrollable="false"`） |
 | 页面（手机） | 系统覆盖式滚动条 | 不占位 | 系统 | 系统自动隐藏，我们不管 |
-| 文章目录 | 组件自绘（`ArticleToc.vue` 的槽 + 滑块） | 7px | 组件自己的 token | 只在目录溢出时出现 |
+| 文章目录 | 浏览器，`ArticleToc.vue` 里那个 `overflow-y: auto` 的 `<ol>`，走全局 7px 规则 | 7px | `--scrollbar-thumb` | 原生行为 |
 | 浮层内部（外观面板、下拉、日历） | 浏览器，全局 `*::-webkit-scrollbar` | 7px | `--scrollbar-thumb` | 原生行为 |
 
 正文内部的滚动（目录槽、浮层列表）本来就在页面绘制区里，没有问题。下面这套规则只为解决**页面滚动条槽位**那个特例。
@@ -38,45 +38,54 @@
 - 滚动位置一律经 `app/utils/page-scroll.ts` 读写；`window.scrollY` 只对文档滚动有效。
 - `app/router.options.ts` 自己实现 `scrollBehavior`（vue-router 只会滚 `window`）。细节见 [visual-system.md](visual-system.md) 的「滚动容器」一节。
 
-## 显隐：只改透明度，元素一直都在
+## 显隐：拇指自己画，只改透明度
 
 需求原话是「页面无需滑动时不显示滑条，需要时淡入、不用了淡出，且只改透明度，不增删元素」——因为增删元素会让 `overflow-y: scroll` 预留的槽位跟着出现／消失，整页横移。
 
-做法：容器上挂一个状态属性，CSS 把它翻译成透明度。
+**为什么最后落到自绘**：一开始想在原生拇指上做透明度（`@property --page-scrollbar-alpha` + `color-mix`），淡出确实动起来了——但那只有在**内容仍然很长**、只是手写状态属性时才看得到。真实路径上「内容变短」正是容器不再可滚的那一瞬间，浏览器会立刻停止绘制原生拇指：夹具 `tmp/fade-cut-fixture.html`（`tmp/probe-cut.mjs`）实测，内容变短后**第一帧**拇指像素就回到底色 `16,20,24`，而此刻状态属性还没写、alpha 还是 `1`。**原生拇指的淡出是无解的，只能自己画一条。**
+
+现在的分工：
 
 ```css
-.page-scroll { --page-scrollbar-alpha: 1; transition: --page-scrollbar-alpha 200ms var(--ease-fluid); }
-.page-scroll[data-scrollable='false'] {
-  --page-scrollbar-alpha: 0;
-  transition-duration: 200ms;
-  transition-timing-function: var(--ease-exit);
-  transition-delay: var(--page-scrollbar-delay, 300ms);      /* 先等一会儿，再很快消失 */
+.page-scrollbar { display: none; }                     /* 只在支持 ::-webkit-scrollbar 的桌面环境里显示 */
+@supports selector(::-webkit-scrollbar) {
+  .page-scrollbar { position: fixed; inset: 0 0 0 auto; width: 10px; z-index: 40; display: block; pointer-events: none; }
+  .page-scrollbar__thumb {
+    height: var(--page-scrollbar-thumb-size, 0px);      /* 几何由 usePageScrollable 写 */
+    transform: translateY(var(--page-scrollbar-thumb-offset, 0px));
+    background-color: var(--scrollbar-thumb);
+    opacity: 1; transition: opacity 500ms var(--ease-fluid);
+  }
+  .page-scroll[data-scrollable='false'] .page-scrollbar__thumb {
+    opacity: 0;
+    transition-duration: 500ms;
+    transition-timing-function: var(--ease-exit);
+    transition-delay: var(--page-scrollbar-delay, 300ms);   /* 先等一会儿，再很快消失 */
+  }
+  .page-scroll[data-scrollable-settled='false'] { --page-scrollbar-delay: 0ms; }   /* 首帧不等 */
 }
-.page-scroll[data-scrollable-settled='false'] { --page-scrollbar-delay: 0ms; }   /* 首帧不等 */
-.page-scroll::-webkit-scrollbar-thumb {
-  background-color: color-mix(in srgb, var(--scrollbar-thumb) calc(var(--page-scrollbar-alpha) * 100%), transparent);
-}
+.page-scroll::-webkit-scrollbar-thumb { background: transparent; }   /* 原生拇指只留行为 */
 ```
 
-- **谁写**：`app/composables/usePageScrollable.ts`（`app.vue` 与 `error.vue` 各调一次）。它盯子元素尺寸（`ResizeObserver`）、子元素增删（`MutationObserver`，页面切换会换掉子元素）和窗口尺寸。
+- **谁画**：`app/components/PageScrollbar.vue`（`app.vue` 与 `error.vue` 各放一个）。整块 `pointer-events: none`：拖动、轨道翻页、滚轮仍由那条**透明的原生拇指**承担，自绘的只负责外观，不重复实现一遍原生行为。
+- **谁写状态与几何**：`app/composables/usePageScrollable.ts`。盯子元素尺寸（`ResizeObserver`）、子元素增删（`MutationObserver`，页面切换会换掉子元素）、窗口尺寸与滚动（经 `onPageScroll`，一帧最多算一次），写 `data-scrollable` 与 `--page-scrollbar-thumb-size/-offset` 两个变量。
 - **判据**：`pageNeedsScroll()`（`app/utils/page-scroll.ts`）＝ `scrollHeight - clientHeight > 1`。留 1px 容差，子像素舍入不该让滑条闪一下。
-- **手机**：覆盖式滚动条不占位，容器本身也不滚，直接摘掉属性（CSS 的基线是「看得见」）。
-- **时长照原生滑条取，不照正文的动效约定取**：淡入 200ms（`fluid`），淡出 200ms（`exit`）但**先等 300ms**。理由见下一节——原生滑条根本不淡入，只做「先等一会儿，再很快地消失」，而 300ms 延迟的作用是别让淡出和造成它的内容重排挤在同一帧。
-- **首帧是唯一例外**：`data-scrollable-settled='false'` 把延迟关掉，短页面不该先画出一条滑条再等 300ms 收起来；两帧后（这次绘制已经过去）翻成 `'true'`，之后每次变更才带延迟。属性仍由 JS 在挂载后写，所以短页面可能先画出滑条再淡出（200ms）。改 `overflow: auto` 能避免这一帧，但会带来真正的布局位移，不换。
-- `prefers-reduced-motion` 与主题切换（`html.no-transition`）都把这条过渡关掉：这两个场景下要的是立刻到位。注意**延迟**也要一起关：全局那条 `* { transition-duration: .01ms !important }`（约 730 行）只兜时长、不兜延迟，所以减动效规则得写成 `.page-scroll, .page-scroll[data-scrollable='false']`——带上属性选择器（同权重靠后）才能把 `transition-delay` 一并清掉。实测计算值 `none 1e-05s 0s`。
+- **几何**：拇指高 = `min(轨道高, max(40px, 轨道高² / scrollHeight))`（`MIN_THUMB_SIZE = 40`，再短就抓不住），位移按 `scrollTop / (scrollHeight - clientHeight)` 等比。不能滚时给满高——反正它已经淡到 0，但下一次「变长再淡回来」时尺寸得是对的。
+- **手机**：覆盖式滚动条不占位，容器本身也不滚，直接摘掉属性，自绘那条 `display: none`（`@supports` 不匹配同理，见「平台差异」）。
+- **首帧是唯一例外**：`data-scrollable-settled='false'` 把延迟关掉，短页面不该先画出一条滑条再等 300ms 收起来；两帧后（这次绘制已经过去）翻成 `'true'`，之后每次变更才带延迟。属性仍由 JS 在挂载后写，所以短页面可能先画出滑条再淡出。改 `overflow: auto` 能避免这一帧，但会带来真正的布局位移，不换。
+- `prefers-reduced-motion` 下自绘那条的过渡整个关掉（两个方向都要写，见 `main.css`）：这个场景要的是立刻到位。
 
-实测（headless Chrome，1500×900，深色主题；`tmp/probe-fade.mjs`）：
+实测（headless Chrome，1500×900，深色主题；`tmp/probe-bar.mjs`，打在本机 dev server 上）：
 
 | 状态 | 实测 |
 | --- | --- |
-| 长文章，能滚 | `attr=true`、`settled=true`、槽位 10px、拇指 `66,74,91`、计算值 `--page-scrollbar-alpha 0.2s 0s` |
-| 淡出 alpha 曲线 | `0–290ms` 恒为 **1.00**（就是那 300ms 延迟），然后 `330ms 0.99 → 431ms 0.73 → 542ms 0.00` |
-| 淡入 alpha 曲线 | `60ms 0.85 → 220ms 1.00`，之后保持 1.00 |
-| 淡出像素 | `318ms` 仍是 `66,74,91`；`673ms` `65,73,91`（中间值＝真的在渐变）；`977ms` `23,32,53`（与轨道同色＝看不见） |
-| 短页（404） | `attr=false`、`settled=true`、槽位仍 **10px**、拇指 `23,32,53` |
-| 减动效（`prefers-reduced-motion: reduce`） | 计算值 `transition: none`，写入属性后的第一帧就是 `1.00` |
+| 长文章，能滚 | 条子 `display:block / pointer-events:none`、拇指 `opacity=1`、高 372px、槽位仍 **10px**、像素 `66,74,91` |
+| 内容**真的变短** | `7ms` 仍是 `66,74,91` → `430ms` `α=0.976 / px=64,72,90`（**中间态，看得见**）→ `889ms` `α=0 / px=22,32,53` |
+| 内容再变长 | `α = 0 → 0.987 → 1`，像素 `41,50,69 → 66,74,91` |
+| 滚动 600px | 位移变量 `translateY(248px)`，拇指跟得上 |
+| 对照：原生拇指（`tmp/probe-cut.mjs`） | 内容变短的**第一帧**像素就回到底色 `16,20,24`，而 alpha 仍是 `1`——淡出无解，这正是自绘的理由 |
 
-稳定后的计算值是长文 `0.2s 0s`、短页 `0.2s 0.3s`：那个 `0.3s` 只出现在**首次测量之后**的变更上——页面加载时的第一次显隐发生在 `settled='false'` 期间，不带延迟。探针里这段属 `F` 段（减动效）与 `D` 段（404）。
+淡出的手感：`300ms` 延迟 + `500ms` 的 `exit` 曲线（加速型，起步慢），所以前 0.3 秒像素纹丝不动，之后才明显掉下来——这是原生滑条自己的节奏，不是卡顿。
 
 ## 参考规则：原生滚动条怎么淡出（2026-09-25 补）
 
@@ -97,31 +106,29 @@
 
 由此定下三条：
 
-1. **淡出 = 先等，再很快消失。** 等的那一下把「滑条消失」和造成它的内容重排分成两件事；挤在同一帧里就会被变化盲视吃掉。我们取 300ms 延迟（Android，各家最保守）+ 200ms 淡出。
-2. **淡入短一点。** 200ms，落在 Material 的桌面区间（150–200ms）里。原生滑条连淡入都没有——它是被交互「叫出来」的；我们这里是内容高度变化自动触发，所以留一个短淡入，但不拉长：时间越长，越容易被当成背景变化忽略掉。
+1. **淡出 = 先等，再很快消失。** 等的那一下把「滑条消失」和造成它的内容重排分成两件事；挤在同一帧里就会被变化盲视吃掉。我们取 300ms 延迟（Android，各家最保守）。**这条只有在拇指是自己画的前提下才有意义**——原生拇指在容器不再可滚的那一瞬间就被撤掉，等多久都白等。
+2. **时长定稿 500ms**（比 Material 的桌面区间 150–200ms 长，也超了它那条 400ms「too slow」——这是刻意取值，不是没查到规则）。原生滑条连淡入都没有——它是被交互「叫出来」的；我们这里是内容高度变化自动触发，所以留一个淡入。
 3. **要更显眼，动对比度，别动时间。** 3:1 是条明确的门槛：本页滑条在深色主题下是 `rgba(255,255,255,.22)`，压在那张底图上实测相邻像素 1.8:1（拇指 `66,74,91` vs 轨道 `23,32,53`），离 3:1 还差一截；要够 3:1 大约得把 alpha 提到 **0.35**。宽度同理——原生是用「被关注时变粗」表达状态的（Chrome 空闲 0.4 倍 → 激活 1.0 倍，Windows 细条 → 16px），我们槽位恒定 10px 是刻意取舍（换零位移）。**这些数值要改，先改 alpha，不要改时长。**
 
-## 一个必须记住的坑：原生滚动条不吃 transition
+## 两个必须记住的坑
 
-`::-webkit-scrollbar-thumb { transition: background-color … }` 在 Chrome 里**不会逐帧重绘**：颜色直接跳变。这不是优先级问题，也不是写法问题——把同样的 CSS 放进一张独立页面（夹具 `tmp/fade-fixture.html`，初始样式表，必定生效）里逐毫秒采样，红色到透明依旧是 1ms 内跳变。
+**一、原生滚动条不吃 transition。** `::-webkit-scrollbar-thumb { transition: background-color … }` 在 Chrome 里**不会逐帧重绘**：颜色直接跳变。这不是优先级问题，也不是写法问题——把同样的 CSS 放进一张独立页面（夹具 `tmp/fade-fixture.html`，初始样式表，必定生效）里逐毫秒采样，红色到透明依旧是 1ms 内跳变。
 
-只有两条路可选：
-
-1. **把透明度挪到宿主元素上**（现行做法）：`@property` 注册 `--page-scrollbar-alpha`（`syntax: '<number>'; inherits: true`），在 `.page-scroll` 上做 `transition`，伪元素用 `color-mix` 读它。夹具里同一套写法量到的序列是 `α=1 → 0.80 → 0.60 → 0.40 → 0.20 → 0`，像素 `251,0,1 → 204,5,7 → 156,10,13 → 109,15,20 → 61,19,26 → 16,24,32`。
-2. 自己画滑条（像文章目录那样）——更重，只有第 1 条走不通时才需要。
+**二、滑块消失得比状态还早。** 把透明度挪到宿主元素上（注册 `@property --page-scrollbar-alpha`，伪元素用 `color-mix` 读）确实让原生拇指的透明度能动起来，夹具里量到的序列是 `α=1 → 0.80 → 0.60 → 0.40 → 0.20 → 0`。但那只在**内容仍然很长**、只是手写状态时成立：真实路径上「内容变短」就是容器不再可滚的那一瞬，浏览器立刻停止绘制原生拇指（`tmp/probe-cut.mjs`：内容变短后第一帧像素已回到底色，alpha 还是 1）。所以**淡出必须由自绘的拇指承担**——也就是现在 `.page-scrollbar__thumb` 上那条 `opacity` 过渡；`@property` + `color-mix` 那套已经拆掉。
 
 顺带一条同源的经验：**运行时 `document.head.append(style)` 注入的滚动条伪元素规则也不会生效**，所以验收时必须让规则出现在初始样式表里（改源码 / HMR / 独立夹具），不能靠页面里临时插样式来测。
 
 ## 平台差异
 
-- **Chrome / Edge**：只写了 `scrollbar-width` 或 `scrollbar-color`，`::-webkit-scrollbar` 全套规则会被忽略。所以容器上用 `@supports selector(::-webkit-scrollbar)` 把这两个属性让回 `auto`，让自绘规则生效；宽度写死 10px 与原生细滚动条一致，正文宽度不变。
-- **Firefox**：没有 `::-webkit-*` 伪元素，保留全局的原生细样式（`scrollbar-width: thin` + 主题色）。代价是那条滑条没有淡入淡出——`@supports` 不匹配时整套自绘规则自然不生效。
-- **手机 / 触屏**：覆盖式滚动条浮在内容上，不需要也不该搬动文档滚动。
+- **Chrome / Edge**：只写了 `scrollbar-width` 或 `scrollbar-color`，`::-webkit-scrollbar` 全套规则会被忽略。所以容器上用 `@supports selector(::-webkit-scrollbar)` 把这两个属性让回 `auto`，让自绘规则生效；宽度写死 10px 与原生细滚动条一致，正文宽度不变。原生拇指在这里被涂成全透明（`background: transparent`），**但保留全部原生行为**：拖动、轨道翻页、滚轮都还在，自绘那条只画外观。
+- **内层滚动面**（外观面板、下拉、目录列表等）**刻意不动**：它们吃 `* { scrollbar-width: thin }`（约 1822 行），Chrome 因此忽略 `*::-webkit-scrollbar`，走的是**系统细滚动条**——在经典外观的系统上就是带上下三角按钮的那一条。2026-09-25 用户确认喜欢这个外观，**不要**把它改成自绘。副作用两条：那些地方没有 hover 变色（`--scrollbar-thumb-hover` 对系统条无效），所以内层与外层的滑条长得不一样是预期结果，不是漏样式。
+- **Firefox**：没有 `::-webkit-*` 伪元素，`@supports` 不匹配 → 自绘那条 `display: none`，保留全局的原生细样式（`scrollbar-width: thin` + 主题色）。代价是滑条没有淡入淡出——那边的原生拇指在我们这套机制下也撤得一样快，但至少不会出现两条。
+- **手机 / 触屏**：覆盖式滚动条浮在内容上，不需要也不该搬动文档滚动；自绘那条也是 `display: none`。
 
 ## 契约与验收
 
 - `PAGE_SCROLL_QUERY`（`app/utils/page-scroll.ts`）＝ `main.css` 里那条媒体查询，逐字一致。
-- `PAGE_SCROLLABLE_ATTRIBUTE` ＝ `'data-scrollable'`，CSS、composable 与检查脚本共用同一个常量名。
-- 槽位宽度、按钮／角落的清理、透明度只走 `--page-scrollbar-alpha`：都由 `scripts/check-page-scroll.mjs` 钉住（源码级，不做像素断言）。
-- 像素级验收靠探针：`tmp/probe-fade.mjs`（滑条状态与淡入淡出）、`tmp/probe-fade4.mjs` + `tmp/fade-fixture.html`（过渡机制判定）、`tmp/probe-adv-date.mjs`（浮层定位）。方法都是「临时 dev server + CDP + 截图回灌 canvas 取像素」。
+- `PAGE_SCROLLABLE_ATTRIBUTE` ＝ `'data-scrollable'`、`PAGE_SCROLLABLE_SETTLED_ATTRIBUTE` ＝ `'data-scrollable-settled'`、`PAGE_SCROLLBAR_SIZE_PROPERTY` / `PAGE_SCROLLBAR_OFFSET_PROPERTY` ＝ 两个几何变量：CSS、composable 与检查脚本共用同一批常量名。
+- 槽位宽度、按钮／角落的清理、自绘拇指的 CSS 契约（原生拇指透明、几何变量、`pointer-events: none`、两个方向的时长与延迟、首帧例外、减动效）：都由 `scripts/check-page-scroll.mjs` 钉住（源码级，不做像素断言）。
+- 像素级验收靠探针：`tmp/probe-bar.mjs`（自绘拇指状态、几何与真实淡出）、`tmp/probe-cut.mjs` + `tmp/fade-cut-fixture.html`（原生拇指为什么淡不出来）、`tmp/fade-fixture.html`（伪元素过渡机制判定）、`tmp/probe-adv-date.mjs`（浮层定位）。方法都是「dev server + CDP + 截图回灌 canvas 取像素」。
 

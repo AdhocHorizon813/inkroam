@@ -16,6 +16,11 @@ export const PAGE_SCROLLABLE_ATTRIBUTE = 'data-scrollable'
    两帧之后翻成 'true'，之后的每次变更才带淡出延迟。
    只有首帧不带延迟——短页面不该先画出一条滑条再等 300ms 收起来。 */
 export const PAGE_SCROLLABLE_SETTLED_ATTRIBUTE = 'data-scrollable-settled'
+/* 自绘拇指读的两个变量（app/components/PageScrollbar.vue）：像素高度与纵向位移，
+   由 usePageScrollable 在尺寸/滚动变化时写入。原生拇指在容器不再可滚的一瞬间就被
+   浏览器撤掉，淡出只能自己画，见 docs/scrollbar.md。 */
+export const PAGE_SCROLLBAR_SIZE_PROPERTY = '--page-scrollbar-thumb-size'
+export const PAGE_SCROLLBAR_OFFSET_PROPERTY = '--page-scrollbar-thumb-offset'
 const POSITION_KEY = 'paper-trail-scroll-positions'
 /* 刷新/回退时要还原的位置。vue-router 自带的记录读的是 window 的滚动量，
    搬进容器后恒为 0，所以自己按 fullPath 记一份。 */
