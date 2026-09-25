@@ -1,5 +1,13 @@
 # 界面组分：从顶栏到页脚
 
+## 默认设置确认弹窗（2026-09-26）
+
+完整规格见 [确认弹窗视觉与动效规范](appearance-confirm-design.md)：含尺寸、材质配方、按钮状态、入退场曲线、无障碍、与原有 Inkroam 的差异及复用边界。
+
+保留原生 dialog 的 top layer、焦点约束与 Esc 取消，以及确认后才应用的设置逻辑。UI 调整为380px上限的居中面板、26px圆角、19px标题、两级说明、42px操作按钮；取消为初始焦点。现代主题使用较高不透明度的柔和玻璃以保护可读性，纸媒使用纸面，窄屏按钮转为单列。不新增依赖，也不改变新老访客迁移或出厂值。
+
+420ms ease-settle 入场（8px位移/0.96缩放），160ms ease-exit 退场；CSS starting-style 与 display/overlay allow-discrete 保持原生dialog的进出过渡。不支持相关CSS的浏览器退化为直接显示/关闭。减少动效时快进，减少透明度时使用实底。dialogDefaultSettings 保留退场文案，pendingDefaultSettings 仍是业务待确认值。参考 [Apple Materials](https://developer.apple.com/design/human-interface-guidelines/materials)、[Alerts](https://developer.apple.com/design/human-interface-guidelines/alerts) 与 [macOS 27](https://www.apple.com/os/macos/)，不是对系统窗口的像素复刻。
+
 这篇文档按**界面组分**逐个讲：它由什么组成、为什么长这样、动效怎么走、哪些地方不能随便改。数值细节在 [visual-system.md](visual-system.md) 和 [motion-and-interaction.md](motion-and-interaction.md)，判断标准在 [aesthetic-principles.md](aesthetic-principles.md)；这里关注的是**它们怎么拼在一起**。
 
 ## 站点骨架
@@ -200,11 +208,13 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
   .appearance-panel              面板本体（关闭时 inert + aria-hidden）
     .appearance-panel__scroll
       .appearance-panel__header  标题 + 关闭按钮
-      .setting-group × 14        分组设置
+      .setting-group × 15        分组设置
       .appearance-panel__footer  状态提示 + 恢复默认
 ```
 
-十四组设置依次是：视觉风格、外观模式、最近文章、最近笔记、PDF 附件、导航材质、导航模糊、内容材质、内容模糊、背景氛围、背景材质、背景模糊、背景遮罩透明度、氛围色。其中**导航模糊 / 内容模糊 / 背景模糊 / 背景遮罩透明度四组是滑条**，其余是可切换选项。**材质分导航 / 内容 / 背景三条独立通道**，所以顶栏、卡片、背景可以各用各的质感。
+十五组设置依次是：视觉风格、默认设置、外观模式、最近文章、最近笔记、PDF 附件、导航材质、导航模糊、内容材质、内容模糊、背景氛围、背景材质、背景模糊、背景遮罩透明度、氛围色。其中**导航模糊 / 内容模糊 / 背景模糊 / 背景遮罩透明度四组是滑条**，其余是可切换选项。**材质分导航 / 内容 / 背景三条独立通道**，所以顶栏、卡片、背景可以各用各的质感。背景氛围的六张卡片依次是静谧纯色、主题纯色、极光渐变、暮色都市、夕空町市、自定义；默认「跟随」明暗（深色暮色都市、浅色夕空町市），点过任意一张之后就不再跟随，详见 [visual-system.md](visual-system.md#背景)。
+
+**「默认设置」（第二组，位于外观模式上方）管的是「这些值要不要跟着明暗走」**：启用时，导航/内容/下拉框/背景四组材质、四条模糊、背景遮罩透明度与背景氛围一律由系统按明暗取值，且**这些控件被禁用**（纸媒下开关自己也被禁用，走的是同一条 `.setting-group:disabled { opacity: .42 }`；受管组统一用 `managedDisabled = visual === 'classic' || defaultSettings`，氛围色那组故意不受开关影响）；禁用时这些控件恢复可用，而且**切换系统深浅色不会再改动它们**。切换开关会弹 `<dialog>` 二次确认（原生 `showModal()`：top layer + 焦点陷阱 + Esc 关闭），取消/Esc 不动状态，确认后才落。「恢复默认」＝ 开关启用 + 当前明暗的出厂值。
 
 ### 审美
 
@@ -231,6 +241,8 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 - 关闭时面板 `scrollTop` 归零，下次打开从顶部开始；
 - 自定义背景在上传时就压缩成 webp data URL（最长边 1920、质量 .82）并校验体积，避免塞爆 localStorage；
 - 旧版存储键（v4）会做一次迁移，原来的单个 `blur` 被拆成 `navBlur` / `contentBlur`。
+- 背景氛围默认「跟随明暗」（深色暮色都市 / 浅色夕空町市）。旧存储里没有 `backgroundPicked` 标记，所以 v5 里那个默认的 `background: 'art'` 会被当成「没选过」迁移成跟随；带上标记的手选值一律原样保留。回归命令：`node --experimental-strip-types scripts/check-reading-appearance.mjs`。
+- **新老隔离的判据只有一条：localStorage 里有没有痕迹**。一个键都没有＝新访客（开关启用、受管项取当前明暗的新默认）；有任何痕迹＝老访客（开关禁用，除非存储里写着 `defaultSettings: true`；他存过的值原样保留，**缺的键落回 v5 时代的 `LEGACY_DEFAULTS`**，也就是改动前的观感）。`state` 的初值同样取 `LEGACY_DEFAULTS`，所以 SSR 首帧与老访客都不会被新默认顶掉。**注意 `localhost:3000` / `localhost:3001` / `127.0.0.1:3000` 是三个 origin、三套 localStorage**——换地址访问会看起来像「设置全没了」。
 - **禁用态收敛成一条规则**：材质类分组是 `fieldset`，直接用原生 `:disabled`；四个滑条组是 `div`（`fieldset` 不能包滑条，布局会变），只能靠 `aria-disabled='true'`。两者在 CSS 里并成同一条 `.setting-group:disabled, .setting-group[aria-disabled='true'] { opacity: .42 }`，所以纸媒模式下材质按钮与滑条的淡化程度完全一致；滑条内的 `input[type='range']` 也带 `:disabled`，禁用时无法拖动，`aria-disabled` 只是补足视觉与语义。
 
 ## 首页

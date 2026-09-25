@@ -382,6 +382,10 @@ button { font: inherit; }
 :root[data-visual='modern'][data-background='custom'] .ambient-image {
   background-image: var(--custom-background), var(--art-background);
 }
+/* 夕空町市：与暮色都市共用同一条图片管线，只换底图；压暗 / 提亮仍由明暗模式与背景材质决定。 */
+:root[data-visual='modern'][data-background='dusk'] .ambient-image {
+  background-image: url('/images/yuzoramachi.png');
+}
 
 :root[data-visual='modern'] .ambient-aurora {
   position: absolute;
@@ -710,6 +714,74 @@ button { font: inherit; }
 .appearance-panel__footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 15px; border-top: 1px solid rgba(255, 255, 255, .1); }
 .appearance-panel__footer span { max-width: 235px; color: rgba(232, 235, 253, .48); font-size: 9px; line-height: 1.5; }
 .appearance-panel__footer button { flex: 0 0 auto; padding: 0; border: 0; background: none; color: color-mix(in srgb, var(--modern-accent) 76%, white); font-size: 10px; cursor: pointer; }
+/* 「默认设置」的二次确认弹窗：借用面板的材质、圆角与阴影，靠 <dialog> 的 top layer 盖住任何叠层。
+   面板在打开时是 inert 之外的元素，弹窗由面板里的按钮唤起，两者可以同时在场。 */
+.appearance-confirm {
+  width: min(380px, calc(100vw - 40px));
+  max-height: calc(100dvh - 40px);
+  box-sizing: border-box;
+  padding: 28px 26px 22px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: center;
+  box-shadow: 0 24px 70px rgb(0 0 0 / .2);
+  opacity: 0;
+  transform: translateY(6px) scale(.97);
+  transition: opacity 160ms var(--ease-exit), transform 160ms var(--ease-exit),
+    overlay 160ms allow-discrete, display 160ms allow-discrete;
+}
+.appearance-confirm[open] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition-duration: 420ms;
+  transition-timing-function: var(--ease-settle);
+}
+.appearance-confirm::backdrop {
+  background: rgb(8 12 20 / .22);
+  opacity: 0;
+  transition: opacity 160ms var(--ease-exit), overlay 160ms allow-discrete, display 160ms allow-discrete;
+}
+.appearance-confirm[open]::backdrop { opacity: 1; transition-duration: 320ms; }
+@starting-style {
+  .appearance-confirm[open] { opacity: 0; transform: translateY(8px) scale(.96); }
+  .appearance-confirm[open]::backdrop { opacity: 0; }
+}
+:root[data-visual='modern'] .appearance-confirm {
+  border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .14), 0 24px 70px rgb(0 0 0 / .24);
+  backdrop-filter: blur(28px) saturate(135%);
+  -webkit-backdrop-filter: blur(28px) saturate(135%);
+}
+:root[data-visual='modern'][data-color-mode='light'] .appearance-confirm {
+  /* Let blurred background colours remain visible instead of washing them out. */
+  background: rgb(250 250 248 / .68);
+  border-color: rgb(255 255 255 / .65);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .8), 0 22px 64px rgb(24 32 44 / .18);
+}
+.appearance-confirm__symbol { display: grid; place-items: center; width: 46px; height: 46px; margin: 0 auto 18px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.appearance-confirm__symbol svg { width: 24px; height: 24px; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; }
+.appearance-confirm__knobs { stroke: var(--ink); stroke-width: 3; }
+.appearance-confirm h2 { margin: 0 0 12px; font: 650 19px/1.4 var(--sans); letter-spacing: -.025em; }
+.appearance-confirm p { margin: 0; color: var(--ink); font: 13px/1.75 var(--sans); text-wrap: pretty; }
+.appearance-confirm p.appearance-confirm__detail { margin-top: 10px; color: var(--muted); font-size: 12px; }
+.appearance-confirm__actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 24px; }
+.appearance-confirm__actions button { min-height: 42px; padding: 10px 12px; border-radius: 13px; font: 550 13px/1.4 var(--sans); cursor: pointer; transition: background-color 180ms var(--ease-fluid), transform 160ms var(--ease-settle); }
+.appearance-confirm__actions button:active { transform: scale(.975); }
+.appearance-confirm__cancel { border: 1px solid var(--line); background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
+.appearance-confirm__cancel:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.appearance-confirm__accept { border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 22%, var(--paper)); color: var(--ink); }
+.appearance-confirm__accept:hover { background: color-mix(in srgb, var(--accent) 32%, var(--paper)); }
+.appearance-confirm__actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 380px) { .appearance-confirm { padding: 24px 20px 20px; } .appearance-confirm__actions { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) {
+  .appearance-confirm, .appearance-confirm[open], .appearance-confirm::backdrop, .appearance-confirm[open]::backdrop, .appearance-confirm__actions button { transition-duration: .01ms; transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-visual='modern'] .appearance-confirm { background: var(--paper); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
 .visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 .panel-fade-enter-active, .panel-fade-leave-active { transition: opacity 120ms var(--ease-exit); }
 .panel-fade-enter-from, .panel-fade-leave-to { opacity: 0; }
@@ -995,8 +1067,9 @@ button { font: inherit; }
 :root[data-visual='modern'] .ambient-backdrop {
   background: #101318;
 }
-:root[data-visual='modern'][data-background='flat'] .ambient-image,
-:root[data-visual='modern'][data-background='flat'] .ambient-aurora { display: none; }
+/* 两种纯色画布（静谧纯色 / 主题纯色）都没有图层可模糊，一起隐藏图片与极光。 */
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .ambient-image,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .ambient-aurora { display: none; }
 :root[data-visual='modern'] .ambient-aurora { opacity: .12; }
 :root[data-visual='modern'][data-background='aurora'] .ambient-aurora { opacity: .3; }
 :root[data-visual='modern'] .ambient-vignette {
@@ -1109,6 +1182,12 @@ button { font: inherit; }
   background: #eef0f2;
   box-shadow: inset 0 0 0 1px rgba(28, 34, 42, .1);
 }
+/* 主题纯色直接演示当前氛围色；夕空町市缩略图就是那张原图本身，不叠色偏。 */
+.background-swatch--theme { background: var(--modern-accent); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+:root[data-visual='modern'][data-color-mode='light'] .background-swatch--theme {
+  box-shadow: inset 0 0 0 1px rgba(28, 34, 42, .12);
+}
+.background-swatch--dusk { background-image: url('/images/yuzoramachi.png'); }
 :root[data-visual='classic'][data-theme='light'] .background-swatch--flat {
   background: var(--paper);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent);
@@ -1365,35 +1444,35 @@ button { font: inherit; }
 :root[data-visual='modern'][data-material='mica'] .manifesto,
 :root[data-visual='modern'][data-material='mica'] .standard-page,
 :root[data-visual='modern'][data-material='mica'] .article-page,
-:root[data-visual='modern'][data-background='flat'] .site-header,
-:root[data-visual='modern'][data-background='flat'] .hero,
-:root[data-visual='modern'][data-background='flat'] .latest-section,
-:root[data-visual='modern'][data-background='flat'] .manifesto,
-:root[data-visual='modern'][data-background='flat'] .standard-page,
-:root[data-visual='modern'][data-background='flat'] .article-page {
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .site-header,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .hero,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .standard-page,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .article-page {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
 /* Navigation keeps its floating rounded dock in every background (flat included). */
 
-:root[data-visual='modern'][data-background='flat'] .hero,
-:root[data-visual='modern'][data-background='flat'] .latest-section,
-:root[data-visual='modern'][data-background='flat'] .manifesto,
-:root[data-visual='modern'][data-background='flat'] .standard-page,
-:root[data-visual='modern'][data-background='flat'] .article-page {
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .hero,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .standard-page,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .article-page {
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
-:root[data-visual='modern'][data-background='flat'] .hero,
-:root[data-visual='modern'][data-background='flat'] .latest-section,
-:root[data-visual='modern'][data-background='flat'] .manifesto {
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .hero,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto {
   border-bottom: 1px solid var(--modern-line);
 }
-:root[data-visual='modern'][data-background='flat'] .latest-section { border-top: 1px solid var(--modern-line); }
-:root[data-visual='modern'][data-background='flat'] .manifesto { border-top: 0; }
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section { border-top: 1px solid var(--modern-line); }
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto { border-top: 0; }
 
 .panel-fade-enter-active,
 .panel-fade-leave-active {
@@ -1543,15 +1622,17 @@ button { font: inherit; }
   --surface-shadow: 0 12px 34px rgba(34, 39, 46, .08);
   --surface-saturation: 125%;
 }
-:root[data-visual='modern'][data-material='acrylic'][data-background]:not([data-background='flat']) .site-header {
+/* 只有「有图层的画布」（极光 / 两张图 / 自定义）才值得让玻璃去模糊底下的东西；
+   两种纯色画布（flat / theme）底下没有图层，和 flat 一样排除在玻璃之外。 */
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .site-header {
   backdrop-filter: blur(var(--nav-blur)) saturate(135%);
   -webkit-backdrop-filter: blur(var(--nav-blur)) saturate(135%);
 }
-:root[data-visual='modern'][data-material='acrylic'][data-background]:not([data-background='flat']) .hero,
-:root[data-visual='modern'][data-material='acrylic'][data-background]:not([data-background='flat']) .latest-section,
-:root[data-visual='modern'][data-material='acrylic'][data-background]:not([data-background='flat']) .manifesto,
-:root[data-visual='modern'][data-material='acrylic'][data-background]:not([data-background='flat']) .standard-page,
-:root[data-visual='modern'][data-material='acrylic'][data-background]:not([data-background='flat']) .article-page {
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .hero,
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .latest-section,
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .manifesto,
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .standard-page,
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .article-page {
   backdrop-filter: blur(var(--content-blur)) saturate(135%);
   -webkit-backdrop-filter: blur(var(--content-blur)) saturate(135%);
 }
@@ -1588,11 +1669,11 @@ button { font: inherit; }
   -webkit-backdrop-filter: none;
 }
 
-:root[data-visual='modern'][data-material='liquid'][data-background]:not([data-background='flat']) .hero,
-:root[data-visual='modern'][data-material='liquid'][data-background]:not([data-background='flat']) .latest-section,
-:root[data-visual='modern'][data-material='liquid'][data-background]:not([data-background='flat']) .manifesto,
-:root[data-visual='modern'][data-material='liquid'][data-background]:not([data-background='flat']) .standard-page,
-:root[data-visual='modern'][data-material='liquid'][data-background]:not([data-background='flat']) .article-page {
+:root[data-visual='modern'][data-material='liquid'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .hero,
+:root[data-visual='modern'][data-material='liquid'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .latest-section,
+:root[data-visual='modern'][data-material='liquid'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .manifesto,
+:root[data-visual='modern'][data-material='liquid'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .standard-page,
+:root[data-visual='modern'][data-material='liquid'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .article-page {
   background: color-mix(in srgb, var(--surface-bg) 92%, transparent);
 }
 
@@ -2385,11 +2466,11 @@ fieldset.setting-group > legend.setting-label {
 :root[data-visual='modern'][data-color-mode='light'] .article-page {
   box-shadow: 0 10px 30px rgba(31, 36, 43, .055);
 }
-:root[data-visual='modern'][data-background='flat'] .hero,
-:root[data-visual='modern'][data-background='flat'] .latest-section,
-:root[data-visual='modern'][data-background='flat'] .manifesto,
-:root[data-visual='modern'][data-background='flat'] .standard-page,
-:root[data-visual='modern'][data-background='flat'] .article-page {
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .hero,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .standard-page,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .article-page {
   box-shadow: none;
 }
 
@@ -2402,24 +2483,24 @@ fieldset.setting-group > legend.setting-label {
   .appearance-panel__scroll { padding: 18px; }
 }
 
-/* Flat changes the canvas, not the component geometry. */
+/* 纯色画布改的是画布，不是组件几何：静谧纯色与主题纯色只是底不同，圆角一致保留。 */
 
-:root[data-visual='modern'][data-background='flat'] .hero {
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .hero {
   border-radius: 18px;
 }
-:root[data-visual='modern'][data-background='flat'] .latest-section,
-:root[data-visual='modern'][data-background='flat'] .manifesto,
-:root[data-visual='modern'][data-background='flat'] .standard-page,
-:root[data-visual='modern'][data-background='flat'] .article-page {
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .standard-page,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .article-page {
   border-radius: 16px;
 }
 
 @media (max-width: 767.98px) {
-  :root[data-visual='modern'][data-background='flat'] .hero,
-  :root[data-visual='modern'][data-background='flat'] .latest-section,
-  :root[data-visual='modern'][data-background='flat'] .manifesto,
-  :root[data-visual='modern'][data-background='flat'] .standard-page,
-  :root[data-visual='modern'][data-background='flat'] .article-page { border-radius: 14px; }
+  :root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .hero,
+  :root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section,
+  :root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto,
+  :root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .standard-page,
+  :root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .article-page { border-radius: 14px; }
 }
 
 /* Landscape is a denser reading mode: scale the whole hierarchy, not only the hero. */
@@ -2670,6 +2751,15 @@ fieldset.setting-group > legend.setting-label {
     #eef0f2;
 }
 
+/* 主题纯色：画布就是这个氛围色本身。这里刻意不自己混底色、也不给深浅各写一套比例——
+   实测（默认 40% 遮罩下）氛围色直接落屏已经是克制的量级：岩层蓝浅色 164,177,192、深色 59,71,88，
+   柔红浅色 191,155,159，都不刺眼；浓淡交给用户已有的「背景遮罩透明度」滑条，与其它画布同一套机制。
+   这两条必须留在文件里**最后**一批背景画布规则中间——`.ambient-backdrop` 前面还有几组
+   不带背景模式限定的通用规则（基础层与浅色层各一版），写在它们前面会被盖掉。 */
+:root[data-visual='modern'][data-background='theme'] .ambient-backdrop {
+  background: var(--modern-accent);
+}
+
 :root[data-visual='modern'][data-color-mode='light'][data-material='liquid'] {
   --surface-bg: rgba(250, 249, 246, .52);
   --surface-bg-strong: rgba(255, 255, 255, .3);
@@ -2757,13 +2847,16 @@ fieldset.setting-group > legend.setting-label {
   background: linear-gradient(145deg, rgba(255, 255, 255, .18), transparent 27%, transparent 72%, rgba(255, 255, 255, .05));
 }
 /* Independent material channels. */
+/* 这组只是「JS 挂载之前」的兜底值，所以必须与首帧的 data-color-mode 对齐：nuxt.config 的 htmlAttrs
+   把首帧定成深色（服务端拿不到系统明暗），这里就取深色那一套出厂默认。挂载后由面板写内联变量覆盖，
+   跟用户实际用的是哪一套无关；写成浅色那套会让深色首帧先跳一次模糊。 */
 :root {
-  --nav-blur: 24px;
-  --content-blur: 24px;
+  --nav-blur: 12px;
+  --content-blur: 10px;
   /* 下拉框/浮层自己的模糊：它既不是顶栏材质（导航模糊），也不是页面面层
      （内容模糊是面层的模糊，浮层就嵌在面层里，跟着它调等于没调）。 */
   --dropdown-blur: 12px;
-  --background-blur: 0px;
+  --background-blur: 4px;
 }
 
 :root[data-visual='modern'][data-nav-material] .site-header,

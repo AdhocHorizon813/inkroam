@@ -1,5 +1,7 @@
 # 视觉系统
 
+交互层专项：[默认设置确认弹窗：视觉与动效规范](appearance-confirm-design.md)。这是在现有主题token上增加的短时决策层，不替代正文的编辑式视觉语言。
+
 ## 两种视觉身份
 
 站点同时提供两套完全独立的视觉：**classic（纸媒原版）** 与 **modern（现代幻境）**。切换由 `:root[data-visual='...']` 驱动，不需要重新加载页面。
@@ -19,9 +21,9 @@
 | `data-theme` | `dark` / `light` | 与 `data-color-mode` 同步，供 classic 变量使用 |
 | `data-material` | `liquid` / `acrylic` / `mica` | 内容卡片的材质 |
 | `data-nav-material` | 同上 | 顶栏材质（可与内容材质不同） |
-| `data-dropdown-material` | 同上 | 筛选菜单与日历的独立材质，默认云母 |
+| `data-dropdown-material` | 同上 | 筛选菜单与日历的独立材质，默认随明暗（浅色液态玻璃 / 深色云母） |
 | `data-background-material` | 同上 | 背景材质 |
-| `data-background` | `flat` / `art` / `aurora` / `custom` | 背景模式 |
+| `data-background` | `flat` / `theme` / `aurora` / `art` / `dusk` / `custom` | 背景氛围（面板里的「跟随」由 JS 解析成具体值后再写入） |
 | `data-scrolled` | `true` / 不存在 | 页面滚动超过 8px 时置上，用于顶栏展开 |
 
 同时 `AppearancePanel` 会把模糊、遮罩、氛围色写成内联 CSS 变量：`--nav-blur`（顶栏与外观面板）、`--content-blur`（页面面层）、`--dropdown-blur`（下拉框/浮层）、`--background-blur`、`--glass-blur`、`--modern-accent`、`--background-overlay-opacity`。三者互不代管：浮层不借导航的模糊，也不借内容面层的模糊——前者会让顶栏滑条连带改浮层，后者与浮层同层、调了看不出变化。
@@ -108,16 +110,42 @@ modern 用一组独立变量，并让 classic 的语义变量指向它们，于�
 - **acrylic（亚克力）**：半透明纯色，通透、对比低；
 - **mica（云母）**：基色里混入氛围色，最「贴主题」。
 
+**出厂默认随明暗分两套**（`AppearancePanel.vue` 里的 `LIGHT_DEFAULTS` / `DARK_DEFAULTS` / `LEGACY_DEFAULTS`）：
+
+| 项 | 浅色（新默认） | 深色（新默认，与 v5 旧值同值） | v5 旧值 |
+| --- | --- | --- | --- |
+| 四条材质通道（导航 / 内容 / 下拉框 / 背景） | 液态玻璃 | 云母 | 云母 |
+| 导航模糊 / 内容模糊 / 下拉框模糊 / 背景模糊 | 14 / 5 / 4 / 0 px | 12 / 10 / 12 / 4 px | 12 / 10 / 12 / 4 px |
+| 背景遮罩透明度 | 40% | 40% | 40% |
+
+深浅刻意不对称：浅色底图的明暗落差本来就小，同一档模糊在浅色上更容易把正文糊成一层灰雾，所以浅色取更轻的值。
+
+**谁能拿到这套新默认，由面板上的「默认设置」开关决定**（见 [ui-components.md](ui-components.md)）：新访客
+（localStorage 里一个键都没有）默认**启用**，一进来就是当前明暗的这一套；老访客（有任何存储痕迹）默认**禁用**，
+他存过的值原样保留，**缺的键落回 `LEGACY_DEFAULTS`（云母 + 12 / 10 / 12 / 4）**——也就是改动前的观感，不会因为
+升级被换成新默认。启用态下切系统明暗会整批换成另一套；禁用态下切系统明暗一个字都不改。
+
+⚠️ `main.css` 的 `:root` 另有一组首帧兜底（现在与深色那一套一致：`--nav-blur: 12px` / `--content-blur: 10px` /
+`--dropdown-blur: 12px` / `--background-blur: 4px`），因为首帧的 `data-color-mode` 固定是深色；挂载后由面板写内联
+变量覆盖。首帧仍是深色（浅色访客会看到一次深色首帧），要彻底消除需要在 `<head>` 里加一段同步脚本，见
+[work-checkpoint.md](work-checkpoint.md)。
+
 ⚠️ 材质变量在文件里被定义过两次（约 212 行与约 853 行）。后一次是「Refined flat direction」校准，把三档的差异压小、饱和度归一到 100% 附近。**实际生效的是后一次**，修改时不要只改前面那组。
 
 ## 背景
 
-`data-background` 有四种模式，统一渲染在 `.ambient-backdrop` 这个固定层里（`z-index: -2`）：
+`data-background` 有六种模式，统一渲染在 `.ambient-backdrop` 这个固定层里（`z-index: -2`）。面板里的「跟随」不是一个属性值：它由 JS 按当前明暗解析成具体模式后写入 `data-background`，所以 CSS 只会见到下面六个值。
 
-- `flat`：纯色底，隐藏图片与极光；
-- `art`：`/images/modern-dream-city.png`，`saturate(.82) brightness(.66)` 压暗压灰；
-- `aurora`：三个大半径径向渐变 + `blur(64px)`，透明度由 0.12 提升到 0.3；
-- `custom`：用户上传图片，压缩成 webp data URL 存在 localStorage，叠在 art 之上作为兜底。
+- `flat`（静谧纯色）：中性纯色底，隐藏图片与极光；
+- `theme`（主题纯色）：画布就是这个氛围色本身（`background: var(--modern-accent)`），同样隐藏图片与极光；浓淡由「背景遮罩透明度」统一控制，这里不另设比例；
+- `aurora`（极光渐变）：三个大半径径向渐变 + `blur(64px)`，透明度由 0.12 提升到 0.3；
+- `art`（暮色都市）：`/images/modern-dream-city.png`，`saturate(.82) brightness(.66)` 压暗压灰；
+- `dusk`（夕空町市）：`/images/yuzoramachi.png`，与 `art` 共用同一条图片管线，只换底图；
+- `custom`（自定义）：用户上传图片，压缩成 webp data URL 存在 localStorage，叠在 art 之上作为兜底。
+
+默认值是「跟随」：首次打开时深色取 `art`、浅色取 `dusk`，面板高亮的也是解析后的那一项。用户点过任意一张卡片（上传自定义图同样算）后，`backgroundPicked` 会写进 localStorage，此后不再跟随系统明暗；「恢复默认」把它清回「跟随」。
+
+**两种纯色画布（`flat` / `theme`）共用同一套结构规则**：底下没有图层可模糊，所以它们一起隐藏 `.ambient-image` / `.ambient-aurora`、取消卡片的 `backdrop-filter`、把卡片改成透明无边框并保留圆角。这些规则的选择器统一写成 `:is([data-background='flat'], [data-background='theme'])`；新增纯色画布时必须并进去，否则它会退回成「有图层的画布」。材质侧的 `acrylic` / `liquid` 反过来用 `:not(:is(...))` 把这两者排除在玻璃逻辑之外。
 
 遮罩是背景可读性的关键：
 

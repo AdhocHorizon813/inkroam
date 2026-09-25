@@ -37,6 +37,9 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: {
         lang: 'zh-CN',
+        /* 首帧（JS 挂载前）固定按深色 + 深色出厂默认渲染：服务端拿不到系统明暗，而「深色优先」
+           与 theme-color（#0a0d1b）一致，也避免浅色页面先闪一帧深色。材质因此保持云母，
+           与 main.css 里那组深色模糊兜底配套；挂载后由 AppearancePanel 按偏好/系统改写。 */
         'data-visual': 'modern',
         'data-material': 'mica',
         'data-nav-material': 'mica',

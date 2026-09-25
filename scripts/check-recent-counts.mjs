@@ -16,6 +16,8 @@ function mount(saved) {
   const context = vm.createContext({
     supportsEmbeddedPdf: () => false,
     ref: value => ({ value }), reactive: value => value,
+    // The panel derives the default canvas from colorMode + system appearance; lazy stub is enough here.
+    computed: compute => ({ get value() { return compute() } }),
     useState: (key, init) => shared[key] ||= { value: init() },
     onMounted: callback => mounted.push(callback), onUnmounted: () => {},
     watch: (target, callback) => watchers.push([target, callback]),
@@ -32,6 +34,9 @@ function mount(saved) {
   } }
 }
 
+/* 存储里没有的项（老访客从没设置过）保持 v5 时代的值：云母。新默认只给真·新访客。 */
+const STORED_FALLBACK_MATERIAL = 'mica'
+
 const old = mount({ latestPostCount: 5, accent: '#123456' })
 assert.equal(old.shared['latest-post-count'].value, 5)
 assert.equal(old.shared['latest-note-count'].value, 10)
@@ -41,13 +46,13 @@ assert.equal(saved.latestPostCount, 5)
 assert.equal(saved.latestNoteCount, 'all')
 assert.equal(saved.accent, '#123456')
 const restored = mount(saved)
-assert.equal(old.state.dropdownMaterial, 'mica', 'Old preferences get default dropdown material')
+assert.equal(old.state.dropdownMaterial, STORED_FALLBACK_MATERIAL, 'Old preferences keep the material they used to show')
 for (const dropdownMaterial of ['liquid', 'acrylic', 'mica']) {
   const preferences = mount({ dropdownMaterial, dropdownBlur: 24 })
   assert.equal(preferences.save().dropdownMaterial, dropdownMaterial)
   assert.equal(preferences.state.dropdownBlur, 24)
 }
-assert.equal(mount({ dropdownMaterial: 'bad', dropdownBlur: 99 }).state.dropdownMaterial, 'mica')
+assert.equal(mount({ dropdownMaterial: 'bad', dropdownBlur: 99 }).state.dropdownMaterial, STORED_FALLBACK_MATERIAL)
 assert.equal(mount({ dropdownBlur: 99 }).state.dropdownBlur, 48)
 assert.equal(restored.shared['latest-note-count'].value, 'all')
 restored.state.latestPostCount = 10

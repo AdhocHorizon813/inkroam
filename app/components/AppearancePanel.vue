@@ -4,18 +4,24 @@ import { supportsEmbeddedPdf } from '~/utils/pdf-embed'
 type VisualMode = 'modern' | 'classic'
 type ColorMode = 'dark' | 'light' | 'auto'
 type MaterialMode = 'liquid' | 'acrylic' | 'mica'
-type BackgroundMode = 'flat' | 'art' | 'aurora' | 'custom'
+/* 'auto' 不是画布，而是「没选过」：解析成当前明暗模式下的默认画布。 */
+type BackgroundMode = 'auto' | 'flat' | 'theme' | 'aurora' | 'art' | 'dusk' | 'custom'
+type ResolvedBackground = Exclude<BackgroundMode, 'auto'>
 type LatestPostCount = 5 | 10 | 'all'
 type PdfFallbackMode = 'card' | 'reader'
 
 interface AppearanceState {
   visual: VisualMode
   colorMode: ColorMode
+  /* 「默认设置」开关：受管项（四组材质、四条模糊、遮罩透明度、背景氛围）是否跟随明暗自动取值。 */
+  defaultSettings: boolean
   navMaterial: MaterialMode
   contentMaterial: MaterialMode
   dropdownMaterial: MaterialMode
   backgroundMaterial: MaterialMode
   background: BackgroundMode
+  /* 用户是否显式点过背景氛围。老存储没有这个字段，因此「没选过」是可判定的。 */
+  backgroundPicked?: boolean
   navBlur: number
   contentBlur: number
   dropdownBlur: number
@@ -25,6 +31,60 @@ interface AppearanceState {
   latestPostCount: LatestPostCount
   latestNoteCount: LatestPostCount
   pdfFallback: PdfFallbackMode
+}
+
+/* 出厂默认分两套，按解析后的明暗取。
+   浅色这一套是用户在面板上逐条定下来的：四组材质都用液态玻璃，模糊 14 / 5 / 4 / 0 px，遮罩 40%。
+   深色沿用 v5 原来的云母与 12 / 10 / 12 / 4 px —— 深浅不必对称：浅色底图的明暗落差本来就小，
+   同一档模糊在浅色上更容易把正文糊成一层灰雾，所以浅色要更轻。
+   两套都保留 40% 遮罩。 */
+type AppearanceDefaults = Pick<
+  AppearanceState,
+  'navMaterial' | 'contentMaterial' | 'dropdownMaterial' | 'backgroundMaterial'
+  | 'navBlur' | 'contentBlur' | 'dropdownBlur' | 'backgroundBlur' | 'backgroundOverlay'
+>
+
+const LIGHT_DEFAULTS: AppearanceDefaults = {
+  navMaterial: 'liquid',
+  contentMaterial: 'liquid',
+  dropdownMaterial: 'liquid',
+  backgroundMaterial: 'liquid',
+  navBlur: 14,
+  contentBlur: 5,
+  dropdownBlur: 4,
+  backgroundBlur: 0,
+  backgroundOverlay: 40,
+}
+
+/* v5 时代的出厂值（云母 + 12 / 10 / 12 / 4、遮罩 40%）：它是 state 的初值，也是老访客缺键时的兜底。
+   老访客「从没设置过」的项因此保持改动前的观感，新默认不会被偷偷塞给他。 */
+const LEGACY_DEFAULTS: AppearanceDefaults = {
+  navMaterial: 'mica',
+  contentMaterial: 'mica',
+  dropdownMaterial: 'mica',
+  backgroundMaterial: 'mica',
+  navBlur: 12,
+  contentBlur: 10,
+  dropdownBlur: 12,
+  backgroundBlur: 4,
+  backgroundOverlay: 40,
+}
+
+/* 深色那一套沿用 v5 的值（所以与 LEGACY_DEFAULTS 同值）：只有浅色是新定的那套。 */
+const DARK_DEFAULTS: AppearanceDefaults = {
+  navMaterial: 'mica',
+  contentMaterial: 'mica',
+  dropdownMaterial: 'mica',
+  backgroundMaterial: 'mica',
+  navBlur: 12,
+  contentBlur: 10,
+  dropdownBlur: 12,
+  backgroundBlur: 4,
+  backgroundOverlay: 40,
+}
+
+function appearanceDefaults(mode: 'dark' | 'light'): AppearanceDefaults {
+  return mode === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS
 }
 
 const STORAGE_KEY = 'paper-trail-appearance-v5'
@@ -46,17 +106,16 @@ const sharedLatestNoteCount = useState<LatestPostCount>('latest-note-count', () 
 const sharedPdfFallback = useState<PdfFallbackMode>('pdf-fallback', () => 'card')
 const state = reactive<AppearanceState>({
   visual: 'modern',
+  /* 新访客默认「启用」：一进来就是当前明暗的出厂值。老访客在 onMounted 的迁移里被改成「禁用」。 */
+  defaultSettings: true,
   colorMode: 'auto',
-  navMaterial: 'mica',
-  contentMaterial: 'mica',
-  dropdownMaterial: 'mica',
-  backgroundMaterial: 'mica',
-  background: 'art',
-  navBlur: 12,
-  contentBlur: 10,
-  dropdownBlur: 12,
-  backgroundBlur: 4,
-  backgroundOverlay: 40,
+  /* 初值取 v5 时代的值：老访客缺的键就落在这里（观感与改动前一致），真·新访客会在 onMounted 里
+     被 commitManagedDefaults() 换成当前明暗的新默认。SSR 首帧的面板内容也按这套渲染，与
+     systemPrefersDark 的初值（浅色）同一口径。 */
+  ...LEGACY_DEFAULTS,
+  /* 默认跟随明暗：深色暮色都市，浅色夕空町市。 */
+  background: 'auto',
+  backgroundPicked: false,
   accent: '#7892b2',
   latestPostCount: 10,
   latestNoteCount: 10,
@@ -79,30 +138,78 @@ const accents = [
 ]
 
 const prefersDark = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null
+/* 系统明暗要参与响应式判断：背景氛围的默认画布（深色暮色都市 / 浅色夕空町市）得跟着系统一起换，
+   所以把它提成一个 ref，而不是每次现读 matchMedia——否则面板高亮不会跟着系统变化走。
+   初值必须是 false：服务端拿不到系统明暗，只能按浅色算。客户端若在 setup 里就读真值，
+   深色系统下首帧画布与 SSR 输出的选中态不一致，Vue 不会回改这批属性，面板就会一直高亮错卡片。
+   真实值在 onMounted 里补齐；面板默认关闭，这一帧用户看不到。 */
+const systemPrefersDark = ref(false)
+
+const resolvedMode = computed<'dark' | 'light'>(() => (
+  state.colorMode === 'auto' ? (systemPrefersDark.value ? 'dark' : 'light') : state.colorMode
+))
+
+function resolveBackground(background: BackgroundMode, mode: 'dark' | 'light'): ResolvedBackground {
+  if (background !== 'auto') return background
+  return mode === 'dark' ? 'art' : 'dusk'
+}
+
+/* 面板高亮与 data-background 都用解析后的值：跟随状态下亮色显示夕空町市、深色显示暮色都市。 */
+const resolvedBackground = computed(() => resolveBackground(state.background, resolvedMode.value))
+
+/* 受管项在纸媒下本来就禁用；「默认设置」启用时同样禁用——值由明暗决定，手调没有意义。 */
+const managedDisabled = computed(() => state.visual === 'classic' || state.defaultSettings)
+
+type StoredAppearance = Partial<AppearanceState>
+
+/* v5 之前只有一条 blur（导航与内容共用）：迁移时铺给三条通道，其余字段原样带回。 */
+function readStoredAppearance(): StoredAppearance | null {
+  const saved = localStorage.getItem(STORAGE_KEY)
+  if (saved) return JSON.parse(saved)
+  const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+  if (!legacy) return null
+  const { blur, ...previous } = JSON.parse(legacy)
+  if (typeof blur !== 'number') return previous
+  return { ...previous, navBlur: blur, contentBlur: blur, dropdownBlur: blur }
+}
+
+/* 受管项 = 四组材质 + 四条模糊 + 遮罩透明度 + 背景氛围：跟随明暗、由「默认设置」开关统一管。
+   启用时把它们收回到厂值（画布同时回到「跟随」），禁用时一律不碰。 */
+function commitManagedDefaults() {
+  Object.assign(state, appearanceDefaults(resolvedMode.value))
+  state.background = 'auto'
+  state.backgroundPicked = false
+}
 
 function onSystemThemeChange() {
-  if (state.colorMode === 'auto') applyAppearance()
+  systemPrefersDark.value = !!prefersDark?.matches
+  if (state.colorMode !== 'auto') return
+  /* 启用「默认设置」时受管项跟着换一套（浅色 14 / 5 / 4 / 0，深色 12 / 10 / 12 / 4）；
+     禁用时这里什么都不做——用户自己调的材质与模糊不会因为切系统深浅色被改掉。 */
+  if (state.defaultSettings) commitManagedDefaults()
+  applyAppearance()
 }
 
 onMounted(() => {
+  /* 先补齐系统明暗，再读偏好、再 applyAppearance：顺序反了会让首帧画布按浅色写一次。 */
+  systemPrefersDark.value = !!prefersDark?.matches
   pdfEmbedSupported.value = supportsEmbeddedPdf()
   try {
     customBackgroundPreview.value = localStorage.getItem(CUSTOM_BG_KEY) || ''
     customBackgroundName.value = localStorage.getItem(CUSTOM_BG_NAME_KEY) || ''
-    const saved = localStorage.getItem(STORAGE_KEY)
-    const legacy = !saved ? localStorage.getItem(LEGACY_STORAGE_KEY) : null
-    if (saved) {
-      Object.assign(state, JSON.parse(saved))
-    } else if (legacy) {
-      const { blur, ...previous } = JSON.parse(legacy)
-      Object.assign(state, previous, {
-        navBlur: typeof blur === 'number' ? blur : state.navBlur,
-        contentBlur: typeof blur === 'number' ? blur : state.contentBlur,
-        dropdownBlur: typeof blur === 'number' ? blur : state.dropdownBlur,
-      })
+    const stored = readStoredAppearance()
+    if (stored) {
+      /* 老访客（存储里哪怕只有一个键）：他自己的值一个都不动，缺的键保持 state 初值（v5 时代的值），
+         于是「他从没设置过」的项观感与改动前一模一样；开关只有他显式打开过才算启用。 */
+      Object.assign(state, stored)
+      state.defaultSettings = stored.defaultSettings === true
+    } else {
+      /* 真·新访客：一进来就用当前明暗的新默认（浅色 14 / 5 / 4 / 0、深色 12 / 10 / 12 / 4）。 */
+      state.defaultSettings = true
     }
-    if (!['liquid', 'acrylic', 'mica'].includes(state.dropdownMaterial)) state.dropdownMaterial = 'mica'
-    if (!Number.isFinite(state.dropdownBlur)) state.dropdownBlur = 12
+    if (state.defaultSettings) commitManagedDefaults()
+    if (!['liquid', 'acrylic', 'mica'].includes(state.dropdownMaterial)) state.dropdownMaterial = LEGACY_DEFAULTS.dropdownMaterial
+    if (!Number.isFinite(state.dropdownBlur)) state.dropdownBlur = LEGACY_DEFAULTS.dropdownBlur
     state.dropdownBlur = Math.max(0, Math.min(48, state.dropdownBlur))
     if (state.latestPostCount !== 5 && state.latestPostCount !== 10 && state.latestPostCount !== 'all') {
       state.latestPostCount = 10
@@ -116,6 +223,13 @@ onMounted(() => {
     }
     sharedPdfFallback.value = state.pdfFallback
     sharedLatestNoteCount.value = state.latestNoteCount
+    /* v5 的默认背景就是 art，旧存储里区分不出「没选过」与「手选暮色都市」。
+       没有 backgroundPicked 字段的一律按「没选过」处理：深色仍是暮色都市，
+       浅色换成新的夕空町市。此后手选过的存储会带上标记，不再被改写。 */
+    if (!state.backgroundPicked && state.background === 'art') state.background = 'auto'
+    if (!['auto', 'flat', 'theme', 'aurora', 'art', 'dusk', 'custom'].includes(state.background)) {
+      state.background = 'auto'
+    }
   } catch {
     status.value = '外观偏好未能读取，已使用默认设置。'
   }
@@ -129,11 +243,14 @@ onUnmounted(() => {
 
 let vtSeq = 0
 
-const DISCRETE_FIELDS = ['visual', 'colorMode', 'navMaterial', 'contentMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
+const DISCRETE_FIELDS = ['visual', 'colorMode', 'defaultSettings', 'navMaterial', 'contentMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
 
 watch(state, (_state, from) => {
+  /* 背景氛围比的是解析后的画布：follow 状态下切明暗会换图，而点当前已生效的那一项不该触发空转场。 */
   const discreteChanged =
-    !!from && DISCRETE_FIELDS.some((key) => state[key] !== from![key])
+    !!from && DISCRETE_FIELDS.some((key) => key === 'background'
+      ? resolvedBackground.value !== resolveBackground(from.background, resolvedMode.value)
+      : state[key] !== from![key])
   const apply = () => {
     sharedLatestPostCount.value = state.latestPostCount
     sharedLatestNoteCount.value = state.latestNoteCount
@@ -190,9 +307,7 @@ watch(isOpen, async (open) => {
 function applyAppearance() {
   if (!import.meta.client) return
   const root = document.documentElement
-  const mode = state.colorMode === 'auto'
-    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    : state.colorMode
+  const mode = resolvedMode.value
   root.dataset.visual = state.visual
   root.dataset.colorMode = mode
   root.dataset.theme = mode
@@ -200,7 +315,8 @@ function applyAppearance() {
   root.dataset.material = state.contentMaterial
   root.dataset.dropdownMaterial = state.dropdownMaterial
   root.dataset.backgroundMaterial = state.backgroundMaterial
-  root.dataset.background = state.background
+  /* 写解析后的画布：CSS 只认 flat / theme / aurora / art / dusk / custom。 */
+  root.dataset.background = resolvedBackground.value
   root.style.setProperty('--nav-blur', `${state.navBlur}px`)
   root.style.setProperty('--content-blur', `${state.contentBlur}px`)
   root.style.setProperty('--dropdown-blur', `${state.dropdownBlur}px`)
@@ -209,12 +325,45 @@ function applyAppearance() {
   root.style.setProperty('--modern-accent', state.accent)
   root.style.setProperty('--background-overlay-opacity', String(state.backgroundOverlay / 100))
 
-  if (state.background === 'custom') {
+  if (resolvedBackground.value === 'custom') {
     const custom = localStorage.getItem(CUSTOM_BG_KEY)
     if (custom) root.style.setProperty('--custom-background', `url(${JSON.stringify(custom)})`)
   } else {
     root.style.removeProperty('--custom-background')
   }
+}
+
+/* 点过任意背景卡片就算显式选择：此后不再跟着系统明暗自动换画布。 */
+function selectBackground(background: Exclude<BackgroundMode, 'auto' | 'custom'>) {
+  state.background = background
+  state.backgroundPicked = true
+}
+
+/* 切换开关会整体改写受管项（启用＝把用户当前的值换成出厂值），所以先弹窗二次确认。 */
+const defaultSettingsDialog = ref<HTMLDialogElement | null>(null)
+/* null 表示弹窗没开；true / false 是用户点的那一项，确认之后才落到 state。 */
+const pendingDefaultSettings = ref<boolean | null>(null)
+// Preserve the displayed action while the native dialog finishes its exit transition.
+const dialogDefaultSettings = ref(false)
+
+function requestDefaultSettings(enabled: boolean) {
+  if (state.defaultSettings === enabled) return
+  pendingDefaultSettings.value = enabled
+  dialogDefaultSettings.value = enabled
+  defaultSettingsDialog.value?.showModal()
+}
+
+function closeDefaultSettingsConfirm() {
+  pendingDefaultSettings.value = null
+  defaultSettingsDialog.value?.close()
+}
+
+function confirmDefaultSettings() {
+  const enabled = pendingDefaultSettings.value
+  closeDefaultSettingsConfirm()
+  if (enabled === null || state.defaultSettings === enabled) return
+  state.defaultSettings = enabled
+  if (enabled) commitManagedDefaults()
 }
 
 function selectVisual(visual: VisualMode) {
@@ -249,6 +398,7 @@ async function handleBackgroundUpload(event: Event) {
     customBackgroundPreview.value = dataUrl
     customBackgroundName.value = file.name
     state.background = 'custom'
+    state.backgroundPicked = true
     applyAppearance()
     status.value = '自定义背景已应用，并保存在当前浏览器。'
   } catch (error) {
@@ -295,16 +445,11 @@ function resetAppearance() {
   Object.assign(state, {
     visual: 'modern',
     colorMode: 'auto',
-    navMaterial: 'mica',
-    contentMaterial: 'mica',
-    dropdownMaterial: 'mica',
-    backgroundMaterial: 'mica',
-    background: 'art',
-    navBlur: 12,
-    contentBlur: 10,
-    dropdownBlur: 12,
-    backgroundBlur: 4,
-    backgroundOverlay: 40,
+    /* 「恢复默认」＝回到新访客那种状态：开关启用 + 当前明暗的出厂值（colorMode 同时重置成自动，口径一致）。 */
+    defaultSettings: true,
+    ...appearanceDefaults(systemPrefersDark.value ? 'dark' : 'light'),
+    background: 'auto',
+    backgroundPicked: false,
     accent: '#7892b2',
     latestPostCount: 10,
     latestNoteCount: 10,
@@ -357,6 +502,15 @@ function resetAppearance() {
           </div>
         </div>
 
+        <fieldset class="setting-group" :disabled="state.visual === 'classic'">
+          <legend class="setting-label">默认设置</legend>
+          <p class="setting-hint">启用后，材质、模糊、遮罩与背景氛围按当前明暗自动取值，不能手动调整。</p>
+          <div class="segmented-control segmented-control--two" :style="segmentStyle(state.defaultSettings ? 0 : 1)">
+            <button type="button" :aria-pressed="state.defaultSettings" :class="{ active: state.defaultSettings }" @click="requestDefaultSettings(true)">启用</button>
+            <button type="button" :aria-pressed="!state.defaultSettings" :class="{ active: !state.defaultSettings }" @click="requestDefaultSettings(false)">禁用</button>
+          </div>
+        </fieldset>
+
         <fieldset class="setting-group">
           <legend class="setting-label">外观模式</legend>
           <div class="segmented-control" :style="segmentStyle(state.colorMode === 'light' ? 0 : state.colorMode === 'dark' ? 1 : 2)">
@@ -396,7 +550,7 @@ function resetAppearance() {
           </div>
         </fieldset>
 
-        <fieldset class="setting-group" :disabled="state.visual === 'classic'">
+        <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">导航材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.navMaterial === 'liquid' ? 0 : state.navMaterial === 'acrylic' ? 1 : 2)">
             <button type="button" :class="{ active: state.navMaterial === 'liquid' }" @click="state.navMaterial = 'liquid'">液态玻璃</button>
@@ -405,7 +559,7 @@ function resetAppearance() {
           </div>
         </fieldset>
 
-        <div class="setting-group" :aria-disabled="state.visual === 'classic'">
+        <div class="setting-group" :aria-disabled="managedDisabled">
           <div class="range-heading">
             <span class="setting-label">导航模糊</span>
             <output>{{ state.navBlur }} px</output>
@@ -417,12 +571,12 @@ function resetAppearance() {
             max="48"
             step="1"
             :style="{ '--range-progress': `${state.navBlur / 48 * 100}%` }"
-            :disabled="state.visual === 'classic'"
+            :disabled="managedDisabled"
           >
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 
-        <fieldset class="setting-group" :disabled="state.visual === 'classic'">
+        <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">内容材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.contentMaterial === 'liquid' ? 0 : state.contentMaterial === 'acrylic' ? 1 : 2)">
             <button type="button" :class="{ active: state.contentMaterial === 'liquid' }" @click="state.contentMaterial = 'liquid'">液态玻璃</button>
@@ -431,7 +585,7 @@ function resetAppearance() {
           </div>
         </fieldset>
 
-        <div class="setting-group" :aria-disabled="state.visual === 'classic'">
+        <div class="setting-group" :aria-disabled="managedDisabled">
           <div class="range-heading">
             <span class="setting-label">内容模糊</span>
             <output>{{ state.contentBlur }} px</output>
@@ -443,12 +597,12 @@ function resetAppearance() {
             max="48"
             step="1"
             :style="{ '--range-progress': `${state.contentBlur / 48 * 100}%` }"
-            :disabled="state.visual === 'classic'"
+            :disabled="managedDisabled"
           >
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 
-        <fieldset class="setting-group" :disabled="state.visual === 'classic'">
+        <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">下拉框材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.dropdownMaterial === 'liquid' ? 0 : state.dropdownMaterial === 'acrylic' ? 1 : 2)">
             <button type="button" :aria-pressed="state.dropdownMaterial === 'liquid'" :class="{ active: state.dropdownMaterial === 'liquid' }" @click="state.dropdownMaterial = 'liquid'">液态玻璃</button>
@@ -457,7 +611,7 @@ function resetAppearance() {
           </div>
         </fieldset>
 
-        <div class="setting-group" :aria-disabled="state.visual === 'classic'">
+        <div class="setting-group" :aria-disabled="managedDisabled">
           <div class="range-heading">
             <span class="setting-label">下拉框模糊</span>
             <output>{{ state.dropdownBlur }} px</output>
@@ -469,27 +623,35 @@ function resetAppearance() {
             max="48"
             step="1"
             :style="{ '--range-progress': `${state.dropdownBlur / 48 * 100}%` }"
-            :disabled="state.visual === 'classic'"
+            :disabled="managedDisabled"
           >
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 
-        <fieldset class="setting-group" :disabled="state.visual === 'classic'">
+        <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">背景氛围</legend>
           <div class="background-options">
-            <button type="button" :class="{ active: state.background === 'flat' }" @click="state.background = 'flat'">
+            <button type="button" :class="{ active: resolvedBackground === 'flat' }" @click="selectBackground('flat')">
               <span class="background-swatch background-swatch--flat" />
               <span>静谧纯色</span>
             </button>
-            <button type="button" :class="{ active: state.background === 'art' }" @click="state.background = 'art'">
-              <span class="background-swatch background-swatch--art" />
-              <span>暮色都市</span>
+            <button type="button" :class="{ active: resolvedBackground === 'theme' }" @click="selectBackground('theme')">
+              <span class="background-swatch background-swatch--theme" />
+              <span>主题纯色</span>
             </button>
-            <button type="button" :class="{ active: state.background === 'aurora' }" @click="state.background = 'aurora'">
+            <button type="button" :class="{ active: resolvedBackground === 'aurora' }" @click="selectBackground('aurora')">
               <span class="background-swatch background-swatch--aurora" />
               <span>极光渐变</span>
             </button>
-            <button type="button" :class="{ active: state.background === 'custom' }" @click="openFilePicker">
+            <button type="button" :class="{ active: resolvedBackground === 'art' }" @click="selectBackground('art')">
+              <span class="background-swatch background-swatch--art" />
+              <span>暮色都市</span>
+            </button>
+            <button type="button" :class="{ active: resolvedBackground === 'dusk' }" @click="selectBackground('dusk')">
+              <span class="background-swatch background-swatch--dusk" />
+              <span>夕空町市</span>
+            </button>
+            <button type="button" :class="{ active: resolvedBackground === 'custom' }" @click="openFilePicker">
               <span
                 class="background-swatch background-swatch--custom"
                 :class="{ 'has-image': customBackgroundPreview }"
@@ -505,7 +667,7 @@ function resetAppearance() {
           <input ref="fileInput" class="visually-hidden" type="file" accept="image/*" @change="handleBackgroundUpload">
         </fieldset>
 
-        <fieldset class="setting-group" :disabled="state.visual === 'classic'">
+        <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">背景材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.backgroundMaterial === 'liquid' ? 0 : state.backgroundMaterial === 'acrylic' ? 1 : 2)">
             <button type="button" :class="{ active: state.backgroundMaterial === 'liquid' }" @click="state.backgroundMaterial = 'liquid'">液态玻璃</button>
@@ -514,7 +676,7 @@ function resetAppearance() {
           </div>
         </fieldset>
 
-        <div class="setting-group" :aria-disabled="state.visual === 'classic'">
+        <div class="setting-group" :aria-disabled="managedDisabled">
           <div class="range-heading">
             <span class="setting-label">背景模糊</span>
             <output>{{ state.backgroundBlur }} px</output>
@@ -526,12 +688,12 @@ function resetAppearance() {
             max="48"
             step="1"
             :style="{ '--range-progress': `${state.backgroundBlur / 48 * 100}%` }"
-            :disabled="state.visual === 'classic'"
+            :disabled="managedDisabled"
           >
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 
-        <div class="setting-group" :aria-disabled="state.visual === 'classic'">
+        <div class="setting-group" :aria-disabled="managedDisabled">
           <div class="range-heading">
             <span class="setting-label">背景遮罩透明度</span>
             <output>{{ state.backgroundOverlay }} %</output>
@@ -543,7 +705,7 @@ function resetAppearance() {
             max="100"
             step="1"
             :style="{ '--range-progress': `${state.backgroundOverlay / 100 * 100}%` }"
-            :disabled="state.visual === 'classic'"
+            :disabled="managedDisabled"
           >
           <div class="range-scale" aria-hidden="true"><span>0 %</span><span>100 %</span></div>
         </div>
@@ -574,5 +736,32 @@ function resetAppearance() {
         </footer>
       </div>
     </section>
+
+    <!-- 切换「默认设置」会整体改写受管项，所以用原生 dialog 做二次确认：
+         showModal() 自带 top layer、焦点陷阱与 Esc 关闭，不需要自己管层级。 -->
+    <dialog
+      ref="defaultSettingsDialog"
+      class="appearance-confirm"
+      aria-labelledby="appearance-confirm-title"
+      aria-describedby="appearance-confirm-description"
+      @close="pendingDefaultSettings = null"
+    >
+      <div class="appearance-confirm__symbol" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 4v16M12 4v16M19 4v16" /><path d="M3 8h4M10 16h4M17 10h4" class="appearance-confirm__knobs" /></svg>
+      </div>
+      <h2 id="appearance-confirm-title">{{ dialogDefaultSettings ? '启用默认设置？' : '禁用默认设置？' }}</h2>
+      <p id="appearance-confirm-description">{{ dialogDefaultSettings
+        ? '材质、模糊、遮罩与背景氛围将替换为当前明暗模式的默认值。'
+        : '保留当前的材质、模糊、遮罩与背景氛围，交由你自由调整。' }}</p>
+      <p class="appearance-confirm__detail">{{ dialogDefaultSettings
+        ? '这些选项会随明暗模式自动调整；禁用默认设置后，可再次手动修改。'
+        : '之后切换明暗模式，不会再自动更改这些选项。' }}</p>
+      <div class="appearance-confirm__actions">
+        <button type="button" class="appearance-confirm__cancel" autofocus @click="closeDefaultSettingsConfirm">取消</button>
+        <button type="button" class="appearance-confirm__accept" @click="confirmDefaultSettings">
+          {{ dialogDefaultSettings ? '启用默认设置' : '保留并手动调整' }}
+        </button>
+      </div>
+    </dialog>
   </div>
 </template>
