@@ -41,6 +41,14 @@ assert.equal(saved.latestPostCount, 5)
 assert.equal(saved.latestNoteCount, 'all')
 assert.equal(saved.accent, '#123456')
 const restored = mount(saved)
+assert.equal(old.state.dropdownMaterial, 'mica', 'Old preferences get default dropdown material')
+for (const dropdownMaterial of ['liquid', 'acrylic', 'mica']) {
+  const preferences = mount({ dropdownMaterial, dropdownBlur: 24 })
+  assert.equal(preferences.save().dropdownMaterial, dropdownMaterial)
+  assert.equal(preferences.state.dropdownBlur, 24)
+}
+assert.equal(mount({ dropdownMaterial: 'bad', dropdownBlur: 99 }).state.dropdownMaterial, 'mica')
+assert.equal(mount({ dropdownBlur: 99 }).state.dropdownBlur, 48)
 assert.equal(restored.shared['latest-note-count'].value, 'all')
 restored.state.latestPostCount = 10
 restored.save()

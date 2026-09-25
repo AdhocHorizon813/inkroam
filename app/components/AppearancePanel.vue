@@ -13,10 +13,12 @@ interface AppearanceState {
   colorMode: ColorMode
   navMaterial: MaterialMode
   contentMaterial: MaterialMode
+  dropdownMaterial: MaterialMode
   backgroundMaterial: MaterialMode
   background: BackgroundMode
   navBlur: number
   contentBlur: number
+  dropdownBlur: number
   backgroundBlur: number
   backgroundOverlay: number
   accent: string
@@ -47,10 +49,12 @@ const state = reactive<AppearanceState>({
   colorMode: 'auto',
   navMaterial: 'mica',
   contentMaterial: 'mica',
+  dropdownMaterial: 'mica',
   backgroundMaterial: 'mica',
   background: 'art',
   navBlur: 12,
   contentBlur: 10,
+  dropdownBlur: 12,
   backgroundBlur: 4,
   backgroundOverlay: 40,
   accent: '#7892b2',
@@ -94,8 +98,12 @@ onMounted(() => {
       Object.assign(state, previous, {
         navBlur: typeof blur === 'number' ? blur : state.navBlur,
         contentBlur: typeof blur === 'number' ? blur : state.contentBlur,
+        dropdownBlur: typeof blur === 'number' ? blur : state.dropdownBlur,
       })
     }
+    if (!['liquid', 'acrylic', 'mica'].includes(state.dropdownMaterial)) state.dropdownMaterial = 'mica'
+    if (!Number.isFinite(state.dropdownBlur)) state.dropdownBlur = 12
+    state.dropdownBlur = Math.max(0, Math.min(48, state.dropdownBlur))
     if (state.latestPostCount !== 5 && state.latestPostCount !== 10 && state.latestPostCount !== 'all') {
       state.latestPostCount = 10
     }
@@ -121,7 +129,7 @@ onUnmounted(() => {
 
 let vtSeq = 0
 
-const DISCRETE_FIELDS = ['visual', 'colorMode', 'navMaterial', 'contentMaterial', 'backgroundMaterial', 'background', 'accent'] as const
+const DISCRETE_FIELDS = ['visual', 'colorMode', 'navMaterial', 'contentMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
 
 watch(state, (_state, from) => {
   const discreteChanged =
@@ -190,10 +198,12 @@ function applyAppearance() {
   root.dataset.theme = mode
   root.dataset.navMaterial = state.navMaterial
   root.dataset.material = state.contentMaterial
+  root.dataset.dropdownMaterial = state.dropdownMaterial
   root.dataset.backgroundMaterial = state.backgroundMaterial
   root.dataset.background = state.background
   root.style.setProperty('--nav-blur', `${state.navBlur}px`)
   root.style.setProperty('--content-blur', `${state.contentBlur}px`)
+  root.style.setProperty('--dropdown-blur', `${state.dropdownBlur}px`)
   root.style.setProperty('--background-blur', `${state.backgroundBlur}px`)
   root.style.setProperty('--glass-blur', `${state.contentBlur}px`)
   root.style.setProperty('--modern-accent', state.accent)
@@ -287,10 +297,12 @@ function resetAppearance() {
     colorMode: 'auto',
     navMaterial: 'mica',
     contentMaterial: 'mica',
+    dropdownMaterial: 'mica',
     backgroundMaterial: 'mica',
     background: 'art',
     navBlur: 12,
     contentBlur: 10,
+    dropdownBlur: 12,
     backgroundBlur: 4,
     backgroundOverlay: 40,
     accent: '#7892b2',
@@ -431,6 +443,32 @@ function resetAppearance() {
             max="48"
             step="1"
             :style="{ '--range-progress': `${state.contentBlur / 48 * 100}%` }"
+            :disabled="state.visual === 'classic'"
+          >
+          <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
+        </div>
+
+        <fieldset class="setting-group" :disabled="state.visual === 'classic'">
+          <legend class="setting-label">下拉框材质</legend>
+          <div class="segmented-control" :style="segmentStyle(state.dropdownMaterial === 'liquid' ? 0 : state.dropdownMaterial === 'acrylic' ? 1 : 2)">
+            <button type="button" :aria-pressed="state.dropdownMaterial === 'liquid'" :class="{ active: state.dropdownMaterial === 'liquid' }" @click="state.dropdownMaterial = 'liquid'">液态玻璃</button>
+            <button type="button" :aria-pressed="state.dropdownMaterial === 'acrylic'" :class="{ active: state.dropdownMaterial === 'acrylic' }" @click="state.dropdownMaterial = 'acrylic'">亚克力</button>
+            <button type="button" :aria-pressed="state.dropdownMaterial === 'mica'" :class="{ active: state.dropdownMaterial === 'mica' }" @click="state.dropdownMaterial = 'mica'">云母</button>
+          </div>
+        </fieldset>
+
+        <div class="setting-group" :aria-disabled="state.visual === 'classic'">
+          <div class="range-heading">
+            <span class="setting-label">下拉框模糊</span>
+            <output>{{ state.dropdownBlur }} px</output>
+          </div>
+          <input
+            v-model.number="state.dropdownBlur"
+            type="range"
+            min="0"
+            max="48"
+            step="1"
+            :style="{ '--range-progress': `${state.dropdownBlur / 48 * 100}%` }"
             :disabled="state.visual === 'classic'"
           >
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>

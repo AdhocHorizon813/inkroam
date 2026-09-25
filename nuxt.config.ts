@@ -40,6 +40,7 @@ export default defineNuxtConfig({
         'data-visual': 'modern',
         'data-material': 'mica',
         'data-nav-material': 'mica',
+        'data-dropdown-material': 'mica',
         'data-background': 'flat',
         'data-color-mode': 'dark',
       },

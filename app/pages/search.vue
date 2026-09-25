@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { articleExcerptSections, excerptParts } from '~/utils/search-excerpt'
 import { groupSearchMatches } from '~/utils/search-results'
+import { matchesSearchFilters, readSearchFilters, type SearchFilters } from '~/utils/search-filters'
 useSeoMeta({
   title: '搜索',
   description: '搜索纸上漫游的全部文章、学习笔记与正文内容。',
@@ -8,6 +9,10 @@ useSeoMeta({
 
 const route = useRoute()
 const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const filters = ref(readSearchFilters(route.query))
+const hasFilters = computed(() => Object.values(filters.value).some(Boolean))
+const searchActive = computed(() => !!query.value.trim() || hasFilters.value)
+const filterTags = computed(() => [...new Set((posts.value || []).flatMap(post => post.tags || []))].sort((a, b) => a.localeCompare(b, 'zh-CN')))
 
 const { data: posts } = await useAsyncData('search-posts', () =>
   queryCollection('posts')
@@ -66,18 +71,20 @@ const matchesByPath = computed(() => groupSearchMatches(contentResults.value))
 
 const articleResults = computed(() => {
   const terms = searchTerms.value
-  if (!terms.length) return []
-  return (posts.value || []).map(post => {
-    const titleMatch = terms.every(term => normalize(post.title).includes(term))
+  if (!searchActive.value) return []
+  return (posts.value || []).filter(post => matchesSearchFilters(post, filters.value)).map(post => {
+    const titleMatch = terms.length > 0 && terms.every(term => normalize(post.title).includes(term))
     const matches = matchesByPath.value.get(post.path) || []
     return { ...post, titleMatch, matches, score: titleMatch ? 100 : Math.max(0, ...matches.map(section => section.score)) }
-  }).filter(post => post.titleMatch || post.matches.length)
-    .sort((a, b) => b.score - a.score || b.date.localeCompare(a.date))
+  }).filter(post => !terms.length || post.titleMatch || post.matches.length)
+    .sort((a, b) => filters.value.sort === 'oldest' ? a.date.localeCompare(b.date) : filters.value.sort === 'newest' ? b.date.localeCompare(a.date) : b.score - a.score || b.date.localeCompare(a.date))
 })
 
 const totalResults = computed(() => articleResults.value.length)
 
-watch(() => route.query.q, (value) => {
+watch(() => route.query, (params) => {
+  const value = params.q
+  filters.value = readSearchFilters(params)
   const nextQuery = typeof value === 'string' ? value : ''
   if (nextQuery !== query.value) query.value = nextQuery
 })
@@ -86,8 +93,13 @@ function submitSearch() {
   const searchValue = query.value.trim()
   navigateTo({
     path: '/search',
-    query: searchValue ? { q: searchValue } : {},
+    query: { ...(searchValue ? { q: searchValue } : {}), ...Object.fromEntries(Object.entries(filters.value).filter(([, value]) => value)) },
   }, { replace: true })
+}
+
+function updateFilters(value: SearchFilters) {
+  filters.value = value
+  submitSearch()
 }
 
 const formatDate = (date: string) => date.replaceAll('-', '.')
@@ -118,10 +130,11 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
         >
         <button type="submit">搜索</button>
       </form>
+      <SearchAdvanced :model-value="filters" :tags="filterTags" @update:model-value="updateFilters" />
     </section>
 
     <section class="search-results" aria-live="polite" aria-label="搜索结果">
-      <div v-if="query.trim()" class="search-results__heading">
+      <div v-if="searchActive" class="search-results__heading">
         <span>搜索结果</span>
         <span>{{ totalResults }} 篇内容</span>
       </div>
@@ -159,8 +172,8 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
         </article>
       </div>
 
-      <p v-if="query.trim() && !totalResults" class="search-empty">没有找到相关内容，试试更短或不同的关键词。</p>
-      <p v-else-if="!query.trim()" class="search-empty">输入关键词后，将搜索所有已发布的文章与笔记。</p>
+      <p v-if="searchActive && !totalResults" class="search-empty">没有找到相关内容，试试更短的关键词或放宽筛选条件。</p>
+      <p v-else-if="!searchActive" class="search-empty">输入关键词后，将搜索所有已发布的文章与笔记；也可以展开高级搜索筛选内容。</p>
     </section>
   </main>
 </template>

@@ -63,6 +63,7 @@ function onReaderFailed() {
     </template>
     <PdfCanvasReader
       v-else-if="pdfUrl && showReader && !readerFailed"
+      :key="pdfUrl"
       :src="pdfUrl"
       :title="title"
       @failed="onReaderFailed"

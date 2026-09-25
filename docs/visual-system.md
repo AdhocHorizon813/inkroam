@@ -19,11 +19,14 @@
 | `data-theme` | `dark` / `light` | 与 `data-color-mode` 同步，供 classic 变量使用 |
 | `data-material` | `liquid` / `acrylic` / `mica` | 内容卡片的材质 |
 | `data-nav-material` | 同上 | 顶栏材质（可与内容材质不同） |
+| `data-dropdown-material` | 同上 | 筛选菜单与日历的独立材质，默认云母 |
 | `data-background-material` | 同上 | 背景材质 |
 | `data-background` | `flat` / `art` / `aurora` / `custom` | 背景模式 |
 | `data-scrolled` | `true` / 不存在 | 页面滚动超过 8px 时置上，用于顶栏展开 |
 
-同时 `AppearancePanel` 会把模糊、遮罩、氛围色写成内联 CSS 变量：`--nav-blur`、`--content-blur`、`--background-blur`、`--glass-blur`、`--modern-accent`、`--background-overlay-opacity`。
+同时 `AppearancePanel` 会把模糊、遮罩、氛围色写成内联 CSS 变量：`--nav-blur`（顶栏与外观面板）、`--content-blur`（页面面层）、`--dropdown-blur`（下拉框/浮层）、`--background-blur`、`--glass-blur`、`--modern-accent`、`--background-overlay-opacity`。三者互不代管：浮层不借导航的模糊，也不借内容面层的模糊——前者会让顶栏滑条连带改浮层，后者与浮层同层、调了看不出变化。
+
+`color-scheme` 只跟 `data-color-mode` 走，不跟 `data-visual` 走，避免现代幻境浅色模式被强制使用深色原生控件。高级搜索日期已使用站内日历与 `currentColor` SVG，不再依赖浏览器日期图标或原生日历弹层；现代模式复用下拉浮层材质及 `--dropdown-blur`，纸媒模式保持不透明纸面。见 [ui-components.md](ui-components.md)。
 
 ## 颜色
 
