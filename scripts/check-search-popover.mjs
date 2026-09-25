@@ -13,7 +13,8 @@ let shown = 0, hidden = 0
 const root = { value: { getBoundingClientRect: () => rect } }
 const popup = { value: {
   style: { setProperty: (key, value) => { properties[key] = value } },
-  firstElementChild: { scrollHeight: 320 },
+  dataset: {},
+  querySelector: () => ({ offsetHeight: 320 }),
   showPopover: () => shown++, hidePopover: () => hidden++,
 } }
 const viewport = { innerHeight: 800, addEventListener: (name, cb) => { listeners[name] = cb }, removeEventListener: name => { delete listeners[name] } }
@@ -28,11 +29,13 @@ assert.equal(shown, 1)
 assert.equal(properties['--popup-width'], '300px')
 assert.equal(properties['--popup-left'], '850px')
 assert.equal(properties['--popup-top'], '145px')
+assert.equal(popup.value.dataset.flip, 'down', 'Roomy below the field opens downward')
 rect = { left: 1000, top: 650, bottom: 689, width: 300 }
 listeners.scroll()
 assert.equal(properties['--popup-left'], '888px', 'Clamp right edge')
 assert.equal(properties['--popup-bottom'], '156px', 'Flip above near bottom')
 assert.equal(properties['--popup-top'], 'auto')
+assert.equal(popup.value.dataset.flip, 'up', 'Flipped popovers pin the field side')
 doc.documentElement.clientWidth = 320
 rect = { left: 170, top: 100, bottom: 139, width: 130 }
 listeners.resize()
@@ -52,6 +55,9 @@ assert.match(css, /:root\[data-visual='modern'\] body \{[^}]*overflow-x: clip/s,
 assert.match(css, /\.page-scroll \{[\s\S]*?overflow-y: scroll/, 'Classic scrollbar gutter stays inside the painted area via .page-scroll')
 assert.doesNotMatch(css, /\.site-header \{ position: relative; top: 0/, 'Landscape header remains sticky')
 assert.match(css, /\.search-popover\[popover\]/)
+assert.match(css, /:root \.search-popover\[popover\] \{[\s\S]*?height: auto;/, 'Pin a content-driven height instead of the UA fit-content')
+assert.match(css, /\.search-popover\[popover\]\[data-flip='up'\] \{ align-content: end; \}/, 'Flip-up popovers keep the clipping row on the field edge')
+assert.match(css, /\.search-popover\[popover\]\[data-flip='up'\] > :first-child \{[\s\S]*?justify-content: flex-end;/, 'Flip-up popovers anchor their content to the field edge')
 const advanced = readFileSync('app/components/SearchAdvanced.vue', 'utf8')
 assert.match(advanced, /advanced-clear.is-empty \{ visibility: hidden/)
 for (const name of ['SearchFilterSelect', 'SearchDatePicker']) {

@@ -21,6 +21,10 @@
 
 页面滑条**自绘**：`::-webkit-scrollbar-thumb` 既不吃 `transition`（不逐帧重绘，夹具判定见 [scrollbar.md](scrollbar.md)），也会在容器不再可滚的那一瞬间被浏览器撤掉（内容变短的第一帧像素就回到底色，而状态还没写）——原生拇指的淡出无解。所以拇指交给 `app/components/PageScrollbar.vue`（整块 `pointer-events: none`，拖动/轨道翻页/滚轮仍由涂成透明的原生拇指承担），过渡写在它自己的 `opacity` 上。**时长不跟正文的动效约定走，而是照原生滚动条自己的**：定稿 500ms，淡出还要先等 300ms（原生滑条不做淡入、只做「先等再很快消失」，Android 300/250、Chrome 750/100、Flutter 600/300；小元素上「更显眼」靠对比度不靠时长。出处与实测值见 [scrollbar.md](scrollbar.md) 的「参考规则」）。`prefers-reduced-motion` 下这条过渡整个关掉：那个场景要的是立刻到位。
 
+## 浮层收起方向（2026-09-25）
+
+下拉菜单与日历收起是「裁剪窗从**远边**压向触发框」：窗和窗里的内容都贴在**钉住的那条边**上，内容全程不动，只有窗的远边在扫。向下展开时窗贴盒顶（盒顶钉在触发框下沿）；向上展开时窗贴盒底（盒底钉在触发框上沿，由 `useSearchPopover` 写 `data-flip='up'`，配 `align-content: end` 与窗内 `justify-content: flex-end`）。**坑**：`grid-template-rows` 那一行比盒子缩得快（收起 190ms 实测行 71px／盒 136px，把 UA 的 `height: fit-content` 覆盖成 `auto` 也一样），所以不能指望「行高＝盒高」；向上展开时若不按边对齐，窗会留在盒顶、内容跟着盒顶整块下滑 234px，看起来像「内容掉向页面中间」而不是收回触发框。逐帧数字与探针见 [work-checkpoint.md](work-checkpoint.md)。
+
 ## 路由入场动画
 
 页面动画仅监听 `route.path`，同页 hash 变化不触发入场。`app/router.options.ts` 通过 `scrollBehaviorType` 启用浏览器原生非线性平滑滚动，并**自己覆写 `scrollBehavior`**（桌面把页面滚动搬进了 `.page-scroll`，见 [visual-system.md](visual-system.md)）：锚点偏移仍交给标题的 `scroll-margin-top`，历史位置改由项目按 `fullPath` 记在 `sessionStorage`；减少动效偏好下使用即时滚动。目录开合复用 settle / exit 曲线，电脑与手机都可折叠。

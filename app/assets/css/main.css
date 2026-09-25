@@ -2691,12 +2691,28 @@ fieldset.setting-group > legend.setting-label {
   background: transparent;
   color: var(--ink);
   overflow: visible;
+  /* 不沿用 UA 的 [popover] { height: fit-content }：盒高明确按内容走（面层自己带
+     max-height 兜住高度）。注意盒高与 grid 行高不成正比（实测见下），所以贴边对齐不能省。 */
+  height: auto;
 }
 :root .search-popover[popover]:not(:popover-open) { display: none; }
 :root .search-popover .dropdown-surface { max-height: var(--popup-height, 70vh); overflow-y: auto; }
 @starting-style {
   :root .search-popover[popover]:popover-open { grid-template-rows: 0fr; }
 }
+/* 收起时裁剪窗（就是那一行）只从「远边」切内容，所以裁剪窗和内容都必须贴在钉住的那条边上：
+   向下展开盒顶钉在触发框下沿 → 行与内容都贴上沿（默认块流即如此）；
+   向上展开盒底钉在触发框上沿 → 行与内容都贴下沿（align-content / flex-end）。
+   注意行高比盒高缩得更快（实测收起 190ms 时行 71px、盒 136px，改 height 也一样），
+   所以必须按边对齐，不能指望行高＝盒高；否则裁剪窗落在盒顶，内容会跟着盒顶一路下滑
+   （实测 234px —— 看起来不是「收回触发框」，而是整块内容往页面中间掉）。 */
+:root .search-popover[popover][data-flip='up'] { align-content: end; }
+:root .search-popover[popover][data-flip='up'] > :first-child {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+:root .search-popover[popover][data-flip='up'] > :first-child > * { flex: none; }
 /* Dropdowns share the navigation material recipes, with an independent channel.
    Defaults also cover old preferences before hydration. */
 :root[data-visual='modern'] .dropdown-surface {

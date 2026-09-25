@@ -12,10 +12,15 @@ export function useSearchPopover(root: Ref<HTMLElement | null>, popup: Ref<HTMLE
     const left = Math.max(12, Math.min(rect.left, document.documentElement.clientWidth - width - 12))
     layer.style.setProperty('--popup-left', `${left}px`)
     layer.style.setProperty('--popup-width', `${width}px`)
-    const height = layer.firstElementChild?.scrollHeight || 320
+    /* 内容高度取面层自己的高度。不要用裁剪窗的 scrollHeight：向上展开时内容贴的是下沿，
+       会溢到裁剪窗上沿之外，而 scrollHeight 不计反方向溢出，展开判断会量到 0。 */
+    const height = layer.querySelector<HTMLElement>('.dropdown-surface')?.offsetHeight || 320
     const below = window.innerHeight - rect.bottom - 18
     const above = rect.top - 18
     const flip = below < height && above > below
+    /* 收起动画由裁剪窗从远边切内容。内容贴哪条边由 CSS 按这个标记决定：
+       向上展开贴下沿（触发框那一侧），向下展开贴上沿，两边镜像。 */
+    layer.dataset.flip = flip ? 'up' : 'down'
     layer.style.setProperty('--popup-top', flip ? 'auto' : `${rect.bottom + 6}px`)
     layer.style.setProperty('--popup-bottom', flip ? `${window.innerHeight - rect.top + 6}px` : 'auto')
     layer.style.setProperty('--popup-height', `${Math.max(80, flip ? above : below)}px`)
