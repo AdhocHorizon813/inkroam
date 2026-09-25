@@ -6,9 +6,16 @@
 
 ### 高级搜索与自带 PDF 阅读器（2026-09-24）
 
-导航回归修正：根 `overflow-y: scroll` 固定滚动条空间时，现代主题 body 使用 `overflow-x: clip`，不能用 hidden（会让 body 形成滚动祖先并截断 sticky）。页面滚动条复用目录的全局 `--scrollbar-thumb` / 7px 规则，不再设根专用配色或背景；导航保留原 sticky，手机横屏亦驻留。此条优先于以下历史滚动条说明。
+2026-09-25 滚动条归位（**替代下文"不创建独立 body 滚动容器"的说法**）：经典滚动条的槽位在文档绘制区之外，那里只有 canvas 能出现，所以右边缘必然留着一条底色白边——给 fixed 背景层 `width: 100vw`、把根滚动条改成自绘透明轨道都盖不住（槽位像素一字不变）。现在把页面滚动搬进 `app.vue` / `error.vue` 里的 `.page-scroll`：槽位落进绘制区，透明轨道下面就是氛围层，与文章目录的滑条本来就是同一套机制。`html` 桌面改 `overflow-y: hidden`（没有根滚动条 → ICB 变成整个窗口），手机仍是原生文档滚动；`.ambient-backdrop` 与外观面板留在容器之外。随之自管滚动位置（`app/router.options.ts` + `app/utils/page-scroll.ts`）：导航回顶、锚点偏移、刷新与前进 / 后退还原。实测与取舍见 [visual-system.md](visual-system.md)。
 
 焦点与滚动条补充：日期输入和按钮共用外层圆角焦点框，内层明确覆盖现代主题全局 outline，防止双框；选中勾号为 SVG，下划线仅作用于选项文字。根滚动条不再使用 stable gutter，改为原生细滚动条、透明轨道与主题色拇指，overflow-y:scroll 保持布局宽度，不创建独立 body 滚动容器。此条替代下文的旧 gutter 说明。
+
+2026-09-25 滑条显隐与浮层定位修订：
+
+- 页面滑条改成「能滚才出现」：容器上写 `data-scrollable`，CSS 把 `--page-scrollbar-alpha` 从 1 过渡到 0（只改透明度，元素、轨道、槽位全程留着，所以不位移）。写状态的是 `app/composables/usePageScrollable.ts`，判据是 `pageNeedsScroll()`（留 1px 容差）。**坑**：`::-webkit-scrollbar-thumb` 上的 `transition` 在 Chrome 里不逐帧重绘，必须把透明度做在宿主元素上、伪元素用 `color-mix` 读——机制与平台差异见 [scrollbar.md](scrollbar.md)。
+- **日历浮层错位修复**：菜单与日历是 `popover` 顶层元素，位置由 `useSearchPopover` 写进 `--popup-left/top/width/bottom`。组件里残留的 `.align-end .date-popup { left: auto; right: 0 }` 与那条规则**同权重**却在后，把「结束日期」的日历钉到了窗口右缘（实测 715px 窗口：算出来 358.5px，渲染成 399px＝视口右缘）。现在组件样式里不再出现任何位置声明，`align-end` 属性一并删掉——右边界由 `useSearchPopover` 的限宽夹取负责（窄屏靠左夹、不溢出）。
+- 日期输入不再提示「请输入有效日期，格式为 YYYY-MM-DD。」：`maskDateInput()`（`app/utils/calendar-date.ts`）边打边只留数字、按 4-2-2 补横线，配 `maxlength="10"` 挡住第 9 位。写不全或不是真实日期（`2026-02-30`）在失焦时**静默退回上一个有效值**；只有超出 `min`/`max` 才仍然提示。已知简化：月份／日期按两位读，`2026-9-5` 这种一位数写法会变成 `2026-95`（失焦后按无效日期退回）。
+
 
 2026-09-25 布局修订：根滚动条预留固定空间，避免筛选结果变长后整页横移；清除筛选在空条件时隐藏但保留占位，避免结果区跳动。六框统一 39px 高、10px 圆角。菜单与日历通过原生 `popover="manual"` 进入 top layer，绕开正文面板的 backdrop-filter 取样边界；`useSearchPopover` 按触发框定位、窄屏限宽、页底向上展开，监听滚动/resize，关闭动画结束后才 hidePopover。选中项不使用背景高光块，保留文字/勾选及键盘焦点。`check-search-popover.mjs` 验证模拟几何和生命周期，不等于真实浏览器像素验收。
 
@@ -56,10 +63,11 @@
     .ambient-image         图片背景
     .ambient-aurora        极光渐变
   .ambient-vignette        暗角
-.site-shell                内容容器（居中、限宽）
-  .site-header             顶栏（sticky）
-  .route-frame             页面容器，也是路由入场动画的作用范围
-  .site-footer             页脚
+  .page-scroll             页面滚动容器（桌面在这里滚；滚动条槽位因此落在绘制区里）
+    .site-shell            内容容器（居中、限宽）
+      .site-header         顶栏（sticky）
+      .route-frame         页面容器，也是路由入场动画的作用范围
+      .site-footer         页脚
 .appearance-dock           右下角外观入口（fixed）
 ```
 
@@ -67,7 +75,7 @@
 
 1. **背景层永远在最后面**，且 `aria-hidden="true"`——它是氛围，不是内容；
 2. **`.route-frame` 只做动画容器**，`NuxtPage` 的 `:transition` 被显式关掉，入场动画由 `app.vue` 手动驱动；
-3. **外观面板挂在 `.site-shell` 之外**，因为它是全局浮层，不该被内容布局影响。
+3. **外观面板与 `.ambient-backdrop` 都在 `.page-scroll` 之外**（前者是全局浮层，后者是 fixed 背景层，都不该被内容滚动牵连）；注意 `.ambient-backdrop` 必须在容器**之前**且保持 `z-index: -2`，容器透明才能让滚动条轨道透出氛围层。
 
 ## 页面切换
 
@@ -96,7 +104,7 @@ watch(route.path)
 ### 几个刻意的选择
 
 - **只做入场，不做离场**：旧页面在切换瞬间就被替换。给「已经不需要的内容」做离场动画，等于让用户等它消失，和「离场快而脆」的原则相反；
-- **滚动位置沿用 Nuxt 默认**：项目没有自定义 `scrollBehavior`——路径变化回到顶部、带 `#hash` 时定位到锚点、浏览器前进 / 后退则恢复之前的位置。所以「翻页」的手感是：内容先重置到顶部，再逐个浮上来；
+- **滚动位置由项目自己管**：`app/router.options.ts` 覆写 `scrollBehavior`（Nuxt 默认把位置交给 vue-router 去滚 `window`，而桌面把页面滚动搬进了 `.page-scroll`，`window` 不再动）。路径变化回到顶部、带 `#hash` 时定位到锚点（尊重标题的 `scroll-margin-top`，不会钻到 sticky 头部下面）、刷新与前进 / 后退恢复原处（自己记在 `sessionStorage`）。所以「翻页」的手感不变：内容先重置到顶部，再逐个浮上来；
 - **只监听 `route.path`**：页内 hash 跳转（点标题、点目录）不会重放整页入场动画，只做页内平滑滚动；
 - **逐个 stagger，但封顶**：延迟 `index * 18ms` 最多累加到 108ms。内容多的页面不会等到天荒地老，又保留了「一层层浮上来」的层次感；
 - **位移只有 10px**：动的是重心，不是距离；620ms 的 `--ease-fluid` 负责「顺」；

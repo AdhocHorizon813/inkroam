@@ -1,8 +1,15 @@
 <script setup lang="ts">
+import { usePageScrollable } from '~/composables/usePageScrollable'
+import { onPageScroll, pageScrollTop, rememberScrollPosition } from '~/utils/page-scroll'
+
 const config = useRuntimeConfig()
 const route = useRoute()
 const routeFrame = ref<HTMLElement | null>(null)
+const pageScroll = ref<HTMLElement | null>(null)
+usePageScrollable(pageScroll)
 let routeAnimations: Animation[] = []
+let stopScrollListener: (() => void) | undefined
+let stopNavigationGuard: (() => void) | undefined
 
 watch(() => route.path, async (_currentPath, previousPath) => {
   if (!import.meta.client || !previousPath) return
@@ -43,10 +50,12 @@ watch(() => route.path, async (_currentPath, previousPath) => {
 onBeforeUnmount(() => routeAnimations.forEach(animation => animation.cancel()))
 
 /* Sticky header: when the page scrolls, the header expands into a full-bleed
-   rail (driven by the CSS [data-scrolled] state) with a non-linear settle. */
+   rail (driven by the CSS [data-scrolled] state) with a non-linear settle.
+   滚动位置一律问 app/utils/page-scroll.ts：桌面在 .page-scroll 里滚，手机上仍滚文档，
+   直接读 window 的滚动量只对后者有效。 */
 function syncScrollState() {
   const root = document.documentElement
-  if (window.scrollY > 8) {
+  if (pageScrollTop() > 8) {
     root.dataset.scrolled = 'true'
   } else {
     delete root.dataset.scrolled
@@ -54,9 +63,9 @@ function syncScrollState() {
 }
 onMounted(() => {
   syncScrollState()
-  window.addEventListener('scroll', syncScrollState, { passive: true })
+  stopScrollListener = onPageScroll(syncScrollState)
 })
-onBeforeUnmount(() => window.removeEventListener('scroll', syncScrollState))
+onBeforeUnmount(() => stopScrollListener?.())
 
 /* Markdown 标题里的锚点是普通 `<a href="#id">`，不是 NuxtLink，因此绕开了路由：
    modern 主题把 scroll-behavior 设为 auto，点下去就是瞬跳；而用 NuxtLink 的文章
@@ -105,6 +114,21 @@ function onDocumentClick(event: MouseEvent) {
 onMounted(() => document.addEventListener('click', onDocumentClick))
 onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
 
+/* 回退/前进与刷新后的阅读位置：每次导航前记下当前页滚到哪，交给
+   app/router.options.ts 的 scrollBehavior 还原（vue-router 自带的记录只读 window）。 */
+onMounted(() => {
+  stopNavigationGuard = router.beforeEach((_to, from) => { rememberScrollPosition(from.fullPath) })
+  const flush = () => rememberScrollPosition(route.fullPath)
+  window.addEventListener('pagehide', flush)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibilityChange))
+})
+onBeforeUnmount(() => stopNavigationGuard?.())
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'hidden') rememberScrollPosition(route.fullPath)
+}
+
 /* siteUrl 由 CI 通过 NUXT_PUBLIC_SITE_URL 注入（含 GitHub Pages 子路径），
    本地开发回落到 http://localhost:3000。去掉尾部斜杠，避免拼出 //。 */
 const siteBase = computed(() => config.public.siteUrl.replace(/\/+$/, ''))
@@ -140,21 +164,23 @@ useHead(() => ({
     </div>
     <div class="ambient-vignette" />
   </div>
-  <div class="site-shell">
-    <header class="site-header">
-      <NuxtLink class="brand" to="/" aria-label="纸上漫游首页">
-        <span class="brand-mark">纸</span>
-        <span>纸上漫游</span>
-      </NuxtLink>
-      <SlidingNav />
-    </header>
-    <div ref="routeFrame" class="route-frame">
-      <NuxtPage :transition="false" />
+  <div ref="pageScroll" class="page-scroll">
+    <div class="site-shell">
+      <header class="site-header">
+        <NuxtLink class="brand" to="/" aria-label="纸上漫游首页">
+          <span class="brand-mark">纸</span>
+          <span>纸上漫游</span>
+        </NuxtLink>
+        <SlidingNav />
+      </header>
+      <div ref="routeFrame" class="route-frame">
+        <NuxtPage :transition="false" />
+      </div>
+      <footer class="site-footer">
+        <span>一些想法，一些记录。</span>
+        <span>© {{ new Date().getFullYear() }} 纸上漫游</span>
+      </footer>
     </div>
-    <footer class="site-footer">
-      <span>一些想法，一些记录。</span>
-      <span>© {{ new Date().getFullYear() }} 纸上漫游</span>
-    </footer>
   </div>
   <AppearancePanel />
 </template>

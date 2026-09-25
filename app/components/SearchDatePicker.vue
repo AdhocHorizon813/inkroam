@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { calendarDays, shiftCalendarDate, shiftCalendarMonth, validCalendarDate, withinDateRange } from '~/utils/calendar-date'
+import { calendarDays, maskDateInput, shiftCalendarDate, shiftCalendarMonth, validCalendarDate, withinDateRange } from '~/utils/calendar-date'
 
-const props = defineProps<{ label: string; modelValue: string; enabled: boolean; min?: string; max?: string; alignEnd?: boolean }>()
+const props = defineProps<{ label: string; modelValue: string; enabled: boolean; min?: string; max?: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const id = useId()
 const root = ref<HTMLElement | null>(null)
@@ -31,9 +31,22 @@ function select(value: string) {
   emit('update:modelValue', value)
   close(true)
 }
+/* 边打边成型：输入框里永远是 maskDateInput 的结果，位数写不全也不报错。 */
+function onInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  const masked = maskDateInput(input.value)
+  draft.value = masked
+  if (input.value !== masked) input.value = masked
+  error.value = ''
+}
 function commit() {
   const value = draft.value.trim()
-  if (value && !validCalendarDate(value)) { error.value = '请输入有效日期，格式为 YYYY-MM-DD。'; return }
+  /* 位数不够或不是真实日期（2026-02-30）：静默退回上一个有效值，不再提示格式。 */
+  if (value && !validCalendarDate(value)) {
+    draft.value = props.modelValue
+    error.value = ''
+    return
+  }
   if (value && !allowed(value)) { error.value = '日期超出所选范围，请调整开始或结束日期。'; return }
   error.value = ''
   if (value !== props.modelValue) emit('update:modelValue', value)
@@ -81,10 +94,10 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
 </script>
 
 <template>
-  <div ref="root" class="date-picker" :class="{ 'is-open': open, 'align-end': alignEnd }" @focusout="focusout" @keydown.esc.stop.prevent="close(true)">
+  <div ref="root" class="date-picker" :class="{ 'is-open': open }" @focusout="focusout" @keydown.esc.stop.prevent="close(true)">
     <label :for="`${id}-input`" class="date-label">{{ label }}</label>
     <div class="date-field">
-      <input :id="`${id}-input`" v-model="draft" type="text" placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off" :aria-invalid="!!error" :aria-describedby="error ? `${id}-error` : undefined" @blur="commit" @keydown.enter.prevent="commit">
+      <input :id="`${id}-input`" v-model="draft" type="text" placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off" :aria-invalid="!!error" :aria-describedby="error ? `${id}-error` : undefined" @input="onInput" @blur="commit" @keydown.enter.prevent="commit">
       <button ref="trigger" type="button" :aria-label="`选择${label}`" aria-haspopup="dialog" :aria-expanded="open" :aria-controls="`${id}-calendar`" @click="toggle">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.25" y="4.75" width="17.5" height="16" rx="2.5" /><path d="M3.25 9.75h17.5M8 2.75v3.5M16 2.75v3.5" /></svg>
       </button>
@@ -128,7 +141,10 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
 :root .date-picker .date-field :is(input,button):focus,
 :root .date-picker .date-field :is(input,button):focus-visible { outline: none !important; box-shadow: none; }
 .date-popup { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: max(100%, 270px); max-width: calc(100vw - 56px); display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows 180ms var(--ease-exit), visibility 0s 180ms; }
-.align-end .date-popup { left: auto; right: 0; }
+/* 日历走原生 popover 进 top layer，位置与宽度一律由 useSearchPopover 写进去的
+   --popup-left/top/width/bottom 决定。组件样式与那条规则同级（0,3,0），谁在这里
+   写 left/right 谁就把它顶掉——曾经就是这么把「结束日期」的日历钉在窗口右缘的。
+   这里不许再出现任何位置声明。 */
 .date-popup.is-open { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows 360ms var(--ease-settle), visibility 0s; }
 .date-clip { min-height: 0; overflow: hidden; border-radius: 10px; }
 .calendar-surface { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); }

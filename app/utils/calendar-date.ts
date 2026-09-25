@@ -3,6 +3,15 @@ export function validCalendarDate(value: string): boolean {
   const date = new Date(`${value}T00:00:00Z`)
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
 }
+/* 日期输入框边打边成型：只留数字，按 4-2-2 补横线（20260925 → 2026-09-25，
+   20260 → 2026-0）。补满正好 10 个字符，输入框自己的 maxlength="10" 顺手把
+   多余的按键挡在外面——所以这里不需要「格式不对」的提示语。 */
+export function maskDateInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8)
+  if (digits.length > 6) return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`
+  if (digits.length > 4) return `${digits.slice(0, 4)}-${digits.slice(4)}`
+  return digits
+}
 export function shiftCalendarDate(value: string, days: number): string {
   const date = new Date(`${value}T00:00:00Z`)
   date.setUTCDate(date.getUTCDate() + days)

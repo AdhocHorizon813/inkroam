@@ -46,7 +46,7 @@ function update(key: keyof SearchFilters, input: Event | string) {
           <SearchFilterSelect label="标签" :model-value="modelValue.tag" :options="tagOptions" :enabled="expanded" @update:model-value="update('tag', $event)" />
           <SearchFilterSelect label="排序" :model-value="modelValue.sort" :options="sortOptions" :enabled="expanded" @update:model-value="update('sort', $event)" />
           <SearchDatePicker label="开始日期" :model-value="modelValue.from" :max="modelValue.to || undefined" :enabled="expanded" @update:model-value="update('from', $event)" />
-          <SearchDatePicker label="结束日期" :model-value="modelValue.to" :min="modelValue.from || undefined" :enabled="expanded" align-end @update:model-value="update('to', $event)" />
+          <SearchDatePicker label="结束日期" :model-value="modelValue.to" :min="modelValue.from || undefined" :enabled="expanded" @update:model-value="update('to', $event)" />
         </div>
         <p v-if="modelValue.from && modelValue.to && modelValue.from > modelValue.to" role="status" class="advanced-note">开始日期不能晚于结束日期。</p>
         <button class="advanced-toggle advanced-clear" :class="{ 'is-empty': !activeCount }" :disabled="!activeCount" :aria-hidden="!activeCount" type="button" @click="emit('update:modelValue', emptySearchFilters())">清除筛选</button>

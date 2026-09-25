@@ -133,6 +133,37 @@ modern 用一组独立变量，并让 classic 的语义变量指向它们，于�
 
 遮罩越强，底图越淡——两层是联动的，而不是各自独立，这样任何取值下正文对比度都够。
 
+## 滚动容器：为什么滚动不在 `html` 上（2026-09-25）
+
+经典（非覆盖式）滚动条的槽位落在**文档绘制区之外**：`position: fixed` 的 `.ambient-backdrop`、自绘的 `::-webkit-scrollbar` 轨道都盖不上去，那里显示的永远是 canvas —— 也就是 `body` 的背景色。紧挨一张底图时，右边缘就是一条白边：实测同一行相邻像素差 **94/255**（底图 `75,95,142` → 槽位 `236,238,241`）。
+
+试过且**无效**的两条路，别再走：
+
+- 给 fixed 背景层加 `width: 100vw`：仍被裁在绘制区里，槽位像素一字不变；
+- 把根滚动条改成自绘透明轨道：轨道透明了，透出来的还是 canvas。
+
+有效的是**把滚动搬进绘制区**——和文章目录那条滑条本来就是同一套机制（目录的槽位在页面上，不是文档外）：
+
+```css
+@media (hover: hover) and (pointer: fine) {
+  html { overflow-y: hidden; }   /* 没有根滚动条 → ICB 变成整个窗口 */
+  .page-scroll { height: 100dvh; overflow-y: scroll; overflow-x: clip; background: transparent; }
+}
+```
+
+`.page-scroll` 在 `app.vue` 与 `error.vue` 里包住 `.site-shell`；`.ambient-backdrop` 与外观面板留在容器**外面**（都是 fixed 全局层，不该被内容布局牵连）。槽位因此落进页面能画到的区域，透明的轨道下面就是氛围层。同一位置实测量到相邻像素差降到 **1–3/255**，只剩滚动条拇指自己的边缘。
+
+滑条本身（宽度、颜色、能滚才显隐、平台差异）单独写在 [scrollbar.md](scrollbar.md)。
+
+配套约定：
+
+- **宽度不变**：容器 `offsetWidth` 仍是窗口宽（1500 窗口下 1478），扣掉自己的滚动条后正文可用宽度与以前完全一致，不产生布局位移。
+- 手机（指针粗、无 hover）是覆盖式滚动条，本来就浮在内容上，保持原生文档滚动。`app/utils/page-scroll.ts` 的 `PAGE_SCROLL_QUERY` 必须与上面那条媒体查询逐字一致。
+- 滚动位置一律经 `app/utils/page-scroll.ts` 读写：`window.scrollY`、`document.documentElement.scrollTop` 只对文档滚动有效，桌面读到的是恒为 0 的值。
+- `app/router.options.ts` 自己实现 `scrollBehavior`：Nuxt 默认把位置交给 vue-router 去滚 `window`，而桌面 `window` 已经不动了，连它记录的"历史位置"也恒为 0。锚点仍靠目标元素的 `scroll-margin-top`（`--anchor-offset`）避开 sticky 头部，跨页锚点与刷新还原都要等内容渲染出来再滚（`scrollToHashWhenReady` / `scrollPageToWhenReady`）。
+- 阅读位置按 `fullPath` 记在 `sessionStorage`（导航前 + `pagehide` + 页面隐藏时），刷新与前进 / 后退都能回到原处——浏览器自身的滚动还原只认文档滚动，搬进容器后它帮不上忙。
+- 头部 `[data-scrolled]` 与文章目录的当前章节都从同一个工具读位置；滚动监听必须用**捕获阶段**（scroll 事件不冒泡，容器内部的滚动传不到 window）。
+
 ## 玻璃拟态的实现细节
 
 早期版本用 `::before` 叠一层 115° 的白色渐变并配合 `mask: linear-gradient(#000, transparent 32%)`，模拟玻璃边缘的高光衰减。校准层把这几处 `::before` 改成了 `display: none`，实际生效的是更克制的方案：

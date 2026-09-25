@@ -17,9 +17,13 @@
 
 ⚠️ 这四条曲线在文件里定义了两次（约 1370 行与约 2051 行）。后一次是校准层，`--ease-settle` 由 `cubic-bezier(.22,.8,.26,1)` 改成 `cubic-bezier(.2,.82,.22,1)`，并补上了 `--ease-panel`。**实际生效的是后一次**。
 
+## 滚动条显隐（2026-09-25）
+
+页面滑条的淡入淡出**不能**写在 `::-webkit-scrollbar-thumb` 上：Chrome 不会对它逐帧重绘，实测颜色直接跳变（夹具判定见 [scrollbar.md](scrollbar.md)）。透明度因此做在宿主元素上——`@property` 注册 `--page-scrollbar-alpha`，`.page-scroll` 上 `transition: --page-scrollbar-alpha 200ms var(--ease-fluid)`，伪元素用 `color-mix` 读它。**时长不跟正文的动效约定走，而是照原生滚动条自己的**：淡入 200ms，淡出 200ms 但先等 300ms（原生滑条不做淡入、只做「先等再很快消失」，Android 300/250、Chrome 750/100、Flutter 600/300；小元素上「更显眼」靠对比度不靠时长，出处与实测值见 [scrollbar.md](scrollbar.md) 的「参考规则」）。`prefers-reduced-motion` 与主题切换（`html.no-transition`）下把这条过渡关掉：那两个场景要的是立刻到位。
+
 ## 路由入场动画
 
-页面动画仅监听 `route.path`，同页 hash 变化不触发入场。`app/router.options.ts` 通过 `scrollBehaviorType` 启用浏览器原生非线性平滑滚动，保留 Nuxt 的锚点偏移和历史位置逻辑；减少动效偏好下使用即时滚动。目录开合复用 settle / exit 曲线，电脑与手机都可折叠。
+页面动画仅监听 `route.path`，同页 hash 变化不触发入场。`app/router.options.ts` 通过 `scrollBehaviorType` 启用浏览器原生非线性平滑滚动，并**自己覆写 `scrollBehavior`**（桌面把页面滚动搬进了 `.page-scroll`，见 [visual-system.md](visual-system.md)）：锚点偏移仍交给标题的 `scroll-margin-top`，历史位置改由项目按 `fullPath` 记在 `sessionStorage`；减少动效偏好下使用即时滚动。目录开合复用 settle / exit 曲线，电脑与手机都可折叠。
 
 页面切换没有用 Vue 的 `<Transition>`（`NuxtPage :transition="false"`），而是在 `app.vue` 里用 Web Animations 手动驱动：
 
@@ -86,7 +90,7 @@ classic 主题的头部在正常流里、不吸顶，所以不加这个偏移，
 
 现在所有页内锚点都由 `app.vue` 的 `onDocumentClick` 统一处理：命中 `a[href^="#"]`（已被 NuxtLink 处理过的用 `event.defaultPrevented` 排除）后 `router.push({ hash })`，于是和目录走同一条 `scrollBehaviorType: 'smooth'`（见 `app/router.options.ts`）的路径。
 
-⚠️ **必须用 `anchor.getAttribute('href')`，不要用 `anchor.hash`**：中文 id 在 HTML 属性里是未编码的（`#收件人是下一个我`），而 `anchor.hash` 返回**百分号编码**形式（`#%E6%94%B6...`）。把这个编码串再交给 `router.push` 会被**二次编码**（`%` → `%25`），Nuxt 的 scrollBehavior 拿 `#%25E6...` 去 `getElementById` 必然找不到元素——表现是「点了完全不动」，同时 URL 里留下一个坏 hash。
+⚠️ **必须用 `anchor.getAttribute('href')`，不要用 `anchor.hash`**：中文 id 在 HTML 属性里是未编码的（`#收件人是下一个我`），而 `anchor.hash` 返回**百分号编码**形式（`#%E6%94%B6...`）。把这个编码串再交给 `router.push` 会被**二次编码**（`%` → `%25`），`app/router.options.ts` 的 scrollBehavior 拿 `#%25E6...` 去查元素必然找不到——表现是「点了完全不动」，同时 URL 里留下一个坏 hash。（实现层两种写法都试一次：原始 id 优先，失败再试百分号解码后的 id。）
 
 第二个细节：目标与当前 hash 相同时，路由会判为重复导航直接跳过，所以这里补一次 `scrollIntoView({ behavior: 'smooth' })`，否则「跳过去之后再点同一个标题」会毫无反应。
 

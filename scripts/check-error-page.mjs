@@ -26,6 +26,14 @@ for (const base of ['/', '/inkroam/', '/a&b"<>/']) {
 const page = readFileSync('app/error.vue', 'utf8')
 assert.match(page, /statusCode === 404/)
 assert.match(page, /noindex, nofollow/)
+/* 未知地址的兜底路由：路由匹配不上时 Vue Router 会打印告警，
+   app/pages/[...slug].vue 只负责抛 404（非 fatal、不带 statusMessage，
+   避免终端出现 [request error] [fatal] 与 h3 弃用告警），外观仍归 error.vue。 */
+const catchAll = readFileSync('app/pages/[...slug].vue', 'utf8')
+const catchAllError = (catchAll.match(/createError\(\{([\s\S]*?)\}\)/) || ['', ''])[1]
+assert.match(catchAllError, /statusCode: 404/, 'Unknown routes must raise 404')
+assert.doesNotMatch(catchAllError, /fatal/, 'Fatal would log an error for every unknown path')
+assert.doesNotMatch(catchAllError, /statusMessage/, 'statusMessage triggers an h3 deprecation warning')
 const template = page.match(/<template>([\s\S]*?)<\/template>/)[1]
 assert.doesNotMatch(template, /error\.(?:message|stack|data)/)
 assert.equal([...template.matchAll(/class="text-link"/g)].length, 3)

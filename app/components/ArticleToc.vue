@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { resolveActiveHeading } from '~/utils/toc-active'
+import { onPageScroll, pageMaxScroll, pageScrollTop } from '~/utils/page-scroll'
 const route = useRoute()
 type TocLink = { id: string; text: string; depth: number; children?: TocLink[] }
 const props = defineProps<{ links: TocLink[] }>()
@@ -8,6 +9,7 @@ const activeId = ref('')
 const expanded = ref(false)
 let frame = 0
 let resizeObserver: ResizeObserver | undefined
+let stopScrollListener: (() => void) | undefined
 function updateActive() {
   frame = 0
   const offset = document.documentElement.dataset.visual === 'modern' ? 100 : 24
@@ -15,8 +17,8 @@ function updateActive() {
     const heading = document.getElementById(entry.id)
     return heading ? [{ id: entry.id, top: heading.getBoundingClientRect().top, margin: parseFloat(getComputedStyle(heading).scrollMarginTop) || 0 }] : []
   })
-  const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
-  activeId.value = resolveActiveHeading(headings, route.hash, window.scrollY, maxScroll, offset)
+  const maxScroll = pageMaxScroll()
+  activeId.value = resolveActiveHeading(headings, route.hash, pageScrollTop(), maxScroll, offset)
 }
 function scheduleUpdate() {
   if (!frame) frame = requestAnimationFrame(updateActive)
@@ -24,7 +26,9 @@ function scheduleUpdate() {
 onMounted(() => {
   expanded.value = window.matchMedia('(min-width: 768px)').matches
   updateActive()
-  window.addEventListener('scroll', scheduleUpdate, { passive: true })
+  /* 滚动位置问 app/utils/page-scroll.ts：桌面在 .page-scroll 里滚、手机上仍滚文档，
+     捕获阶段才能在 window 上收到容器内部的滚动。 */
+  stopScrollListener = onPageScroll(scheduleUpdate)
   window.addEventListener('resize', scheduleUpdate, { passive: true })
   resizeObserver = new ResizeObserver(scheduleUpdate)
   resizeObserver.observe(document.documentElement)
@@ -34,7 +38,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(frame)
   resizeObserver?.disconnect()
-  window.removeEventListener('scroll', scheduleUpdate)
+  stopScrollListener?.()
   window.removeEventListener('resize', scheduleUpdate)
 })
 watch(() => props.links, () => { expanded.value = false; nextTick(scheduleUpdate) })
