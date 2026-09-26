@@ -272,6 +272,10 @@ button { font: inherit; }
   .article-content h2 { font-size: 26px; }
 }
 
+/* Background-only accent channel: interface controls retain --modern-accent. */
+:root { --background-tint: var(--modern-accent); }
+:root[data-background-tint='off'] { --background-tint: transparent; }
+
 /* Modern visual layer. The original paper theme above remains untouched and
    is restored whenever data-visual="classic" is selected. */
 :root {
@@ -350,7 +354,7 @@ button { font: inherit; }
   display: block;
   overflow: hidden;
   background:
-    radial-gradient(circle at 18% 10%, var(--accent-tint-36), transparent 36%),
+    radial-gradient(circle at 18% 10%, color-mix(in srgb, var(--background-tint) 36%, transparent), transparent 36%),
     radial-gradient(circle at 82% 20%, rgba(65, 207, 255, .2), transparent 33%),
     linear-gradient(145deg, #0a0f22 0%, #161634 48%, #080b18 100%);
 }
@@ -391,7 +395,7 @@ button { font: inherit; }
   position: absolute;
   inset: -20%;
   background:
-    radial-gradient(ellipse at 24% 32%, var(--accent-tint-48), transparent 34%),
+    radial-gradient(ellipse at 24% 32%, color-mix(in srgb, var(--background-tint) 48%, transparent), transparent 34%),
     radial-gradient(ellipse at 76% 22%, rgba(46, 209, 255, .3), transparent 32%),
     radial-gradient(ellipse at 58% 82%, rgba(255, 85, 176, .2), transparent 31%);
   filter: blur(64px);
@@ -767,7 +771,7 @@ button { font: inherit; }
 .appearance-confirm h2 { margin: 0 0 12px; font: 650 19px/1.4 var(--sans); letter-spacing: -.025em; }
 .appearance-confirm p { margin: 0; color: var(--ink); font: 13px/1.75 var(--sans); text-wrap: pretty; }
 .appearance-confirm p.appearance-confirm__detail { margin-top: 10px; color: var(--muted); font-size: 12px; }
-.appearance-confirm__actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 24px; }
+.appearance-confirm__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
 .appearance-confirm__actions button { min-height: 42px; padding: 10px 12px; border-radius: 13px; font: 550 13px/1.4 var(--sans); cursor: pointer; transition: background-color 180ms var(--ease-fluid), transform 160ms var(--ease-settle); }
 .appearance-confirm__actions button:active { transform: scale(.975); }
 .appearance-confirm__cancel { border: 1px solid var(--line); background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
@@ -895,7 +899,7 @@ button { font: inherit; }
   font-family: var(--sans);
 }
 
-:root[data-visual='modern'] .about-grid aside p { color: rgba(231, 234, 250, .54); font-family: var(--sans); }
+:root[data-visual='modern'] .about-grid aside p { color: var(--muted); font-family: var(--sans); }
 :root[data-visual='modern'] .about-copy p { color: var(--modern-muted); font: 16px/2 var(--sans); }
 :root[data-visual='modern'] .about-copy .lead { color: #fff; font-size: 24px; line-height: 1.75; }
 :root[data-visual='modern'] .about-copy blockquote {
@@ -1261,6 +1265,12 @@ button { font: inherit; }
 
 :root[data-visual='modern'][data-color-mode='light'] body { background: #f0efeb; }
 :root[data-visual='modern'][data-color-mode='light'] .ambient-backdrop { background: #f0efeb; }
+:root[data-visual='modern'][data-color-mode='light']:is([data-background='art'], [data-background='dusk'], [data-background='custom']) .ambient-backdrop {
+  background:
+    radial-gradient(circle at 16% 10%, color-mix(in srgb, var(--background-tint) 12%, transparent), transparent 38%),
+    radial-gradient(circle at 84% 72%, color-mix(in srgb, var(--background-tint) 6%, transparent), transparent 42%),
+    linear-gradient(145deg, #f5f3ee 0%, #eceef2 52%, #e8ebef 100%);
+}
 :root[data-visual='modern'][data-color-mode='light'] .ambient-image {
   filter: saturate(.58) brightness(1.18);
   opacity: calc(1 - var(--background-overlay-opacity, .5));
@@ -1820,14 +1830,14 @@ button { font: inherit; }
 
 :root[data-visual='modern'][data-background='flat'] .ambient-backdrop {
   background:
-    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--modern-accent) 8%, transparent), transparent 34%),
-    radial-gradient(circle at 82% 76%, color-mix(in srgb, var(--modern-accent) 5%, transparent), transparent 38%),
+    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--background-tint) 8%, transparent), transparent 34%),
+    radial-gradient(circle at 82% 76%, color-mix(in srgb, var(--background-tint) 5%, transparent), transparent 38%),
     #101318;
 }
 :root[data-visual='modern'][data-color-mode='light'][data-background='flat'] .ambient-backdrop {
   background:
-    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--modern-accent) 7%, transparent), transparent 34%),
-    radial-gradient(circle at 82% 76%, color-mix(in srgb, var(--modern-accent) 4%, transparent), transparent 38%),
+    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--background-tint) 7%, transparent), transparent 34%),
+    radial-gradient(circle at 82% 76%, color-mix(in srgb, var(--background-tint) 4%, transparent), transparent 38%),
     #f0efeb;
 }
 
@@ -2727,8 +2737,8 @@ fieldset.setting-group > legend.setting-label {
 }
 :root[data-visual='modern'][data-color-mode='light'] .ambient-backdrop {
   background:
-    radial-gradient(circle at 16% 10%, color-mix(in srgb, var(--modern-accent) 18%, transparent), transparent 38%),
-    radial-gradient(circle at 84% 72%, color-mix(in srgb, var(--modern-accent) 11%, transparent), transparent 42%),
+    radial-gradient(circle at 16% 10%, color-mix(in srgb, var(--background-tint) 18%, transparent), transparent 38%),
+    radial-gradient(circle at 84% 72%, color-mix(in srgb, var(--background-tint) 11%, transparent), transparent 42%),
     linear-gradient(145deg, #f5f3ee 0%, #eceef2 52%, #e8ebef 100%);
 }
 :root[data-visual='modern'][data-color-mode='light'] .ambient-image {
@@ -2746,8 +2756,8 @@ fieldset.setting-group > legend.setting-label {
 }
 :root[data-visual='modern'][data-color-mode='light'][data-background='flat'] .ambient-backdrop {
   background:
-    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--modern-accent) 9%, transparent), transparent 36%),
-    radial-gradient(circle at 82% 76%, color-mix(in srgb, var(--modern-accent) 6%, transparent), transparent 40%),
+    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--background-tint) 9%, transparent), transparent 36%),
+    radial-gradient(circle at 82% 76%, color-mix(in srgb, var(--background-tint) 6%, transparent), transparent 40%),
     #eef0f2;
 }
 
@@ -2981,36 +2991,36 @@ fieldset.setting-group > legend.setting-label {
 
 :root[data-visual='modern'][data-background-material='liquid'] .ambient-vignette {
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, .055), transparent 34%, color-mix(in srgb, var(--modern-accent) 5%, transparent) 72%, rgba(255, 255, 255, .025)),
+    linear-gradient(135deg, rgba(255, 255, 255, .055), transparent 34%, color-mix(in srgb, var(--background-tint) 5%, transparent) 72%, rgba(255, 255, 255, .025)),
     linear-gradient(180deg, rgba(5, 8, 14, .02), rgba(5, 8, 14, .18) 70%, rgba(5, 8, 14, .34));
 }
 :root[data-visual='modern'][data-background-material='acrylic'] .ambient-vignette {
   background:
-    radial-gradient(ellipse at 25% 18%, color-mix(in srgb, var(--modern-accent) 8%, transparent), transparent 40%),
+    radial-gradient(ellipse at 25% 18%, color-mix(in srgb, var(--background-tint) 8%, transparent), transparent 40%),
     linear-gradient(180deg, rgba(10, 13, 20, .1), rgba(9, 12, 19, .34) 72%, rgba(8, 11, 18, .52));
 }
 :root[data-visual='modern'][data-background-material='mica'] .ambient-vignette {
   background:
-    radial-gradient(ellipse at 22% 14%, color-mix(in srgb, var(--modern-accent) 7%, transparent), transparent 42%),
+    radial-gradient(ellipse at 22% 14%, color-mix(in srgb, var(--background-tint) 7%, transparent), transparent 42%),
     linear-gradient(180deg, rgba(15, 18, 24, .24), rgba(13, 16, 22, .52) 70%, rgba(11, 14, 20, .68));
 }
 
 :root[data-visual='modern'][data-color-mode='light'][data-background-material='liquid'] .ambient-vignette::before {
   opacity: var(--background-overlay-opacity, 1);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, .12), transparent 36%, color-mix(in srgb, var(--modern-accent) 6%, transparent) 72%, rgba(255, 255, 255, .05)),
+    linear-gradient(135deg, rgba(255, 255, 255, .12), transparent 36%, color-mix(in srgb, var(--background-tint) 6%, transparent) 72%, rgba(255, 255, 255, .05)),
     linear-gradient(180deg, rgba(246, 247, 249, .01), rgba(238, 241, 244, .12) 70%, rgba(230, 234, 239, .22));
 }
 :root[data-visual='modern'][data-color-mode='light'][data-background-material='acrylic'] .ambient-vignette::before {
   opacity: var(--background-overlay-opacity, 1);
   background:
-    radial-gradient(ellipse at 24% 16%, color-mix(in srgb, var(--modern-accent) 9%, transparent), transparent 42%),
+    radial-gradient(ellipse at 24% 16%, color-mix(in srgb, var(--background-tint) 9%, transparent), transparent 42%),
     linear-gradient(180deg, rgba(248, 248, 246, .12), rgba(238, 241, 244, .28) 70%, rgba(229, 233, 238, .38));
 }
 :root[data-visual='modern'][data-color-mode='light'][data-background-material='mica'] .ambient-vignette::before {
   opacity: var(--background-overlay-opacity, 1);
   background:
-    radial-gradient(ellipse at 22% 14%, color-mix(in srgb, var(--modern-accent) 8%, transparent), transparent 42%),
+    radial-gradient(ellipse at 22% 14%, color-mix(in srgb, var(--background-tint) 8%, transparent), transparent 42%),
     linear-gradient(180deg, rgba(247, 247, 244, .28), rgba(238, 240, 242, .48) 68%, rgba(228, 232, 236, .58));
 }
 

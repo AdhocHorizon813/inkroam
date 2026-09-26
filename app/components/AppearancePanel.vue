@@ -15,6 +15,7 @@ interface AppearanceState {
   colorMode: ColorMode
   /* 「默认设置」开关：受管项（四组材质、四条模糊、遮罩透明度、背景氛围）是否跟随明暗自动取值。 */
   defaultSettings: boolean
+  backgroundTint: boolean
   navMaterial: MaterialMode
   contentMaterial: MaterialMode
   dropdownMaterial: MaterialMode
@@ -108,6 +109,7 @@ const state = reactive<AppearanceState>({
   visual: 'modern',
   /* 新访客默认「启用」：一进来就是当前明暗的出厂值。老访客在 onMounted 的迁移里被改成「禁用」。 */
   defaultSettings: true,
+  backgroundTint: true,
   colorMode: 'auto',
   /* 初值取 v5 时代的值：老访客缺的键就落在这里（观感与改动前一致），真·新访客会在 onMounted 里
      被 commitManagedDefaults() 换成当前明暗的新默认。SSR 首帧的面板内容也按这套渲染，与
@@ -208,6 +210,7 @@ onMounted(() => {
       state.defaultSettings = true
     }
     if (state.defaultSettings) commitManagedDefaults()
+    if (typeof state.backgroundTint !== 'boolean') state.backgroundTint = true
     if (!['liquid', 'acrylic', 'mica'].includes(state.dropdownMaterial)) state.dropdownMaterial = LEGACY_DEFAULTS.dropdownMaterial
     if (!Number.isFinite(state.dropdownBlur)) state.dropdownBlur = LEGACY_DEFAULTS.dropdownBlur
     state.dropdownBlur = Math.max(0, Math.min(48, state.dropdownBlur))
@@ -243,7 +246,7 @@ onUnmounted(() => {
 
 let vtSeq = 0
 
-const DISCRETE_FIELDS = ['visual', 'colorMode', 'defaultSettings', 'navMaterial', 'contentMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
+const DISCRETE_FIELDS = ['visual', 'colorMode', 'defaultSettings', 'backgroundTint', 'navMaterial', 'contentMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
 
 watch(state, (_state, from) => {
   /* 背景氛围比的是解析后的画布：follow 状态下切明暗会换图，而点当前已生效的那一项不该触发空转场。 */
@@ -323,6 +326,7 @@ function applyAppearance() {
   root.style.setProperty('--background-blur', `${state.backgroundBlur}px`)
   root.style.setProperty('--glass-blur', `${state.contentBlur}px`)
   root.style.setProperty('--modern-accent', state.accent)
+  root.dataset.backgroundTint = state.backgroundTint ? 'on' : 'off'
   root.style.setProperty('--background-overlay-opacity', String(state.backgroundOverlay / 100))
 
   if (resolvedBackground.value === 'custom') {
@@ -447,6 +451,7 @@ function resetAppearance() {
     colorMode: 'auto',
     /* 「恢复默认」＝回到新访客那种状态：开关启用 + 当前明暗的出厂值（colorMode 同时重置成自动，口径一致）。 */
     defaultSettings: true,
+    backgroundTint: true,
     ...appearanceDefaults(systemPrefersDark.value ? 'dark' : 'light'),
     background: 'auto',
     backgroundPicked: false,
@@ -709,6 +714,14 @@ function resetAppearance() {
           >
           <div class="range-scale" aria-hidden="true"><span>0 %</span><span>100 %</span></div>
         </div>
+
+        <fieldset class="setting-group" :disabled="state.visual === 'classic'">
+          <legend class="setting-label">主题色混合背景</legend>
+          <div class="segmented-control segmented-control--two" :style="segmentStyle(state.backgroundTint ? 0 : 1)">
+            <button type="button" :aria-pressed="state.backgroundTint" :class="{ active: state.backgroundTint }" @click="state.backgroundTint = true">开启</button>
+            <button type="button" :aria-pressed="!state.backgroundTint" :class="{ active: !state.backgroundTint }" @click="state.backgroundTint = false">关闭</button>
+          </div>
+        </fieldset>
 
         <fieldset class="setting-group accent-setting" :disabled="state.visual === 'classic'">
           <legend class="setting-label">氛围色</legend>

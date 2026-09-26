@@ -41,6 +41,7 @@ export default defineNuxtConfig({
            与 theme-color（#0a0d1b）一致，也避免浅色页面先闪一帧深色。材质因此保持云母，
            与 main.css 里那组深色模糊兜底配套；挂载后由 AppearancePanel 按偏好/系统改写。 */
         'data-visual': 'modern',
+        'data-background-tint': 'on',
         'data-material': 'mica',
         'data-nav-material': 'mica',
         'data-dropdown-material': 'mica',

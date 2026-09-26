@@ -4,6 +4,8 @@ import vm from 'node:vm'
 
 // Source contracts, not a browser layout/contrast test.
 const source = readFileSync(new URL('../app/pages/about.vue', import.meta.url), 'utf8')
+const globalStyles = readFileSync(new URL('../app/assets/css/main.css', import.meta.url), 'utf8')
+assert.match(globalStyles, /:root\[data-visual='modern'\] \.about-grid aside p \{ color: var\(--muted\)/, 'About signature follows the active light/dark text token')
 const expected = [
   '林澈是我创造的一个原创角色。',
   '她有点清冷，也有点慵懒。喜欢数学、计算机，还有那些暂时没有答案的问题。大多数时候很安静，偶尔会冒出一些奇怪的想法。',

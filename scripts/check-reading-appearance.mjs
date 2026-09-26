@@ -124,6 +124,26 @@ function mount(saved, { systemDark = false, defer = false } = {}) {
    否则 hydration 时 Vue 不会回改面板的 active 属性，深色用户会一直看到「夕空町市」被高亮，
    而画布已经是暮色都市——这正是这次修掉的那个 bug。 */
 const cold = mount(null, { systemDark: true, defer: true })
+assert.equal(mount(null).state.backgroundTint, true, 'New visitors blend by default')
+assert.equal(mount({ accent: '#123456' }).state.backgroundTint, true, 'Old preferences preserve blending')
+assert.equal(mount({ backgroundTint: 'invalid' }).state.backgroundTint, true)
+const tintOff = mount({ backgroundTint: false, accent: '#123456', defaultSettings: true })
+assert.equal(tintOff.dataset.backgroundTint, 'off')
+assert.equal(tintOff.state.accent, '#123456', 'Disabling background blend does not change the accent')
+assert.equal(tintOff.save().backgroundTint, false, 'Preference persists')
+tintOff.flipSystemAppearance(true)
+assert.equal(tintOff.state.backgroundTint, false, 'Changing appearance does not reset the independent choice')
+tintOff.reset()
+assert.equal(tintOff.state.backgroundTint, true, 'Reset restores blending')
+assert(css.includes(":root[data-background-tint='off'] { --background-tint: transparent; }"))
+assert(template.includes('主题色混合背景'))
+const imageTint = css.match(/:root\[data-visual='modern'\]\[data-color-mode='light'\]:is\(\[data-background='art'\], \[data-background='dusk'\], \[data-background='custom'\]\) \.ambient-backdrop \{([^}]+)\}/)?.[1]
+assert(imageTint?.includes('var(--background-tint) 12%') && imageTint.includes('var(--background-tint) 6%'), 'Only light image backgrounds use reduced tint')
+for (const [, selector, declaration] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  if (selector.includes('.ambient-') && !selector.includes("[data-background='theme']")) {
+    assert(!declaration.includes('var(--modern-accent)'), 'Ambient tint must use the independent channel')
+  }
+}
 assert.equal(cold.resolved(), 'dusk', 'First client paint matches the server render')
 cold.boot()
 assert.equal(cold.resolved(), 'art', 'The real system theme takes over right after mount')
@@ -283,6 +303,7 @@ assert(
 )
 assert(template.includes('<dialog') && template.includes('class="appearance-confirm"'), 'Switching asks for confirmation')
 assert(css.includes('.appearance-confirm::backdrop'), 'The confirm dialog brings its own scrim')
+assert.match(css, /\.appearance-confirm__actions \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/, 'Dialog actions have equal widths')
 assert(template.includes('aria-describedby="appearance-confirm-description"'))
 assert(template.includes('class="appearance-confirm__cancel" autofocus'), 'Cancel is the safe initial focus')
 assert(source.includes('dialogDefaultSettings.value = enabled'), 'Exit keeps the same action text')
