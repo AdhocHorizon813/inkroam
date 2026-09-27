@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 
 const route = 'notes/functional-analysis/test-norm-and-distance'
-const filename = 'linear-functional-analysis-test.pdf'
+// 附件与图片一致：pdfs/notes/<课程英文名>/<笔记标识>/…，用子目录区分同一课程的不同笔记
+const attachment = 'pdfs/notes/functional-analysis/test-norm-and-distance/linear-functional-analysis-test.pdf'
 
 // 预渲染 / SSR 的 HTML 里必须是「打开 PDF」卡片：只有浏览器报告能内嵌 PDF
 // （navigator.pdfViewerEnabled）时，组件才会在挂载后替换成 <object>，
@@ -14,23 +15,23 @@ assert(html.includes('class="pdf-viewer__fallback"'), 'MDC renders the PDF viewe
 assert(html.includes('pdf-viewer__open--primary'), 'The in-page reader entry is present')
 assert(html.includes('始终在页面内阅读'), 'Card offers the always-in-page opt-in')
 assert(html.includes('PDF 附件'), 'Appearance panel ships the PDF fallback group')
-assert(html.includes(`href="/pdfs/${filename}"`), 'Attachment link keeps the local path')
+assert(html.includes(`href="/${attachment}"`), 'Attachment link keeps the local path')
 assert(!html.includes('::pdf-viewer'), 'The directive is not left as plain text')
 assert(!html.includes('<object'), 'No <object> in the prerendered HTML')
 
-const response = await fetch(`http://localhost:3000/pdfs/${filename}`)
+const response = await fetch(`http://localhost:3000/${attachment}`)
 assert.equal(response.status, 200)
 assert(response.headers.get('content-type').includes('application/pdf'))
 const bytes = Buffer.from(await response.arrayBuffer())
 assert.equal(bytes.subarray(0, 5).toString(), '%PDF-')
-assert.deepEqual(bytes, readFileSync(`public/pdfs/${filename}`))
+assert.deepEqual(bytes, readFileSync(`public/${attachment}`))
 
 if (process.argv.includes('--built')) {
   const built = readFileSync(`.output/public/${route}/index.html`, 'utf8')
   assert(built.includes('class="pdf-viewer__fallback"'), 'Built page ships the viewer card')
   assert(!built.includes('<object'), 'Built page has no prerendered <object>')
-  assert(built.includes(`href="/inkroam/pdfs/${filename}"`), 'Static subpath is preserved')
-  assert.deepEqual(readFileSync(`.output/public/pdfs/${filename}`), bytes)
+  assert(built.includes(`href="/inkroam/${attachment}"`), 'Static subpath is preserved')
+  assert.deepEqual(readFileSync(`.output/public/${attachment}`), bytes)
 
   // PDF.js 只在点击「在页面内阅读」后才加载：worker 必须独立产出为资源，
   // 且引用要相对于所在分块，这样 /inkroam/ 子路径部署不会丢路径。

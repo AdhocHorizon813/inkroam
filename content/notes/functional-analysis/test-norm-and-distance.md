@@ -33,5 +33,5 @@ draft: false
 
 以下为用户提供的 PDF，用于本地检验页内阅读；与上方 AI 生成的测试文字无关。
 
-::pdf-viewer{src="/pdfs/linear-functional-analysis-test.pdf" title="Linear Functional Analysis · PDF 内嵌测试"}
+::pdf-viewer{src="/pdfs/notes/functional-analysis/test-norm-and-distance/linear-functional-analysis-test.pdf" title="Linear Functional Analysis · PDF 内嵌测试"}
 ::

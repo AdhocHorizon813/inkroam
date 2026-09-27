@@ -49,7 +49,7 @@ draft: false
 
 ## 本地预览
 
-笔记可通过 `::pdf-viewer{src="/pdfs/文件名.pdf" title="讲义"}` 组件在正文内嵌 PDF（以 `::` 结束组件块），附件放在 `public/pdfs/`，详细示例见 [内嵌 PDF](docs/content-authoring.md#内嵌-pdf)。使用浏览器原生阅读器，不支持内嵌的浏览器可打开原文件；PDF 正文暂不参与站内搜索。
+笔记可通过 `::pdf-viewer{src="/pdfs/notes/课程英文名/笔记标识/文件名.pdf" title="讲义"}` 组件在正文内嵌 PDF（以 `::` 结束组件块），附件放在 `public/pdfs/notes/<课程英文名>/<笔记标识>/`（文章用 `posts/<文章标识>/`），详细示例见 [内嵌 PDF](docs/content-authoring.md#内嵌-pdf)。使用浏览器原生阅读器，不支持内嵌的浏览器可打开原文件；PDF 正文暂不参与站内搜索。附件自 2026-09-27 起与图片一致按用途分入子目录：**旧的一级地址 `/pdfs/<文件名>.pdf` 已经失效，未保留兼容副本**。
 
 ```bash
 npm install

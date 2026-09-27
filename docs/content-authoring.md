@@ -83,16 +83,18 @@ export const getTagName = (slug: string) => tagNameMap[slug] || decodeURICompone
 
 ## 内嵌 PDF
 
-将文件放进 `public/pdfs/`，在笔记 Markdown 中使用：
+将文件放进 `public/pdfs/notes/<课程英文名>/<笔记标识>/`（文章用 `posts/<文章标识>/`，跨页共用素材可用 `shared/`）。子目录与图片一一对应，用来区分不同文章、不同页面，以及同一课程下的不同笔记。在笔记 Markdown 中使用：
 
 ```md
-::pdf-viewer{src="/pdfs/functional-analysis/lecture-01.pdf" title="泛函分析 · 第一讲"}
+::pdf-viewer{src="/pdfs/notes/functional-analysis/normed-spaces/lecture-01.pdf" title="泛函分析 · 第一讲"}
 ::
 ```
 
 **指令要独占一个段落**（前后各留一个空行），并用独立一行的 `::` 收尾。不要把它写进表格单元格、列表或引用块里：那样 MDC 只会当普通文字处理，页面上原样显示 `::pdf-viewer{…}`，组件完全不渲染。排查时先看生成 HTML 里有没有 `<section class="pdf-viewer">`，只有 `::pdf-viewer` 字面文字就说明指令被别的块级语法（表格最常见）吞掉了。
 
-上述示例对应磁盘 `public/pdfs/functional-analysis/lecture-01.pdf`。组件会自动添加 GitHub Pages 的 `/inkroam/` 基础路径，不要手动写仓库前缀。只接受本地 PDF 路径，不接受外部网址、查询参数或父目录跳转。
+上述示例对应磁盘 `public/pdfs/notes/functional-analysis/normed-spaces/lecture-01.pdf`。组件会自动添加 GitHub Pages 的 `/inkroam/` 基础路径，不要手动写仓库前缀。只接受本地 PDF 路径，不接受外部网址、查询参数或父目录跳转。
+
+目录调整（2026-09-27）：PDF 与图片一致，按用途从 `public/pdfs/` 一级目录迁入上述子目录，站内引用（Markdown、检查脚本、文档）已全部同步。**旧地址 `/pdfs/<文件名>.pdf` 不再有效，未保留兼容副本**；如果某个附件曾被站外引用，需要把引用更新到新路径。
 
 `app/components/content/PdfViewer.vue` 按浏览器能力渲染三种形态：能内嵌的浏览器用原生 `<object type="application/pdf">`（翻页、缩放由浏览器提供）；`navigator.pdfViewerEnabled === false` 的浏览器（Chrome / Firefox for Android 等）显示卡片（文件名 + 一句说明 + 「在页面内阅读」/「打开原文件」）；点了「在页面内阅读」后加载 `app/components/PdfCanvasReader.vue`，用 PDF.js 把页面画到 canvas 上，支持翻页、缩放与横向滑动翻页。几个取舍：判据只看浏览器能力，不看设备类型或屏幕宽度——平板、手机横屏、iPad「请求桌面版网站」都走同一套逻辑，老浏览器没有该属性时只把 Android 当作不能内嵌；组件默认按卡片输出，挂载后确认能内嵌才替换成 `<object>`，这样手机不会白白下载整份附件，代价是能内嵌的设备首次渲染会看到卡片被阅读器替换；`pdfjs-dist` 只在点「在页面内阅读」时才下载（动态 `import()` + `defineAsyncComponent`），能内嵌的浏览器永远不请求它；画布没有文本层，PDF 里的文字不能选中、也不参与站内搜索；阅读器加载失败会退回卡片，附件入口始终可用。尚未做 PDF 全文索引（需要文本提取，扫描件还要 OCR）。
 
@@ -100,7 +102,7 @@ Markdown 入口照常进入课程、归档及搜索，但 PDF 内部文字不参
 
 ## 图片用法
 
-- 图片按用途放进 `public/images/backgrounds/`（全站背景）、`about/`（关于页）、`posts/<文章标识>/`（文章）、`notes/<课程英文名>/`（笔记）。没有素材的目录无需提前创建；跨页共享素材可用 `shared/`。
+- 图片按用途放进 `public/images/backgrounds/`（全站背景）、`about/`（关于页）、`posts/<文章标识>/`（文章）、`notes/<课程英文名>/`（笔记）。笔记图片在课程目录下再按笔记标识分一级（如 `notes/fundamentals-of-intelligent-computing/genetic-algorithm-basics/`），与 PDF 的子目录约定一致，便于区分同一课程的不同笔记。没有素材的目录无需提前创建；跨页共享素材可用 `shared/`。
 - 目录调整（2026-09-27）：图片从 `public/images/` 一级目录迁入上述子目录，站内引用（Vue、CSS、Markdown、模板、测试、文档）已全部同步。**旧地址 `public/images/<名字>.png` 不再有效，未保留兼容副本**；如果某张图曾被站外引用，需要把引用更新到新路径。
 - Markdown 里用**以 `/images/` 开头的绝对路径**：
 

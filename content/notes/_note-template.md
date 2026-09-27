@@ -19,7 +19,3 @@ draft: true
 <!-- 笔记配图放 public/images/notes/课程英文名/，引用示例：![说明](/images/notes/functional-analysis/example.png)。添加实际文件后再使用。 -->
 
 在这里记录推导过程，公式使用 `$...$` 或 `$$...$$`。
-
-## 待解决的问题
-
-- 还有哪些条件或细节需要核实？
