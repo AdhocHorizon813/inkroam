@@ -2,11 +2,12 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
+import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
 
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
 // This harness tests count preferences, not browser PDF capabilities.
-const compiled = ts.transpile(source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replaceAll('import.meta.client', 'false'), { target: ts.ScriptTarget.ES2022 })
+const compiled = ts.transpile(source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replaceAll('import.meta.client', 'false'), { target: ts.ScriptTarget.ES2022 })
 
 function mount(saved) {
   const shared = {}
@@ -14,6 +15,7 @@ function mount(saved) {
   const watchers = []
   let stored
   const context = vm.createContext({
+    decodeAppearanceStorage,
     supportsEmbeddedPdf: () => false,
     ref: value => ({ value }), reactive: value => value,
     // The panel derives the default canvas from colorMode + system appearance; lazy stub is enough here.

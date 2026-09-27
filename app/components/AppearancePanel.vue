@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { supportsEmbeddedPdf } from '~/utils/pdf-embed'
+import { decodeAppearanceStorage } from '~/utils/appearance-storage'
 
 type VisualMode = 'modern' | 'classic'
 type ColorMode = 'dark' | 'light' | 'auto'
@@ -167,12 +168,8 @@ type StoredAppearance = Partial<AppearanceState>
 /* v5 之前只有一条 blur（导航与内容共用）：迁移时铺给三条通道，其余字段原样带回。 */
 function readStoredAppearance(): StoredAppearance | null {
   const saved = localStorage.getItem(STORAGE_KEY)
-  if (saved) return JSON.parse(saved)
-  const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
-  if (!legacy) return null
-  const { blur, ...previous } = JSON.parse(legacy)
-  if (typeof blur !== 'number') return previous
-  return { ...previous, navBlur: blur, contentBlur: blur, dropdownBlur: blur }
+  // Preserve lazy v4 access: a valid v5 read must not depend on the legacy key.
+  return decodeAppearanceStorage(saved, saved ? null : localStorage.getItem(LEGACY_STORAGE_KEY)) as StoredAppearance | null
 }
 
 /* 受管项 = 四组材质 + 四条模糊 + 遮罩透明度 + 背景氛围：跟随明暗、由「默认设置」开关统一管。
@@ -245,6 +242,13 @@ onUnmounted(() => {
 })
 
 let vtSeq = 0
+
+// Manual light/dark/auto selection must update managed controls before applying
+// and persisting appearance. Keep the normal batched flush so stored preferences
+// finish loading before this runs; never overwrite manual values when disabled.
+watch(() => state.colorMode, () => {
+  if (state.defaultSettings) commitManagedDefaults()
+})
 
 const DISCRETE_FIELDS = ['visual', 'colorMode', 'defaultSettings', 'backgroundTint', 'navMaterial', 'contentMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
 

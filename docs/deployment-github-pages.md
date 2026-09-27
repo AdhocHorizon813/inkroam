@@ -15,7 +15,9 @@
 推送到 `main` 或手动触发（`workflow_dispatch`）都会执行：
 
 ```
-build  → checkout / setup-node 22 / npm ci / npm run generate
+build  → checkout / setup-node 22 / npm ci
+         → npm run typecheck / npm run check
+         → npm run generate / npm run check -- --built
          → touch .output/public/.nojekyll
          → configure-pages / upload-pages-artifact（path: .output/public）
 deploy → deploy-pages@v4（environment: github-pages）
@@ -23,7 +25,8 @@ deploy → deploy-pages@v4（environment: github-pages）
 
 几个关键点：
 
-- **`BASE_PATH: /${{ github.event.repository.name }}/`**：把仓库名注入为子路径，`nuxt.config.ts` 的 `app.baseURL` 读取它。本地不设该变量时默认 `/`。
+- **`BASE_PATH: /${{ github.event.repository.name }}/`**：在 build job 级别注入，构建与产物检查共享同一子路径，`nuxt.config.ts` 的 `app.baseURL` 读取它。本地不设该变量时默认 `/`。
+- **发布门禁**：类型、源码及产物检查必须全部成功才上传；deploy 依赖 build。`scripts/check-release-gates.mjs` 验证顺序与测试 runner 的失败传播（非零退出、进程中止、启动异常），但不等于实际运行过托管 Actions，也不代替浏览器视觉验收。
 - **`.nojekyll`**：GitHub Pages 默认用 Jekyll 处理站点，会忽略以下划线开头的目录（`_nuxt/` 正是 Nuxt 的资源目录）。这个空文件禁用 Jekyll，资源才能被访问。
 - **`nitro.prerender.failOnError: true`**：任何一个页面预渲染失败都会让构建失败。这是有意的——宁可部署失败，也不要把半成品发上线。
 - **`concurrency: group: pages` + `cancel-in-progress`**：连续推送时取消旧构建，避免两个部署互相覆盖。

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const residentImage = `${useRuntimeConfig().app.baseURL}images/lin-che.png`
+const residentImage = `${useRuntimeConfig().app.baseURL}images/about/lin-che.png`
 
 useSeoMeta({ title: '关于', description: '关于纸上漫游，以及为什么还要继续写博客。' })
 </script>

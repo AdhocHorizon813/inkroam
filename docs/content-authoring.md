@@ -100,14 +100,15 @@ Markdown 入口照常进入课程、归档及搜索，但 PDF 内部文字不参
 
 ## 图片用法
 
-- 图片文件放进 `public/images/`；
+- 图片按用途放进 `public/images/backgrounds/`（全站背景）、`about/`（关于页）、`posts/<文章标识>/`（文章）、`notes/<课程英文名>/`（笔记）。没有素材的目录无需提前创建；跨页共享素材可用 `shared/`。
+- 目录调整（2026-09-27）：图片从 `public/images/` 一级目录迁入上述子目录，站内引用（Vue、CSS、Markdown、模板、测试、文档）已全部同步。**旧地址 `public/images/<名字>.png` 不再有效，未保留兼容副本**；如果某张图曾被站外引用，需要把引用更新到新路径。
 - Markdown 里用**以 `/images/` 开头的绝对路径**：
 
 ```md
-![图片替代文字](/images/my-image.png)
+![图片替代文字](/images/notes/functional-analysis/my-image.png)
 ```
 
-构建时 Nuxt 会按 `BASE_PATH` 重写路径，线上实际输出为 `/inkroam/images/my-image.png`，无需手写仓库前缀。
+构建时 Nuxt 会按 `BASE_PATH` 重写路径，线上实际输出为 `/inkroam/images/notes/functional-analysis/my-image.png`，无需手写仓库前缀。子目录名使用英文，与课程路径一致。
 
 图片进入文章后会自动获得灯箱能力（点击放大、双击/滚轮缩放），并继承 `.article-content img` 的 `max-width: 100%; height: auto;`，不会变形。行为细节见 [article-image-lightbox.md](article-image-lightbox.md)。
 

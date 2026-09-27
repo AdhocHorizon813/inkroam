@@ -24,7 +24,7 @@ assert.match(source, /ANOTHER RESIDENT/)
 assert(source.indexOf('class="resident"') > source.indexOf('阅读最近文章'), 'Append after existing About content')
 assert(source.indexOf('resident-copy about-copy') < source.indexOf('class="resident-figure"'), 'Text before image in reading order')
 
-const png = readFileSync(new URL('../public/images/lin-che.png', import.meta.url))
+const png = readFileSync(new URL('../public/images/about/lin-che.png', import.meta.url))
 assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a')
 const img = source.match(/<img\s[\s\S]*?>/)?.[0]
 assert(img)
@@ -37,7 +37,7 @@ assert.match(img, /decoding="async"/)
 const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
 for (const baseURL of ['/', '/inkroam/']) {
   const context = vm.createContext({ useRuntimeConfig: () => ({ app: { baseURL } }), useSeoMeta: () => {} })
-  assert.equal(vm.runInContext(`${script}\nresidentImage`, context), `${baseURL}images/lin-che.png`)
+  assert.equal(vm.runInContext(`${script}\nresidentImage`, context), `${baseURL}images/about/lin-che.png`)
 }
 
 const css = source.match(/<style scoped>([\s\S]*?)<\/style>/)[1]
@@ -62,8 +62,8 @@ if (process.argv.includes('--built')) {
   const html = readFileSync(new URL('../.output/public/about/index.html', import.meta.url), 'utf8')
   for (const paragraph of expected) assert(html.includes(paragraph), 'Generated page has current copy')
   assert(!html.includes('20 岁。长直黑发'), 'Generated page must not have old copy')
-  assert(html.includes(`src="${base}images/lin-che.png"`), 'Generated asset URL must use expected BASE_PATH')
-  assert(png.equals(readFileSync(new URL('../.output/public/images/lin-che.png', import.meta.url))))
+  assert(html.includes(`src="${base}images/about/lin-che.png"`), 'Generated asset URL must use expected BASE_PATH')
+  assert(png.equals(readFileSync(new URL('../.output/public/images/about/lin-che.png', import.meta.url))))
   console.log('PASS: generated About copy, deployment asset URL and image bytes.')
 }
 console.log('NOT TESTED: actual viewport layout, computed styles, contrast, masks and theme switching. See docs/visual-system.md.')

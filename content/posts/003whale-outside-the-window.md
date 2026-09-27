@@ -19,7 +19,7 @@ draft: false
 
 然后，它给了我这样一张图。
 
-![窗外漂浮在城市上空的巨大鲸鱼](/images/whale-outside-the-window.png)
+![窗外漂浮在城市上空的巨大鲸鱼](/images/posts/whale-outside-the-window/whale-outside-the-window.png)
 
 一间很普通的深夜卧室。桌面上散落着书、笔记和电脑，暖黄色的灯照着一只已经睡着的猫。
 

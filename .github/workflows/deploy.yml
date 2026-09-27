@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      BASE_PATH: /${{ github.event.repository.name }}/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,6 +26,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Check types
+        run: npm run typecheck
+      - name: Check source regressions
+        run: npm run check
       - name: Resolve public site URL
         # og:image / canonical 需要绝对地址。GitHub 用户名可能含大写，
         # 而 Pages 域名一律小写，这里统一转小写后再注入。
@@ -32,9 +38,8 @@ jobs:
           OWNER: ${{ github.repository_owner }}
 
       - run: npm run generate
-        env:
-          # Nuxt auto-fills the repo name so assets resolve under /<repo>/
-          BASE_PATH: /${{ github.event.repository.name }}/
+      - name: Check generated site
+        run: npm run check -- --built
       - run: touch .output/public/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -7,9 +7,12 @@ for (const flag of flags) {
 }
 const built = flags.has('--built')
 const suites = [
+  'check-release-gates',
   'check-about-resident', 'check-copy-link', 'check-error-page',
   'check-recent-counts', 'check-toc-active', 'check-topics', 'check-reading-polish',
   'check-reading-appearance',
+  'check-appearance-mode',
+  'check-appearance-storage',
   'check-page-scroll',
   'check-search-grouping',
   'check-search-filters', 'check-pdf-controls',

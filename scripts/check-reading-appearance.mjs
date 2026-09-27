@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
+import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
 
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
@@ -44,9 +45,9 @@ assert(
 )
 
 /* 夕空町市必须随包发布：只留在 gitignore 的 tmp 里，部署出去就是一张空底图。 */
-const png = readFileSync(new URL('../public/images/yuzoramachi.png', import.meta.url))
+const png = readFileSync(new URL('../public/images/backgrounds/yuzoramachi.png', import.meta.url))
 assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a')
-assert(css.includes("url('/images/yuzoramachi.png')"), 'Dusk canvas and its swatch use the shipped image')
+assert(css.includes("url('/images/backgrounds/yuzoramachi.png')"), 'Dusk canvas and its swatch use the shipped image')
 assert(css.includes(":root[data-visual='modern'][data-background='dusk'] .ambient-image {"), 'Dusk swaps the ambient image')
 assert(css.includes('.background-swatch--theme'), 'Theme colour card previews the accent colour')
 assert(css.includes(":root[data-visual='modern'][data-background='theme'] .ambient-backdrop {"), 'Theme canvas paints the accent colour')
@@ -54,7 +55,7 @@ assert(css.includes('background: var(--modern-accent);'), 'Theme canvas is the a
 /* 主题纯色不给深浅各写一套比例，否则画布颜色会和面板上那支色块对不上。 */
 assert(!css.includes("[data-color-mode='light'][data-background='theme']"), 'Theme canvas keeps one colour in both appearances')
 /* 夕空町市缩略图是原图，不在缩略图上叠自己的色偏。 */
-assert(css.includes(".background-swatch--dusk { background-image: url('/images/yuzoramachi.png'); }"))
+assert(css.includes(".background-swatch--dusk { background-image: url('/images/backgrounds/yuzoramachi.png'); }"))
 /* 两种纯色画布都没有图层：组件几何、底图隐藏、玻璃取消都要把 theme 与 flat 并在一起，
    否则以后补规则时很容易只写 flat，让主题纯色退回成「有图层的画布」。 */
 assert(css.includes(":is([data-background='flat'], [data-background='theme']) .ambient-aurora { display: none; }"))
@@ -64,7 +65,7 @@ assert(!css.includes("[data-background]:not([data-background='flat'])"), 'Glass 
 
 /* 脚本重跑一遍真实逻辑：默认画布怎么解析、旧存储怎么迁移、手选之后还跟不跟随。 */
 const compiled = ts.transpile(
-  source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replaceAll('import.meta.client', 'true'),
+  source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replaceAll('import.meta.client', 'true'),
   { target: ts.ScriptTarget.ES2022 },
 )
 
@@ -82,6 +83,7 @@ function mount(saved, { systemDark = false, defer = false } = {}) {
   const media = { matches: systemDark, addEventListener: () => {}, removeEventListener: () => {} }
   let stored = null
   const context = vm.createContext({
+    decodeAppearanceStorage,
     supportsEmbeddedPdf: () => false,
     ref: value => ({ value }), reactive: value => value,
     computed: compute => ({ get value() { return compute() } }),

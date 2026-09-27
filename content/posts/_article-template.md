@@ -79,7 +79,7 @@ const article: ArticleMeta = {
 
 ## 图片
 
-![图片替代文字](/images/modern-dream-city.png)
+![图片替代文字](/images/backgrounds/modern-dream-city.png)
 
 图片下方可以继续使用普通段落书写图片说明或来源。替换图片时，将文件放入 `public/images`，然后修改上方以 `/images/` 开头的路径。
 

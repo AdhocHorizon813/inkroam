@@ -1,0 +1,398 @@
+[
+  [
+    ":root[data-visual='modern'][data-material='liquid']",
+    "--surface-bg"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='liquid']",
+    "--surface-bg-strong"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='liquid']",
+    "--surface-border"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='liquid']",
+    "--surface-shadow"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='liquid']",
+    "--surface-saturation"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='acrylic']",
+    "--surface-bg"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='acrylic']",
+    "--surface-bg-strong"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='acrylic']",
+    "--surface-border"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='acrylic']",
+    "--surface-shadow"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='acrylic']",
+    "--surface-saturation"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='mica']",
+    "--surface-bg"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='mica']",
+    "--surface-bg-strong"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='mica']",
+    "--surface-border"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='mica']",
+    "--surface-shadow"
+  ],
+  [
+    ":root[data-visual='modern'][data-material='mica']",
+    "--surface-saturation"
+  ],
+  [
+    ":root[data-visual='modern'] body",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .ambient-aurora",
+    "opacity"
+  ],
+  [
+    ":root[data-visual='modern'][data-background='aurora'] .ambient-aurora",
+    "opacity"
+  ],
+  [
+    ":root[data-visual='modern'] .site-header",
+    "top"
+  ],
+  [
+    ":root[data-visual='modern'] .site-header",
+    "height"
+  ],
+  [
+    ":root[data-visual='modern'] .site-header",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .site-header",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .site-header",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .brand",
+    "letter-spacing"
+  ],
+  [
+    ":root[data-visual='modern'] .brand-mark",
+    "width"
+  ],
+  [
+    ":root[data-visual='modern'] .brand-mark",
+    "height"
+  ],
+  [
+    ":root[data-visual='modern'] .brand-mark",
+    "color"
+  ],
+  [
+    ":root[data-visual='modern'] .brand-mark",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .main-nav a",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .main-nav a",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .main-nav a",
+    "font-size"
+  ],
+  [
+    ":root[data-visual='modern'] .hero",
+    "margin-top"
+  ],
+  [
+    ":root[data-visual='modern'] .hero",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .hero",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .hero h1",
+    "max-width"
+  ],
+  [
+    ":root[data-visual='modern'] .hero h1",
+    "letter-spacing"
+  ],
+  [
+    ":root[data-visual='modern'] .hero h1",
+    "text-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .hero h1 em",
+    "color"
+  ],
+  [
+    ":root[data-visual='modern'] .hero h1 em",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .hero-aside",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .hero-aside",
+    "border"
+  ],
+  [
+    ":root[data-visual='modern'] .hero-aside",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .hero-aside",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .hero-aside",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .text-link",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .text-link",
+    "border"
+  ],
+  [
+    ":root[data-visual='modern'] .text-link",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .text-link",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .text-link:hover",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .latest-section",
+    "margin-top"
+  ],
+  [
+    ":root[data-visual='modern'] .latest-section",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .latest-section",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .latest-section",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .section-heading h2",
+    "letter-spacing"
+  ],
+  [
+    ":root[data-visual='modern'] .story-row",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .story-row",
+    "border"
+  ],
+  [
+    ":root[data-visual='modern'] .story-row",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .story-row",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .story-row",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .story-row:hover",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .story-meta",
+    "color"
+  ],
+  [
+    ":root[data-visual='modern'] .story-body h3",
+    "letter-spacing"
+  ],
+  [
+    ":root[data-visual='modern'] .manifesto",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .manifesto",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .manifesto",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .appearance-trigger",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .standard-page,\n:root[data-visual='modern'] .article-page",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .standard-page,\n:root[data-visual='modern'] .article-page",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .standard-page,\n:root[data-visual='modern'] .article-page",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .archive-item",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .archive-item",
+    "border"
+  ],
+  [
+    ":root[data-visual='modern'] .archive-item",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .archive-item",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .archive-item:hover",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .monogram",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .about-copy blockquote",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .about-copy blockquote",
+    "border"
+  ],
+  [
+    ":root[data-visual='modern'] .about-copy blockquote",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .article-content",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .article-content",
+    "border"
+  ],
+  [
+    ":root[data-visual='modern'] .article-content",
+    "border-radius"
+  ],
+  [
+    ":root[data-visual='modern'] .article-content",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .article-content",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .article-end > span",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .tag-results",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .hero h1",
+    "font-weight"
+  ],
+  [
+    ":root[data-visual='modern'][data-color-mode='light'][data-material='liquid']",
+    "--surface-bg"
+  ],
+  [
+    ":root[data-visual='modern'][data-color-mode='light'][data-material='liquid']",
+    "--surface-bg-strong"
+  ],
+  [
+    ":root[data-visual='modern'][data-color-mode='light'][data-material='liquid']",
+    "--surface-border"
+  ],
+  [
+    ":root[data-visual='modern'][data-color-mode='light'][data-material='liquid']",
+    "--surface-shadow"
+  ],
+  [
+    ":root[data-visual='modern'][data-color-mode='light'][data-material='acrylic']",
+    "--surface-bg"
+  ],
+  [
+    ":root[data-visual='modern'][data-color-mode='light'][data-material='acrylic']",
+    "--surface-bg-strong"
+  ],
+  [
+    ":root[data-visual='modern'][data-color-mode='light'][data-material='acrylic']",
+    "--surface-border"
+  ],
+  [
+    ":root[data-visual='modern'][data-color-mode='light'][data-material='acrylic']",
+    "--surface-shadow"
+  ],
+  [
+    ":root[data-visual='modern'][data-color-mode='light'] .brand-mark",
+    "color"
+  ],
+  [
+    ":root[data-visual='modern'][data-color-mode='light'] .main-nav a:hover,\n:root[data-visual='modern'][data-color-mode='light'] .main-nav a.router-link-active",
+    "color"
+  ],
+  [
+    ":root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .hero,\n:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section,\n:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto,\n:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .standard-page,\n:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .article-page",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .brand",
+    "font-size"
+  ],
+  [
+    ":root[data-visual='modern'] .ambient-vignette",
+    "opacity"
+  ]
+]

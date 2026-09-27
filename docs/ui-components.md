@@ -2,6 +2,14 @@
 
 About侧栏「独立写作者 / 长期主义练习者」使用 `--muted`，随纸媒/现代与明暗切换；不使用固定浅色RGBA。2026-09-26移除了现代主题遗留硬编码，字号与布局不变。
 
+## 默认设置的明暗联动（2026-09-27）
+
+存储边界：`appearance-storage.ts` 是无 DOM/存储副作用的解码函数，v5 优先，只有缺失时才迁移 v4 的共用 blur。组件保留存储读写、字段规范化和失败提示；该提取不改变默认值或旧偏好。兼容性对照测试见 `check-appearance-storage.mjs`。
+
+启用默认设置后，手动选择浅色、深色或自动，与自动模式下系统明暗变化，都必须重新应用当前明暗预设：四组材质、四组模糊、背景遮罩及自动背景同步更新并持久化。禁用默认设置时，这些切换不得覆盖手动值；氛围色和主题色混合背景始终不属于明暗预设管理范围。
+
+手动路径通过监听 `state.colorMode` 调用 `commitManagedDefaults()`，使用普通批处理，避免读取存储的中间状态触发覆盖。`scripts/check-appearance-mode.mjs` 使用真实 Vue 响应式验证手动/系统切换、快速切换、持久化及手动值保留；已纳入 `npm run check`。这不替代浏览器视觉检查。
+
 ## 默认设置确认弹窗（2026-09-26）
 
 完整规格见 [确认弹窗视觉与动效规范](appearance-confirm-design.md)：含尺寸、材质配方、按钮状态、入退场曲线、无障碍、与原有 Inkroam 的差异及复用边界。
@@ -16,22 +24,22 @@ About侧栏「独立写作者 / 长期主义练习者」使用 `--muted`，随�
 
 ### 高级搜索与自带 PDF 阅读器（2026-09-24）
 
-2026-09-25 滚动条归位（**替代下文"不创建独立 body 滚动容器"的说法**）：经典滚动条的槽位在文档绘制区之外，那里只有 canvas 能出现，所以右边缘必然留着一条底色白边——给 fixed 背景层 `width: 100vw`、把根滚动条改成自绘透明轨道都盖不住（槽位像素一字不变）。现在把页面滚动搬进 `app.vue` / `error.vue` 里的 `.page-scroll`：槽位落进绘制区，透明轨道下面就是氛围层，与文章目录的滑条本来就是同一套机制。`html` 桌面改 `overflow-y: hidden`（没有根滚动条 → ICB 变成整个窗口），手机仍是原生文档滚动；`.ambient-backdrop` 与外观面板留在容器之外。随之自管滚动位置（`app/router.options.ts` + `app/utils/page-scroll.ts`）：导航回顶、锚点偏移、刷新与前进 / 后退还原。实测与取舍见 [visual-system.md](visual-system.md)。
+**当前滚动契约（2026-09-27 核对源码）**：匹配 `(hover: hover) and (pointer: fine)` 的环境使用 `app.vue` / `error.vue` 中的 `.page-scroll`，根元素不滚动；其它环境保留原生文档滚动。这里按输入能力而不是屏幕宽度分支。容器始终 `overflow-y: scroll`，背景透明，氛围层和外观面板在其外侧。读写滚动位置与监听统一通过 `app/utils/page-scroll.ts`；路由回顶、锚点与历史恢复由 `app/router.options.ts` 协调。历史试验与平台差异见 [滚动条记录](scrollbar.md)，不作为新的视觉修改要求。
 
-焦点与滚动条补充：日期输入和按钮共用外层圆角焦点框，内层明确覆盖现代主题全局 outline，防止双框；选中勾号为 SVG，下划线仅作用于选项文字。根滚动条不再使用 stable gutter，改为原生细滚动条、透明轨道与主题色拇指，overflow-y:scroll 保持布局宽度，不创建独立 body 滚动容器。此条替代下文的旧 gutter 说明。
+焦点约定：日期输入和按钮共用外层圆角焦点框，内层明确覆盖现代主题全局 outline，防止双框；选中勾号为 SVG，下划线仅作用于选项文字。
 
 2026-09-25 滑条显隐与浮层定位修订：
 
-- 页面滑条改成「能滚才出现」：容器上写 `data-scrollable`，CSS 把 `--page-scrollbar-alpha` 从 1 过渡到 0（只改透明度，元素、轨道、槽位全程留着，所以不位移）。写状态的是 `app/composables/usePageScrollable.ts`，判据是 `pageNeedsScroll()`（留 1px 容差）。**坑**：`::-webkit-scrollbar-thumb` 上的 `transition` 在 Chrome 里不逐帧重绘，必须把透明度做在宿主元素上、伪元素用 `color-mix` 读——机制与平台差异见 [scrollbar.md](scrollbar.md)。
+- 页面滑条「能滚才出现」：`usePageScrollable.ts` 写 `data-scrollable`（1px 容差）以及拇指高度/位置变量。在上述细指针环境且支持 `::-webkit-scrollbar` 时，原生拇指透明但保留原生交互，`PageScrollbar.vue` 绘制可见拇指，整体 `pointer-events: none`；透明度动画直接作用于 `.page-scrollbar__thumb`，不再使用 `--page-scrollbar-alpha`。槽位和元素一直保留，避免显隐引起横移；首次测量取消淡出延迟。不支持该伪元素的环境保留原生细滚动条，不承诺同样的淡出。机制与历史见 [scrollbar.md](scrollbar.md)。
 - **日历浮层错位修复**：菜单与日历是 `popover` 顶层元素，位置由 `useSearchPopover` 写进 `--popup-left/top/width/bottom`。组件里残留的 `.align-end .date-popup { left: auto; right: 0 }` 与那条规则**同权重**却在后，把「结束日期」的日历钉到了窗口右缘（实测 715px 窗口：算出来 358.5px，渲染成 399px＝视口右缘）。现在组件样式里不再出现任何位置声明，`align-end` 属性一并删掉——右边界由 `useSearchPopover` 的限宽夹取负责（窄屏靠左夹、不溢出）。
 - 日期输入不再提示「请输入有效日期，格式为 YYYY-MM-DD。」：`maskDateInput()`（`app/utils/calendar-date.ts`）边打边只留数字、按 4-2-2 补横线，配 `maxlength="10"` 挡住第 9 位。写不全或不是真实日期（`2026-02-30`）在失焦时**静默退回上一个有效值**；只有超出 `min`/`max` 才仍然提示。已知简化：月份／日期按两位读，`2026-9-5` 这种一位数写法会变成 `2026-95`（失焦后按无效日期退回）。
 
 
-2026-09-25 布局修订：根滚动条预留固定空间，避免筛选结果变长后整页横移；清除筛选在空条件时隐藏但保留占位，避免结果区跳动。六框统一 39px 高、10px 圆角。菜单与日历通过原生 `popover="manual"` 进入 top layer，绕开正文面板的 backdrop-filter 取样边界；`useSearchPopover` 按触发框定位、窄屏限宽、页底向上展开，监听滚动/resize，关闭动画结束后才 hidePopover。选中项不使用背景高光块，保留文字/勾选及键盘焦点。`check-search-popover.mjs` 验证模拟几何和生命周期，不等于真实浏览器像素验收。
+搜索布局：页面滚动槽位遵循上面的滚动契约；清除筛选在空条件时隐藏但保留占位，避免结果区跳动。六框统一 39px 高、10px 圆角。菜单与日历通过原生 `popover="manual"` 进入 top layer，绕开正文面板的 backdrop-filter 取样边界；`useSearchPopover` 按触发框定位、窄屏限宽、页底向上展开，监听滚动/resize，关闭动画结束后才 hidePopover。选中项不使用背景高光块，保留文字/勾选及键盘焦点。`check-search-popover.mjs` 验证模拟几何和生命周期，不等于真实浏览器像素验收。
 
 `SearchAdvanced.vue` 位于搜索框下方，默认收起；网址已有条件时初始展开。沿用更多匹配的 grid 0fr/1fr 非线性展开策略、inert 和 reduced-motion。类型、课程、标签、日期、排序写入 query（`type/course/tag/from/to/sort`）；收起不清除，清除筛选保留关键词。**课程只属于笔记**（`content/notes/<课程>/`）：内容类型不是「笔记」时课程框禁用（淡化到 `.42`，与外观面板的禁用收敛成同一档），离开笔记会把已选课程一并清掉；不再有「选了课程就自动把内容类型改成笔记」的隐式联动。条件按 AND 组合，日期含端点，反向日期显示提示且无结果；无效网址日期忽略。内容仍先排除 draft，PDF 正文不参与站内搜索。筛选更改替换当前历史记录，离开再后退会恢复网址条件，不把每次控件变更堆成历史。
 
-日期使用 `SearchDatePicker.vue`：保留手输 `YYYY-MM-DD`，失焦或回车提交完整有效日期，日历点选立即提交；格式不合法或超出另一端日期的输入会提示，不写入网址。编辑中的半截日期不会清掉已有筛选。
+日期使用 `SearchDatePicker.vue`：保留手输 `YYYY-MM-DD`，失焦或回车提交完整有效日期，日历点选立即提交；格式不合法或不是真实日期时静默恢复已有值，超出另一端日期范围时提示，不写入网址。编辑中的半截日期不会清掉已有筛选。
 
 展开标记与四个选择器右侧的三角都是**画出来的 SVG chevron**（`fill: none; stroke: currentColor; stroke-width 1.8/2; linecap/linejoin: round`，与搜索框放大镜、灯箱图标同一套画法），不再用 `›` / `⌄` 字符：文字符号的笔画粗细与上下位置都依赖字体与系统回退，同一个字符换台机器就不是一个形状，也不随控件尺寸缩放。展开态直接由 `[aria-expanded='true']` 驱动旋转（90° / 180°），不额外绑 class。
 
@@ -40,7 +48,7 @@ About侧栏「独立写作者 / 长期主义练习者」使用 `--muted`，随�
 下拉浮层（筛选菜单和日历共用 `.dropdown-surface`）是盖在正文上的菜单，规则和页面面层不同：
 
 - **模糊用下拉框自己的「下拉框模糊」**（`--dropdown-blur`，外观面板新增同名滑条）：原先借的是「导航模糊」，等于让顶栏那条滑条顺手改浮层；而「内容模糊」是页面面层的模糊，浮层本来就嵌在面层里、跟着它调看不出任何变化。三条通道现在各管一段：导航模糊管顶栏与外观面板，内容模糊管页面面层，下拉框模糊只管浮层。
-- **独立材质选择**：阅读设置提供「下拉框材质」液态玻璃 / 亚克力 / 云母，默认云母。`data-dropdown-material` 与导航、内容独立；两个浮层共用 `.dropdown-surface`，沿用导航的明暗底色、描边、阴影及液态玻璃高光，不再叠固定厚幕。材质与模糊分别持久化，恢复默认一并重置；纸媒模式禁用材质控件。
+- **独立材质选择**：阅读设置提供「下拉框材质」液态玻璃 / 亚克力 / 云母。默认设置启用时，浅色预设为液态玻璃、深色为云母；旧偏好缺键的兼容兜底为云母，不应与浅色出厂值混淆。`data-dropdown-material` 与导航、内容独立；两个浮层共用 `.dropdown-surface`，沿用导航的明暗底色、描边、阴影及液态玻璃高光，不再叠固定厚幕。材质与模糊分别持久化，恢复默认一并重置；纸媒模式禁用材质控件。
 - **模糊全程开着**，收起途中也一样：关掉之后残下的那点透明会露出清晰的字。收起仍走 grid 0fr→0 的裁剪，`visibility` 延后到动画结束。
 - **展开方向（向上 / 向下）怎么定**：`useSearchPopover.position()` 在每次打开以及 scroll / resize 时都重算，判据只有一条——`below = innerHeight - rect.bottom - 18`、`above = rect.top - 18`，只有 `below < 内容高 && above > below` 才翻转向上；否则一律向下（宁可向下开、空间不够就让面层内部滚动，也不硬往上方挤）。`rect` 取整个 `.filter-select` / `.date-picker`**含标签那一行**，所以向上时 `--popup-bottom = innerHeight - rect.top + 6`、弹层下沿落在触发框上方 **30px**（标签 24px + 6px 缝，标签不会被盖住），向下时 `--popup-top = rect.bottom + 6` 就是紧贴 **6px** —— 这个 30 / 6 的不对称是故意的。`--popup-height = max(80, above|below)` 交给 `.dropdown-surface { max-height }`，空间不足时面层自己滚，不外溢视口。判据里的「内容高」取面层自己的 `offsetHeight`（不要用裁剪窗 `scrollHeight`：向上展开时内容贴下沿、会溢到窗上沿之外，而 `scrollHeight` 不计反方向溢出）。翻转结果写成 `data-flip='up|down'`，收起动画按它对齐（见下一条）。
 - **收起方向的规则**：裁剪窗（那一行 track）和窗里的内容都必须贴在**钉住的那条边**上，由窗从**远边**把内容切掉。向下展开时盒顶钉在触发框下沿 → 行与内容都贴上沿（默认块流就是如此）；向上展开时盒底钉在触发框上沿 → 选择器上加 `[data-flip='up']`，配 `align-content: end` 与内容 `justify-content: flex-end`。**别指望行高＝盒高**：行比盒子缩得快（收起 190ms 实测行 71px／盒 136px，把 UA 的 `[popover] { height: fit-content }` 覆盖成 `auto` 也一样），所以只能按边对齐；否则向上展开时裁剪窗落在盒顶，内容会跟着盒顶整块下滑（实测 234px），看起来就不像「收回触发框」。`data-flip` 由 `useSearchPopover` 按翻转结果写入，探针与逐帧数字见 [work-checkpoint.md](work-checkpoint.md)。
@@ -75,11 +83,12 @@ About侧栏「独立写作者 / 长期主义练习者」使用 `--muted`，随�
     .ambient-image         图片背景
     .ambient-aurora        极光渐变
   .ambient-vignette        暗角
-  .page-scroll             页面滚动容器（桌面在这里滚；滚动条槽位因此落在绘制区里）
-    .site-shell            内容容器（居中、限宽）
-      .site-header         顶栏（sticky）
-      .route-frame         页面容器，也是路由入场动画的作用范围
-      .site-footer         页脚
+.page-scroll              页面滚动容器（细指针且支持 hover 时在这里滚）
+  .site-shell             内容容器（居中、限宽）
+    .site-header          顶栏（sticky）
+    .route-frame          页面容器，也是路由入场动画的作用范围
+    .site-footer          页脚
+  .page-scrollbar         装饰滑条（不接管输入）
 .appearance-dock           右下角外观入口（fixed）
 ```
 

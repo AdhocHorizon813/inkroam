@@ -74,15 +74,17 @@ $env:BASE_PATH='/inkroam/'; npm run generate; npm run preview
 
 ### 回归检查
 
+真实浏览器检查按 [浏览器回归验收清单](docs/browser-regression-checklist.md) 执行；清单的建立不代表已经完成视觉验收。
+
 `npm run check` 运行不需要构建或浏览器的逻辑检查。先以 `BASE_PATH=/inkroam/` 生成静态站点，再运行 `npm run check -- --built`，额外检查内容产物和站内链接（既有构建测试以生产子路径为基准）。已有根路径开发服务 `localhost:3000` 时可追加 `--live`，检查笔记搜索和 PDF 服务响应。测试不替代真实浏览器下的布局、动效及权限验收。
 
-推送到 `main` 即触发 GitHub Actions：`npm run generate` → 上传 `.output/public` → 发布到 GitHub Pages 的 `/inkroam/` 子路径。也可以在仓库 Actions 页面手动触发（`workflow_dispatch`）。
+推送到 `main` 即触发 GitHub Actions：类型检查 → 源码回归 → `npm run generate` → 产物回归 → 上传 `.output/public` → 发布到 GitHub Pages 的 `/inkroam/` 子路径。任一检查失败将阻止后续上传和部署。也可以在仓库 Actions 页面手动触发（`workflow_dispatch`）。
 
 细节与排查见 [`docs/deployment-github-pages.md`](docs/deployment-github-pages.md)。
 
 ## 文档
 
-About 页在原有正文后设有原创角色「林澈 / Lin Che」的小节。插图位于 `public/images/lin-che.png`，共享两种视觉模式的排版与颜色变量；布局和换图注意事项见 [视觉系统](docs/visual-system.md#about-页的-another-resident)。
+About 页在原有正文后设有原创角色「林澈 / Lin Che」的小节。插图位于 `public/images/about/lin-che.png`，共享两种视觉模式的排版与颜色变量；布局和换图注意事项见 [视觉系统](docs/visual-system.md#about-页的-another-resident)。图片自 2026-09-27 起按用途分入 `backgrounds/`、`about/`、`posts/<文章标识>/`、`notes/<课程英文名>/` 子目录（见 [写作规范](docs/content-authoring.md#图片用法)）：**旧的一级地址 `/images/<名字>.png` 已经失效，未保留兼容副本**。
 
 该模块的源码回归检查：`node scripts/check-about-resident.mjs`；静态生成后加 `--built` 检查部署路径与图片产物。实际响应式和主题视觉仍需浏览器验收。
 
