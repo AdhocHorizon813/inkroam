@@ -1,0 +1,614 @@
+[
+  {
+    "key": ":root[data-visual='modern'] .ambient-image | filter",
+    "values": [
+      {
+        "value": "saturate(.82) brightness(.66)",
+        "important": false
+      },
+      {
+        "value": "blur(var(--background-blur))\n    saturate(var(--background-saturation, .82))\n    brightness(var(--background-brightness, .66))\n    contrast(var(--background-contrast, 1))",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .ambient-aurora | filter",
+    "values": [
+      {
+        "value": "blur(64px)",
+        "important": false
+      },
+      {
+        "value": "blur(calc(56px + var(--background-blur)))\n    saturate(var(--background-saturation, 1))",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .site-header | position",
+    "values": [
+      {
+        "value": "sticky",
+        "important": false
+      },
+      {
+        "value": "sticky",
+        "important": true
+      }
+    ],
+    "reason": "不同 important 优先级，不能按出现顺序删除"
+  },
+  {
+    "key": ":root[data-visual='modern'] .site-header | box-shadow",
+    "values": [
+      {
+        "value": "var(--surface-shadow)",
+        "important": false
+      },
+      {
+        "value": "0 8px 24px rgba(0, 0, 0, .12)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .brand-mark | background",
+    "values": [
+      {
+        "value": "linear-gradient(145deg, var(--modern-accent), var(--modern-cyan))",
+        "important": false
+      },
+      {
+        "value": "#e7ebf0",
+        "important": false
+      },
+      {
+        "value": "var(--modern-accent)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .main-nav a:hover,\n:root[data-visual='modern'] .main-nav a.router-link-active | color",
+    "values": [
+      {
+        "value": "#fff",
+        "important": false
+      },
+      {
+        "value": "var(--modern-ink)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .hero | background",
+    "values": [
+      {
+        "value": "linear-gradient(145deg, rgba(13, 18, 40, .22), rgba(19, 25, 51, .5))",
+        "important": false
+      },
+      {
+        "value": "var(--surface-bg)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .hero .eyebrow::before | background",
+    "values": [
+      {
+        "value": "linear-gradient(90deg, var(--modern-accent), var(--modern-cyan))",
+        "important": false
+      },
+      {
+        "value": "#9aaecb",
+        "important": false
+      },
+      {
+        "value": "var(--modern-accent)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .text-link:hover | border-color",
+    "values": [
+      {
+        "value": "color-mix(in srgb, var(--modern-accent) 55%, white 15%)",
+        "important": false
+      },
+      {
+        "value": "#b8c7db",
+        "important": false
+      },
+      {
+        "value": "var(--accent-medium)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .latest-section | padding",
+    "values": [
+      {
+        "value": "42px",
+        "important": false
+      },
+      {
+        "value": "clamp(34px, 5vw, 56px)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .story-row:hover | border-color",
+    "values": [
+      {
+        "value": "color-mix(in srgb, var(--modern-accent) 44%, rgba(255, 255, 255, .16))",
+        "important": false
+      },
+      {
+        "value": "rgba(255, 255, 255, .16)",
+        "important": false
+      },
+      {
+        "value": "color-mix(in srgb, var(--modern-accent) 42%, var(--modern-line))",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .story-index | color",
+    "values": [
+      {
+        "value": "rgba(230, 233, 255, .46)",
+        "important": false
+      },
+      {
+        "value": "var(--accent-soft)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .story-arrow | color",
+    "values": [
+      {
+        "value": "var(--modern-cyan)",
+        "important": false
+      },
+      {
+        "value": "rgba(232, 236, 242, .62)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ".appearance-panel | position",
+    "values": [
+      {
+        "value": "absolute",
+        "important": false
+      },
+      {
+        "value": "absolute",
+        "important": true
+      }
+    ],
+    "reason": "不同 important 优先级，不能按出现顺序删除"
+  },
+  {
+    "key": ".appearance-panel | right",
+    "values": [
+      {
+        "value": "0",
+        "important": false
+      },
+      {
+        "value": "0",
+        "important": true
+      }
+    ],
+    "reason": "不同 important 优先级，不能按出现顺序删除"
+  },
+  {
+    "key": ".appearance-panel | bottom",
+    "values": [
+      {
+        "value": "56px",
+        "important": false
+      },
+      {
+        "value": "54px",
+        "important": true
+      }
+    ],
+    "reason": "不同 important 优先级，不能按出现顺序删除"
+  },
+  {
+    "key": ".appearance-panel | max-height",
+    "values": [
+      {
+        "value": "min(720px, calc(100vh - 96px))",
+        "important": false
+      },
+      {
+        "value": "min(720px, calc(100dvh - 96px))",
+        "important": false
+      },
+      {
+        "value": "min(740px, calc(100vh - 82px))",
+        "important": false
+      },
+      {
+        "value": "min(740px, calc(100dvh - 82px))",
+        "important": false
+      }
+    ],
+    "reason": "保留 vh/dvh 浏览器回退"
+  },
+  {
+    "key": ".appearance-panel | padding",
+    "values": [
+      {
+        "value": "20px",
+        "important": false
+      },
+      {
+        "value": "0",
+        "important": true
+      }
+    ],
+    "reason": "不同 important 优先级，不能按出现顺序删除"
+  },
+  {
+    "key": ".segmented-control button.active | background",
+    "values": [
+      {
+        "value": "linear-gradient(135deg, color-mix(in srgb, var(--modern-accent) 44%, transparent), rgba(101, 217, 255, .16))",
+        "important": false
+      },
+      {
+        "value": "transparent",
+        "important": true
+      }
+    ],
+    "reason": "不同 important 优先级，不能按出现顺序删除"
+  },
+  {
+    "key": ".segmented-control button.active | box-shadow",
+    "values": [
+      {
+        "value": "inset 0 1px 0 rgba(255, 255, 255, .18), 0 8px 20px rgba(3, 5, 20, .18)",
+        "important": false
+      },
+      {
+        "value": "none",
+        "important": true
+      }
+    ],
+    "reason": "不同 important 优先级，不能按出现顺序删除"
+  },
+  {
+    "key": ":root[data-visual='modern'] .archive-year | border-top-color",
+    "values": [
+      {
+        "value": "rgba(255, 255, 255, .16)",
+        "important": false
+      },
+      {
+        "value": "var(--modern-line)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .archive-item time,\n:root[data-visual='modern'] .archive-tag | color",
+    "values": [
+      {
+        "value": "rgba(231, 234, 250, .5)",
+        "important": false
+      },
+      {
+        "value": "var(--modern-muted)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .archive-item > span:nth-child(2) | color",
+    "values": [
+      {
+        "value": "#fff",
+        "important": false
+      },
+      {
+        "value": "var(--modern-ink)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .about-grid | border-top-color",
+    "values": [
+      {
+        "value": "rgba(255, 255, 255, .16)",
+        "important": false
+      },
+      {
+        "value": "var(--modern-line)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .monogram | color",
+    "values": [
+      {
+        "value": "#fff",
+        "important": false
+      },
+      {
+        "value": "var(--surface-bg)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .about-copy blockquote | background",
+    "values": [
+      {
+        "value": "rgba(255, 255, 255, .045)",
+        "important": false
+      },
+      {
+        "value": "color-mix(in srgb, var(--modern-accent) 6%, transparent)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .article-grid | border-top-color",
+    "values": [
+      {
+        "value": "rgba(255, 255, 255, .16)",
+        "important": false
+      },
+      {
+        "value": "var(--modern-line)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .article-content p,\n:root[data-visual='modern'] .article-content li | color",
+    "values": [
+      {
+        "value": "rgba(247, 248, 255, .88)",
+        "important": false
+      },
+      {
+        "value": "color-mix(in srgb, var(--modern-ink) 88%, transparent)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .article-content h2 | color",
+    "values": [
+      {
+        "value": "#fff",
+        "important": false
+      },
+      {
+        "value": "var(--modern-ink)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .article-content blockquote p | color",
+    "values": [
+      {
+        "value": "rgba(238, 240, 255, .68)",
+        "important": false
+      },
+      {
+        "value": "var(--modern-muted)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .article-content code | background",
+    "values": [
+      {
+        "value": "rgba(255, 255, 255, .09)",
+        "important": false
+      },
+      {
+        "value": "color-mix(in srgb, var(--modern-ink) 7%, transparent)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .article-content code | color",
+    "values": [
+      {
+        "value": "#fff",
+        "important": false
+      },
+      {
+        "value": "var(--modern-ink)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .article-end | border-top-color",
+    "values": [
+      {
+        "value": "rgba(255, 255, 255, .16)",
+        "important": false
+      },
+      {
+        "value": "var(--modern-line)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'] .article-end > span | color",
+    "values": [
+      {
+        "value": "#fff",
+        "important": false
+      },
+      {
+        "value": "var(--surface-bg)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'][data-color-mode='light'] .ambient-backdrop | background",
+    "values": [
+      {
+        "value": "#f0efeb",
+        "important": false
+      },
+      {
+        "value": "radial-gradient(circle at 16% 10%, color-mix(in srgb, var(--background-tint) 18%, transparent), transparent 38%),\n    radial-gradient(circle at 84% 72%, color-mix(in srgb, var(--background-tint) 11%, transparent), transparent 42%),\n    linear-gradient(145deg, #f5f3ee 0%, #eceef2 52%, #e8ebef 100%)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'][data-color-mode='light'] .brand-mark | background",
+    "values": [
+      {
+        "value": "#252a31",
+        "important": false
+      },
+      {
+        "value": "var(--modern-accent)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'][data-material='liquid'] .hero,\n:root[data-visual='modern'][data-material='liquid'] .latest-section,\n:root[data-visual='modern'][data-material='liquid'] .manifesto,\n:root[data-visual='modern'][data-material='liquid'] .standard-page,\n:root[data-visual='modern'][data-material='liquid'] .article-page | backdrop-filter",
+    "values": [
+      {
+        "value": "none",
+        "important": false
+      },
+      {
+        "value": "blur(var(--glass-blur)) saturate(145%) brightness(1.03)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'][data-material='liquid'] .hero,\n:root[data-visual='modern'][data-material='liquid'] .latest-section,\n:root[data-visual='modern'][data-material='liquid'] .manifesto,\n:root[data-visual='modern'][data-material='liquid'] .standard-page,\n:root[data-visual='modern'][data-material='liquid'] .article-page | -webkit-backdrop-filter",
+    "values": [
+      {
+        "value": "none",
+        "important": false
+      },
+      {
+        "value": "blur(var(--glass-blur)) saturate(145%) brightness(1.03)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'][data-material='liquid'] .site-header,\n:root[data-visual='modern'][data-material='liquid'] .appearance-trigger,\n:root[data-visual='modern'][data-material='liquid'] .appearance-panel | backdrop-filter",
+    "values": [
+      {
+        "value": "blur(12px) saturate(135%) brightness(1.04)",
+        "important": false
+      },
+      {
+        "value": "blur(var(--glass-blur)) saturate(135%) brightness(1.04)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ":root[data-visual='modern'][data-material='liquid'] .site-header,\n:root[data-visual='modern'][data-material='liquid'] .appearance-trigger,\n:root[data-visual='modern'][data-material='liquid'] .appearance-panel | -webkit-backdrop-filter",
+    "values": [
+      {
+        "value": "blur(12px) saturate(135%) brightness(1.04)",
+        "important": false
+      },
+      {
+        "value": "blur(var(--glass-blur)) saturate(135%) brightness(1.04)",
+        "important": false
+      }
+    ],
+    "reason": "保留新语法或变量支持边界的回退，后续需浏览器兼容性证据"
+  },
+  {
+    "key": ".appearance-trigger | anchor-name",
+    "values": [
+      {
+        "value": "--appearance-trigger",
+        "important": false
+      },
+      {
+        "value": "none",
+        "important": true
+      }
+    ],
+    "reason": "不同 important 优先级，不能按出现顺序删除"
+  },
+  {
+    "key": ":root[data-visual='modern'] .site-header::before,\n:root[data-visual='modern'] .appearance-trigger::before,\n:root[data-visual='modern'] .appearance-panel::before | display",
+    "values": [
+      {
+        "value": "none",
+        "important": false
+      },
+      {
+        "value": "none",
+        "important": true
+      }
+    ],
+    "reason": "不同 important 优先级，不能按出现顺序删除"
+  }
+]

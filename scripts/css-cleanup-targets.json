@@ -394,5 +394,217 @@
   [
     ":root[data-visual='modern'] .ambient-vignette",
     "opacity"
+  ],
+  [
+    ":root[data-visual='modern'] .ambient-vignette",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .site-shell",
+    "width"
+  ],
+  [
+    ":root[data-visual='modern'] .main-nav a",
+    "transition"
+  ],
+  [
+    ":root[data-visual='modern'] .main-nav a:hover,\n:root[data-visual='modern'] .main-nav a.router-link-active",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .hero",
+    "min-height"
+  ],
+  [
+    ":root[data-visual='modern'] .hero",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .hero",
+    "backdrop-filter"
+  ],
+  [
+    ":root[data-visual='modern'] .hero",
+    "-webkit-backdrop-filter"
+  ],
+  [
+    ":root[data-visual='modern'] .hero-aside",
+    "backdrop-filter"
+  ],
+  [
+    ":root[data-visual='modern'] .hero-aside",
+    "-webkit-backdrop-filter"
+  ],
+  [
+    ":root[data-visual='modern'] .story-row:hover",
+    "padding-left"
+  ],
+  [
+    ":root[data-visual='modern'] .manifesto",
+    "margin"
+  ],
+  [
+    ":root[data-visual='modern'] .manifesto",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .appearance-trigger",
+    "border-color"
+  ],
+  [
+    ":root[data-visual='modern'] .appearance-trigger",
+    "box-shadow"
+  ],
+  [
+    ":root[data-visual='modern'] .appearance-trigger",
+    "backdrop-filter"
+  ],
+  [
+    ":root[data-visual='modern'] .appearance-trigger",
+    "-webkit-backdrop-filter"
+  ],
+  [
+    ".appearance-trigger > span:first-child",
+    "color"
+  ],
+  [
+    ".appearance-panel",
+    "width"
+  ],
+  [
+    ".appearance-panel",
+    "border-radius"
+  ],
+  [
+    ".appearance-panel",
+    "background"
+  ],
+  [
+    ".appearance-panel",
+    "box-shadow"
+  ],
+  [
+    ".appearance-panel",
+    "backdrop-filter"
+  ],
+  [
+    ".appearance-panel",
+    "-webkit-backdrop-filter"
+  ],
+  [
+    ".appearance-panel__header",
+    "margin-bottom"
+  ],
+  [
+    ".setting-group",
+    "border-top"
+  ],
+  [
+    ".setting-label",
+    "margin-bottom"
+  ],
+  [
+    ".background-options",
+    "grid-template-columns"
+  ],
+  [
+    ".accent-options",
+    "display"
+  ],
+  [
+    ".accent-options",
+    "gap"
+  ],
+  [
+    ".accent-options button",
+    "box-shadow"
+  ],
+  [
+    ".appearance-panel__footer",
+    "justify-content"
+  ],
+  [
+    ":root[data-visual='modern'] .standard-page,\n:root[data-visual='modern'] .article-page",
+    "margin"
+  ],
+  [
+    ":root[data-visual='modern'] .standard-page,\n:root[data-visual='modern'] .article-page",
+    "padding"
+  ],
+  [
+    ":root[data-visual='modern'] .archive-year h2",
+    "color"
+  ],
+  [
+    ":root[data-visual='modern'] .archive-item:hover",
+    "border-color"
+  ],
+  [
+    ":root[data-visual='modern'] .monogram",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .about-copy blockquote",
+    "border-left"
+  ],
+  [
+    ":root[data-visual='modern'] .article-content blockquote",
+    "background"
+  ],
+  [
+    ":root[data-visual='modern'] .article-end > span",
+    "background"
+  ],
+  [
+    ".panel-fade-enter-from,\n.panel-fade-leave-to",
+    "opacity"
+  ],
+  [
+    ".panel-fade-enter-from,\n.panel-fade-leave-to",
+    "transform"
+  ],
+  [
+    ".page-enter-active",
+    "transition"
+  ],
+  [
+    ".page-leave-active",
+    "transition"
+  ],
+  [
+    ".page-enter-from",
+    "opacity"
+  ],
+  [
+    ".page-enter-from",
+    "transform"
+  ],
+  [
+    ".page-leave-to",
+    "opacity"
+  ],
+  [
+    ".page-leave-to",
+    "transform"
+  ],
+  [
+    ".panel-fade-enter-active",
+    "transition"
+  ],
+  [
+    ".panel-fade-leave-active",
+    "transition"
+  ],
+  [
+    ":root[data-visual='modern'] .hero h1",
+    "font-size"
+  ],
+  [
+    ":root[data-visual='modern'] .section-heading h2",
+    "font-size"
+  ],
+  [
+    ".route-frame",
+    "min-width"
   ]
 ]
