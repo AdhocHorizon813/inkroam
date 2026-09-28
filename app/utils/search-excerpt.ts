@@ -53,14 +53,15 @@ export function articleExcerptSections(body: unknown, path: string, description 
 }
 
 /** Treat each formula as one indivisible unit, so truncation cannot break TeX. */
-export function excerptParts(parts: ExcerptPart[], query: string, limit = 150): ExcerptPart[] {
+export function excerptParts(parts: ExcerptPart[], query: string, limit = 150, caseSensitive = false): ExcerptPart[] {
+  const normalize = (value: string) => caseSensitive ? value : value.toLocaleLowerCase('zh-CN')
   const plain = parts.map(part => part.kind === 'math' ? '\uFFFC' : part.text).join('')
-  const term = query.toLocaleLowerCase('zh-CN').trim().split(/\s+/)[0] || ''
-  let match = term ? plain.toLocaleLowerCase('zh-CN').indexOf(term) : 0
+  const term = normalize(query).trim().split(/\s+/)[0] || ''
+  let match = term ? normalize(plain).indexOf(term) : 0
   if (match < 0) {
     let position = 0
     for (const part of parts) {
-      if (part.kind === 'math' && part.text.toLocaleLowerCase('zh-CN').includes(term)) { match = position; break }
+      if (part.kind === 'math' && normalize(part.text).includes(term)) { match = position; break }
       position += part.kind === 'math' ? 1 : part.text.length
     }
   }

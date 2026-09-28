@@ -75,9 +75,9 @@ function onReaderFailed() {
         <button type="button" class="pdf-viewer__open pdf-viewer__open--primary" @click="openReader">在页面内阅读</button>
         <a class="pdf-viewer__open" :href="pdfUrl" target="_blank" rel="noopener noreferrer">打开原文件 <span aria-hidden="true">↗</span></a>
       </div>
-      <label v-if="pdfFallback === 'card'" class="pdf-viewer__always">
+      <label v-if="pdfFallback === 'card'" class="pdf-viewer__always reading-checkbox">
         <input v-model="alwaysInPage" type="checkbox">
-        <span class="pdf-viewer__box" aria-hidden="true"></span>
+        <span class="pdf-viewer__box reading-checkbox__box" aria-hidden="true"></span>
         <span>始终在页面内阅读</span>
       </label>
     </div>
@@ -86,6 +86,7 @@ function onReaderFailed() {
 </template>
 
 <style scoped>
+@import "~/assets/css/reading-checkbox.css";
 /* 强调色上的前景色：浅色模式用白色、深色模式用深色（与经典主题 --paper 的明暗关系一致）。
    强调色在两套主题的浅色模式里都是中深色调，深色模式里都偏亮，所以前景要跟着模式翻。 */
 :root[data-color-mode='dark'] .pdf-viewer { --pdf-on-accent: #171a17; }
@@ -100,22 +101,6 @@ function onReaderFailed() {
 .pdf-viewer__document p { padding: 24px; }
 .pdf-viewer__fallback { display: grid; justify-items: start; gap: 10px; padding: 16px; }
 .pdf-viewer__always { position: relative; display: inline-flex; align-items: center; gap: 8px; margin-top: 2px; color: var(--muted); font-size: 12.5px; line-height: 1.5; cursor: pointer; }
-/* 勾选框自绘：原生控件会被系统 color-scheme 涂成深色，未勾选时应该只是透明底 + 描边。
-   input 仍留在原地（可聚焦、可点标签、键盘可用），只是视觉上隐藏。 */
-.pdf-viewer__always input { position: absolute; width: 14px; height: 14px; margin: 0; opacity: 0; cursor: pointer; }
-.pdf-viewer__box {
-  display: inline-grid; place-items: center; width: 14px; height: 14px;
-  border: 1px solid var(--line); border-radius: 4px; background: transparent;
-  transition: border-color 200ms var(--ease-fluid), background-color 200ms var(--ease-fluid);
-}
-.pdf-viewer__box::after {
-  content: ''; width: 7px; height: 3px;
-  border-left: 2px solid var(--pdf-on-accent); border-bottom: 2px solid var(--pdf-on-accent);
-  opacity: 0; transform: rotate(-45deg) translate(0, -1px);
-}
-.pdf-viewer__always input:checked + .pdf-viewer__box { border-color: var(--accent); background: var(--accent); }
-.pdf-viewer__always input:checked + .pdf-viewer__box::after { opacity: 1; }
-.pdf-viewer__always input:focus-visible + .pdf-viewer__box { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pdf-viewer__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .pdf-viewer__file { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .pdf-viewer__note { max-width: 46ch; margin: 0; color: var(--muted); font: 13px/1.75 var(--serif); }

@@ -1,5 +1,5 @@
-export type SearchFilters = { type: string; course: string; tag: string; from: string; to: string; sort: string }
-export const emptySearchFilters = (): SearchFilters => ({ type: '', course: '', tag: '', from: '', to: '', sort: '' })
+export type SearchFilters = { type: string; course: string; tag: string; from: string; to: string; sort: string; caseSensitive: string }
+export const emptySearchFilters = (): SearchFilters => ({ type: '', course: '', tag: '', from: '', to: '', sort: '', caseSensitive: '' })
 export function readSearchFilters(query: Record<string, unknown>): SearchFilters {
   const text = (key: string) => typeof query[key] === 'string' ? query[key] as string : ''
   const date = (key: string) => {
@@ -17,6 +17,7 @@ export function readSearchFilters(query: Record<string, unknown>): SearchFilters
     from: date('from'),
     to: date('to'),
     sort: ['newest', 'oldest'].includes(text('sort')) ? text('sort') : '',
+    caseSensitive: text('caseSensitive') === '1' ? '1' : '',
   }
 }
 export function matchesSearchFilters(post: { path: string; tags?: string[]; date: string }, filters: SearchFilters) {

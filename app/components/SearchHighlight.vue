@@ -1,11 +1,11 @@
 <script setup lang="ts">
-const props = defineProps<{ text: string; terms: string[] }>()
+const props = defineProps<{ text: string; terms: string[]; caseSensitive?: boolean }>()
 // Render text nodes, never HTML: queries and excerpts cannot inject markup.
 const parts = computed(() => {
   const terms = props.terms.filter(Boolean).sort((a, b) => b.length - a.length)
   if (!terms.length) return [{ text: props.text, match: false }]
   const escaped = terms.map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  const pattern = new RegExp(`(${escaped.join('|')})`, 'gi')
+  const pattern = new RegExp(`(${escaped.join('|')})`, props.caseSensitive ? 'g' : 'gi')
   return props.text.split(pattern).map((text, index) => ({ text, match: index % 2 === 1 }))
 })
 </script>

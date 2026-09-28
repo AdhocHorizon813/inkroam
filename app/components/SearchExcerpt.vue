@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import katex from 'katex'
 import type { ExcerptPart } from '~/utils/search-excerpt'
-const props = defineProps<{ parts: ExcerptPart[]; terms: string[] }>()
+const props = defineProps<{ parts: ExcerptPart[]; terms: string[]; caseSensitive?: boolean }>()
 const rendered = computed(() => props.parts.map(part => {
   if (part.kind !== 'math') return { ...part, html: '' }
   try {
@@ -16,7 +16,7 @@ const rendered = computed(() => props.parts.map(part => {
   <template v-for="(part, index) in rendered" :key="index">
     <!-- Only trusted KaTeX output is inserted; query and prose stay text nodes. -->
     <span v-if="part.kind === 'math'" class="search-formula" v-html="part.html" />
-    <SearchHighlight v-else :text="part.text" :terms="terms" />
+    <SearchHighlight v-else :text="part.text" :terms="terms" :case-sensitive="caseSensitive" />
   </template>
 </template>
 

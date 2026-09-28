@@ -1,0 +1,16 @@
+/* 勾选框自绘：原生控件会被系统 color-scheme 涂成深色，未勾选时应该只是透明底 + 描边。
+   input 仍留在原地（可聚焦、可点标签、键盘可用），只是视觉上隐藏。 */
+.reading-checkbox input { position: absolute; width: 14px; height: 14px; margin: 0; opacity: 0; cursor: pointer; }
+.reading-checkbox__box {
+  display: inline-grid; place-items: center; width: 14px; height: 14px;
+  border: 1px solid var(--line); border-radius: 4px; background: transparent;
+  transition: border-color 200ms var(--ease-fluid), background-color 200ms var(--ease-fluid);
+}
+.reading-checkbox__box::after {
+  content: ''; width: 7px; height: 3px;
+  border-left: 2px solid var(--pdf-on-accent); border-bottom: 2px solid var(--pdf-on-accent);
+  opacity: 0; transform: rotate(-45deg) translate(0, -1px);
+}
+.reading-checkbox input:checked + .reading-checkbox__box { border-color: var(--accent); background: var(--accent); }
+.reading-checkbox input:checked + .reading-checkbox__box::after { opacity: 1; }
+.reading-checkbox input:focus-visible + .reading-checkbox__box { outline: 2px solid var(--accent); outline-offset: 2px; }

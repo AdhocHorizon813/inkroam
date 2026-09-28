@@ -48,6 +48,11 @@ function update(key: keyof SearchFilters, input: Event | string) {
           <SearchDatePicker label="开始日期" :model-value="modelValue.from" :max="modelValue.to || undefined" :enabled="expanded" @update:model-value="update('from', $event)" />
           <SearchDatePicker label="结束日期" :model-value="modelValue.to" :min="modelValue.from || undefined" :enabled="expanded" @update:model-value="update('to', $event)" />
         </div>
+        <label class="advanced-case reading-checkbox">
+          <input type="checkbox" :checked="modelValue.caseSensitive === '1'" @change="update('caseSensitive', ($event.target as HTMLInputElement).checked ? '1' : '')">
+          <span class="reading-checkbox__box" aria-hidden="true"></span>
+          <span>区分大小写</span>
+        </label>
         <p v-if="modelValue.from && modelValue.to && modelValue.from > modelValue.to" role="status" class="advanced-note">开始日期不能晚于结束日期。</p>
         <button class="advanced-toggle advanced-clear" :class="{ 'is-empty': !activeCount }" :disabled="!activeCount" :aria-hidden="!activeCount" type="button" @click="emit('update:modelValue', emptySearchFilters())">清除筛选</button>
       </div>
@@ -56,6 +61,7 @@ function update(key: keyof SearchFilters, input: Event | string) {
 </template>
 
 <style scoped>
+@import "~/assets/css/reading-checkbox.css";
 .advanced-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 10px 0; border: 0; background: none; color: var(--muted); font: 13px var(--sans); cursor: pointer; }
 .advanced-toggle:hover { color: var(--ink); }
 .advanced-clear.is-empty { visibility: hidden; }
@@ -70,6 +76,8 @@ function update(key: keyof SearchFilters, input: Event | string) {
 .advanced-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 24px; padding: 12px 0 20px; }
 .advanced-search :is(button, input, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .advanced-note { color: var(--muted); font-size: 13px; }
+.advanced-case { --pdf-on-accent: #fff; position: relative; display: flex; align-items: center; gap: 8px; width: fit-content; margin-bottom: 8px; color: var(--muted); font: 12.5px/1.5 var(--sans); cursor: pointer; }
+:global(:root[data-color-mode='dark']) .advanced-case { --pdf-on-accent: #171a17; }
 @media (max-width: 767.98px) { .advanced-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; } }
 @media (max-width: 380px) { .advanced-fields { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .advanced-panel, .advanced-toggle svg { transition-duration: .01ms; } }

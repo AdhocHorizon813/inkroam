@@ -10,7 +10,8 @@ useSeoMeta({
 const route = useRoute()
 const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const filters = ref(readSearchFilters(route.query))
-const hasFilters = computed(() => Object.values(filters.value).some(Boolean))
+// Matching options alone must not turn an untouched search into browse-all.
+const hasFilters = computed(() => Object.entries(filters.value).some(([key, value]) => key !== 'caseSensitive' && Boolean(value)))
 const searchActive = computed(() => !!query.value.trim() || hasFilters.value)
 const filterTags = computed(() => [...new Set((posts.value || []).flatMap(post => post.tags || []))].sort((a, b) => a.localeCompare(b, 'zh-CN')))
 
@@ -31,7 +32,7 @@ const { data: sections } = await useAsyncData('post-search-sections-readable-mat
     .where('draft', '=', false),
 )
 
-const normalize = (value: string) => value.toLocaleLowerCase('zh-CN').replace(/\s+/g, ' ').trim()
+const normalize = (value: string) => (filters.value.caseSensitive === '1' ? value : value.toLocaleLowerCase('zh-CN')).replace(/\s+/g, ' ').trim()
 
 const searchTerms = computed(() => normalize(query.value).split(' ').filter(Boolean))
 const previewSections = computed(() => {
@@ -60,7 +61,7 @@ const contentResults = computed(() => {
       return {
         ...section,
         score,
-        excerpt: excerptParts(previewSections.value.get(section.id) || [{ kind: 'text', text: section.content || section.description || '' }], searchValue),
+        excerpt: excerptParts(previewSections.value.get(section.id) || [{ kind: 'text', text: section.content || section.description || '' }], searchValue, 150, filters.value.caseSensitive === '1'),
       }
     })
     .filter((section): section is NonNullable<typeof section> => section !== null)
@@ -149,13 +150,13 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
             <time :datetime="post.date">{{ formatDate(post.date) }}</time>
             <span v-if="post.tags?.[0]">{{ post.tags[0] }}</span>
           </div>
-          <h2><NuxtLink :to="post.path"><SearchHighlight :text="post.title" :terms="searchTerms" /></NuxtLink></h2>
-          <p><SearchHighlight :text="post.description" :terms="searchTerms" /></p>
+          <h2><NuxtLink :to="post.path"><SearchHighlight :text="post.title" :terms="searchTerms" :case-sensitive="filters.caseSensitive === '1'" /></NuxtLink></h2>
+          <p><SearchHighlight :text="post.description" :terms="searchTerms" :case-sensitive="filters.caseSensitive === '1'" /></p>
           <ul v-if="post.matches.length" class="search-matches">
             <li v-for="match in post.matches.slice(0, 3)" :key="match.id">
               <NuxtLink :to="match.id">
-                <span class="search-match__title"><SearchHighlight :text="match.level > 1 ? match.title : '摘要与开篇'" :terms="searchTerms" /> <span aria-hidden="true">↗</span></span>
-                <span class="search-match__excerpt"><SearchExcerpt :parts="match.excerpt" :terms="searchTerms" /></span>
+                <span class="search-match__title"><SearchHighlight :text="match.level > 1 ? match.title : '摘要与开篇'" :terms="searchTerms" :case-sensitive="filters.caseSensitive === '1'" /> <span aria-hidden="true">↗</span></span>
+                <span class="search-match__excerpt"><SearchExcerpt :parts="match.excerpt" :terms="searchTerms" :case-sensitive="filters.caseSensitive === '1'" /></span>
               </NuxtLink>
             </li>
           </ul>
@@ -163,8 +164,8 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
             <ul class="search-matches">
               <li v-for="match in post.matches.slice(3)" :key="match.id">
                 <NuxtLink :to="match.id">
-                  <span class="search-match__title"><SearchHighlight :text="match.level > 1 ? match.title : '摘要与开篇'" :terms="searchTerms" /> <span aria-hidden="true">↗</span></span>
-                  <span class="search-match__excerpt"><SearchExcerpt :parts="match.excerpt" :terms="searchTerms" /></span>
+                  <span class="search-match__title"><SearchHighlight :text="match.level > 1 ? match.title : '摘要与开篇'" :terms="searchTerms" :case-sensitive="filters.caseSensitive === '1'" /> <span aria-hidden="true">↗</span></span>
+                  <span class="search-match__excerpt"><SearchExcerpt :parts="match.excerpt" :terms="searchTerms" :case-sensitive="filters.caseSensitive === '1'" /></span>
                 </NuxtLink>
               </li>
             </ul>
