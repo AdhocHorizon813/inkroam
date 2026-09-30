@@ -76,6 +76,8 @@ $env:BASE_PATH='/inkroam/'; npm run generate; npm run preview
 
 CSS 维护：已有顶层级联例外受 `check-css-cascade` 门禁保护，优先修改原规则，不追加重复补丁。清理范围、保留原因和构建体积对比见 [CSS 清理记录](docs/css-cleanup-2026-09-27.md)。
 
+运行时维护：滚动状态同值写入去重、外观初始化先规范化再写入响应式状态；回归测试保护现有默认值、迁移与滚动时序。实现、测试数据及尚未完成的浏览器验收见 [零视觉变化性能计划](docs/performance-zero-visual-change-plan.md)。
+
 真实浏览器检查按 [浏览器回归验收清单](docs/browser-regression-checklist.md) 执行；清单的建立不代表已经完成视觉验收。
 
 `npm run check` 运行不需要构建或浏览器的逻辑检查。先以 `BASE_PATH=/inkroam/` 生成静态站点，再运行 `npm run check -- --built`，额外检查内容产物和站内链接（既有构建测试以生产子路径为基准）。已有根路径开发服务 `localhost:3000` 时可追加 `--live`，检查笔记搜索和 PDF 服务响应。测试不替代真实浏览器下的布局、动效及权限验收。

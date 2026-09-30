@@ -15,6 +15,8 @@ const suites = [
   'check-appearance-mode',
   'check-appearance-storage',
   'check-page-scroll',
+  'check-scroll-writes',
+  'check-scroll-lifecycle',
   'check-search-grouping',
   'check-search-filters', 'check-pdf-controls',
   'check-filter-select', 'check-calendar', 'check-search-popover',

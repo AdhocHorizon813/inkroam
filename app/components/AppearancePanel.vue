@@ -113,7 +113,7 @@ const state = reactive<AppearanceState>({
   backgroundTint: true,
   colorMode: 'auto',
   /* 初值取 v5 时代的值：老访客缺的键就落在这里（观感与改动前一致），真·新访客会在 onMounted 里
-     被 commitManagedDefaults() 换成当前明暗的新默认。SSR 首帧的面板内容也按这套渲染，与
+     在偏好规范化时换成当前明暗的新默认。SSR 首帧的面板内容也按这套渲染，与
      systemPrefersDark 的初值（浅色）同一口径。 */
   ...LEGACY_DEFAULTS,
   /* 默认跟随明暗：深色暮色都市，浅色夕空町市。 */
@@ -172,6 +172,43 @@ function readStoredAppearance(): StoredAppearance | null {
   return decodeAppearanceStorage(saved, saved ? null : localStorage.getItem(LEGACY_STORAGE_KEY)) as StoredAppearance | null
 }
 
+/* Normalize a detached snapshot before entering the reactive state. Keep the
+   existing compatibility rules; this is not a stricter storage schema. Pure:
+   no DOM, storage, shared refs, or changes to the caller's objects. */
+function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppearance | null, systemDark: boolean): AppearanceState {
+  const normalized = { ...initial }
+  if (stored) {
+    // Old visitors retain legacy defaults for missing keys; only explicit true opts in.
+    Object.assign(normalized, stored)
+    normalized.defaultSettings = stored.defaultSettings === true
+  } else {
+    normalized.defaultSettings = true
+  }
+  if (normalized.defaultSettings) {
+    const mode = normalized.colorMode === 'auto' ? (systemDark ? 'dark' : 'light') : normalized.colorMode
+    Object.assign(normalized, appearanceDefaults(mode))
+    normalized.background = 'auto'
+    normalized.backgroundPicked = false
+  }
+  if (typeof normalized.backgroundTint !== 'boolean') normalized.backgroundTint = true
+  if (!['liquid', 'acrylic', 'mica'].includes(normalized.dropdownMaterial)) normalized.dropdownMaterial = LEGACY_DEFAULTS.dropdownMaterial
+  if (!Number.isFinite(normalized.dropdownBlur)) normalized.dropdownBlur = LEGACY_DEFAULTS.dropdownBlur
+  normalized.dropdownBlur = Math.max(0, Math.min(48, normalized.dropdownBlur))
+  if (normalized.latestPostCount !== 5 && normalized.latestPostCount !== 10 && normalized.latestPostCount !== 'all') {
+    normalized.latestPostCount = 10
+  }
+  if (normalized.latestNoteCount !== 5 && normalized.latestNoteCount !== 10 && normalized.latestNoteCount !== 'all') {
+    normalized.latestNoteCount = 10
+  }
+  if (normalized.pdfFallback !== 'card' && normalized.pdfFallback !== 'reader') normalized.pdfFallback = 'card'
+  /* v5 默认 art 没有显式选择标记：迁移为跟随；手选过的 art 保持不变。 */
+  if (!normalized.backgroundPicked && normalized.background === 'art') normalized.background = 'auto'
+  if (!['auto', 'flat', 'theme', 'aurora', 'art', 'dusk', 'custom'].includes(normalized.background)) {
+    normalized.background = 'auto'
+  }
+  return normalized
+}
+
 /* 受管项 = 四组材质 + 四条模糊 + 遮罩透明度 + 背景氛围：跟随明暗、由「默认设置」开关统一管。
    启用时把它们收回到厂值（画布同时回到「跟随」），禁用时一律不碰。 */
 function commitManagedDefaults() {
@@ -197,39 +234,10 @@ onMounted(() => {
     customBackgroundPreview.value = localStorage.getItem(CUSTOM_BG_KEY) || ''
     customBackgroundName.value = localStorage.getItem(CUSTOM_BG_NAME_KEY) || ''
     const stored = readStoredAppearance()
-    if (stored) {
-      /* 老访客（存储里哪怕只有一个键）：他自己的值一个都不动，缺的键保持 state 初值（v5 时代的值），
-         于是「他从没设置过」的项观感与改动前一模一样；开关只有他显式打开过才算启用。 */
-      Object.assign(state, stored)
-      state.defaultSettings = stored.defaultSettings === true
-    } else {
-      /* 真·新访客：一进来就用当前明暗的新默认（浅色 14 / 5 / 4 / 0、深色 12 / 10 / 12 / 4）。 */
-      state.defaultSettings = true
-    }
-    if (state.defaultSettings) commitManagedDefaults()
-    if (typeof state.backgroundTint !== 'boolean') state.backgroundTint = true
-    if (!['liquid', 'acrylic', 'mica'].includes(state.dropdownMaterial)) state.dropdownMaterial = LEGACY_DEFAULTS.dropdownMaterial
-    if (!Number.isFinite(state.dropdownBlur)) state.dropdownBlur = LEGACY_DEFAULTS.dropdownBlur
-    state.dropdownBlur = Math.max(0, Math.min(48, state.dropdownBlur))
-    if (state.latestPostCount !== 5 && state.latestPostCount !== 10 && state.latestPostCount !== 'all') {
-      state.latestPostCount = 10
-    }
+    Object.assign(state, normalizeStoredAppearance(state, stored, systemPrefersDark.value))
     sharedLatestPostCount.value = state.latestPostCount
-    if (state.latestNoteCount !== 5 && state.latestNoteCount !== 10 && state.latestNoteCount !== 'all') {
-      state.latestNoteCount = 10
-    }
-    if (state.pdfFallback !== 'card' && state.pdfFallback !== 'reader') {
-      state.pdfFallback = 'card'
-    }
     sharedPdfFallback.value = state.pdfFallback
     sharedLatestNoteCount.value = state.latestNoteCount
-    /* v5 的默认背景就是 art，旧存储里区分不出「没选过」与「手选暮色都市」。
-       没有 backgroundPicked 字段的一律按「没选过」处理：深色仍是暮色都市，
-       浅色换成新的夕空町市。此后手选过的存储会带上标记，不再被改写。 */
-    if (!state.backgroundPicked && state.background === 'art') state.background = 'auto'
-    if (!['auto', 'flat', 'theme', 'aurora', 'art', 'dusk', 'custom'].includes(state.background)) {
-      state.background = 'auto'
-    }
   } catch {
     status.value = '外观偏好未能读取，已使用默认设置。'
   }

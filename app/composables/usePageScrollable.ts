@@ -23,16 +23,20 @@ export function usePageScrollable(scroller: Ref<HTMLElement | null>) {
   let mutationObserver: MutationObserver | undefined
   let stopScrollListener: (() => void) | undefined
   let frame = 0
+  const fadeFrames = new Set<number>()
 
   function measure() {
     const element = scroller.value
     if (!element) return
     if (!window.matchMedia(PAGE_SCROLL_QUERY).matches) {
-      element.removeAttribute(PAGE_SCROLLABLE_ATTRIBUTE)
-      element.removeAttribute(PAGE_SCROLLABLE_SETTLED_ATTRIBUTE)
+      if (element.hasAttribute(PAGE_SCROLLABLE_ATTRIBUTE)) element.removeAttribute(PAGE_SCROLLABLE_ATTRIBUTE)
+      if (element.hasAttribute(PAGE_SCROLLABLE_SETTLED_ATTRIBUTE)) element.removeAttribute(PAGE_SCROLLABLE_SETTLED_ATTRIBUTE)
       return
     }
-    element.setAttribute(PAGE_SCROLLABLE_ATTRIBUTE, pageNeedsScroll(element) ? 'true' : 'false')
+    const scrollable = pageNeedsScroll(element) ? 'true' : 'false'
+    if (element.getAttribute(PAGE_SCROLLABLE_ATTRIBUTE) !== scrollable) {
+      element.setAttribute(PAGE_SCROLLABLE_ATTRIBUTE, scrollable)
+    }
     allowFadeDelay(element)
     syncThumb(element)
   }
@@ -54,19 +58,37 @@ export function usePageScrollable(scroller: Ref<HTMLElement | null>) {
     let size = track
     if (track > 0 && range > 1) {
       size = Math.min(track, Math.max(MIN_THUMB_SIZE, Math.round((track * track) / element.scrollHeight)))
-      element.style.setProperty(PAGE_SCROLLBAR_OFFSET_PROPERTY, `${Math.round((element.scrollTop / range) * (track - size))}px`)
+      writeThumbProperty(element, PAGE_SCROLLBAR_OFFSET_PROPERTY, `${Math.round((element.scrollTop / range) * (track - size))}px`)
     } else {
-      element.style.setProperty(PAGE_SCROLLBAR_OFFSET_PROPERTY, '0px')
+      writeThumbProperty(element, PAGE_SCROLLBAR_OFFSET_PROPERTY, '0px')
     }
-    element.style.setProperty(PAGE_SCROLLBAR_SIZE_PROPERTY, `${size}px`)
+    writeThumbProperty(element, PAGE_SCROLLBAR_SIZE_PROPERTY, `${size}px`)
+  }
+
+  // Compare the final serialized inline value, not computed style or a geometry
+  // cache. This also stays correct if the element/style was replaced or reset.
+  function writeThumbProperty(element: HTMLElement, name: string, value: string) {
+    if (element.style.getPropertyValue(name) !== value || element.style.getPropertyPriority(name)) {
+      element.style.setProperty(name, value)
+    }
   }
 
   /* 首帧那次显隐不要延迟：一次 rAF 排的回调还在当前帧绘制之前，套两层才落在绘制之后。 */
   function allowFadeDelay(element: HTMLElement) {
     if (element.getAttribute(PAGE_SCROLLABLE_SETTLED_ATTRIBUTE) !== 'false') return
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    scheduleFadeFrame(() => scheduleFadeFrame(() => {
       element.setAttribute(PAGE_SCROLLABLE_SETTLED_ATTRIBUTE, 'true')
     }))
+  }
+
+  // Preserve both frame boundaries; track every pending callback so unmount
+  // also cancels first-paint work queued by repeated observer deliveries.
+  function scheduleFadeFrame(callback: () => void) {
+    const id = requestAnimationFrame(() => {
+      fadeFrames.delete(id)
+      callback()
+    })
+    fadeFrames.add(id)
   }
 
   function watchChildren() {
@@ -94,6 +116,8 @@ export function usePageScrollable(scroller: Ref<HTMLElement | null>) {
 
   onBeforeUnmount(() => {
     cancelAnimationFrame(frame)
+    for (const id of fadeFrames) cancelAnimationFrame(id)
+    fadeFrames.clear()
     resizeObserver?.disconnect()
     mutationObserver?.disconnect()
     stopScrollListener?.()

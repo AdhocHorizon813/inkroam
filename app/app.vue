@@ -56,9 +56,9 @@ onBeforeUnmount(() => routeAnimations.forEach(animation => animation.cancel()))
 function syncScrollState() {
   const root = document.documentElement
   if (pageScrollTop() > 8) {
-    root.dataset.scrolled = 'true'
+    if (root.dataset.scrolled !== 'true') root.dataset.scrolled = 'true'
   } else {
-    delete root.dataset.scrolled
+    if (root.dataset.scrolled !== undefined) delete root.dataset.scrolled
   }
 }
 onMounted(() => {

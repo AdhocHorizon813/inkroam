@@ -131,7 +131,7 @@ assert.match(composable, /new ResizeObserver\(measure\)/, 'Content height change
 assert.match(composable, /childList: true/, 'Page swaps replace children, so re-subscribe them')
 assert.match(composable, /PAGE_SCROLL_QUERY/, 'Touch devices fall back to native document scrolling')
 assert.match(composable, /PAGE_SCROLLABLE_SETTLED_ATTRIBUTE\) !== 'false'/, 'Only the first measurement skips the fade delay')
-assert.match(composable, /requestAnimationFrame\(\(\) => requestAnimationFrame\(/, 'One frame is still before the paint that starts the transition')
+assert.match(composable, /scheduleFadeFrame\(\(\) => scheduleFadeFrame\(/, 'Two tracked frame boundaries remain; check-scroll-lifecycle verifies their execution')
 assert.equal(PAGE_SCROLLBAR_SIZE_PROPERTY, '--page-scrollbar-thumb-size')
 assert.equal(PAGE_SCROLLBAR_OFFSET_PROPERTY, '--page-scrollbar-thumb-offset')
 assert.match(composable, /MIN_THUMB_SIZE = 40/, 'The thumb must stay grabbable')
