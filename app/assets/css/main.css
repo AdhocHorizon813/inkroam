@@ -1157,6 +1157,12 @@ button { font: inherit; }
   border-color: rgba(28, 34, 42, .1);
   color: #20242a;
 }
+/* 「上传图片」卡片与「自定义颜色」是同一类漏覆盖：为深色写死的 #fff 描边与字形落在浅色玻璃卡片上
+   只有 1.1 的对比度（同一次面板审计发现，肉眼只剩一个几乎看不见的 ＋）。描边/文字改走浅色那一套灰。 */
+:root[data-visual='modern'][data-color-mode='light'] .background-swatch--custom {
+  border-color: rgba(28, 34, 42, .28);
+  color: rgba(38, 43, 51, .72);
+}
 
 /* Inner pages use the same flat editorial hierarchy in both color modes. */
 :root[data-visual='modern'] .standard-page,
@@ -2919,6 +2925,13 @@ fieldset.setting-group > legend.setting-label {
   background: color-mix(in srgb, var(--paper) 70%, white);
   color: var(--ink);
   box-shadow: 0 5px 14px rgba(29, 33, 28, .08);
+}
+/* 「自定义颜色」这一行吃到了为深色面板写死的近白（文字 rgba(235, 238, 255, .66)，描边同色系），
+   落在纸面上是面板内 76 个带文字元素里唯一对比度不合格的一项（实测 1.0，肉眼只剩一个颜色圆点）。
+   文字对齐同面板的 .setting-label（--muted），描边对齐 .setting-group 的 --ink 11%。 */
+:root[data-visual='classic'][data-theme='light'] .accent-custom {
+  border-color: color-mix(in srgb, var(--ink) 11%, transparent);
+  color: var(--muted);
 }
 :root[data-visual='classic'][data-theme='light'] .background-swatch--custom {
   border-color: color-mix(in srgb, var(--ink) 22%, transparent);

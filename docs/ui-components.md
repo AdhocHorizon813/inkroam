@@ -254,6 +254,8 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 
 - 面板外框保持固定，只让 `.appearance-panel__scroll` 内部滚动。上下边缘共用 `--panel-edge-fade: 20px`（原为 16px），中点透明度为 55%，形成略宽且对称的淡出。这里使用 `mask-image`，不是增大整块面板的背景模糊；标准与 WebKit 声明必须同步修改。修改后检查顶部标题和底部恢复默认按钮的可读性。
 
+- 面板里有两处**为深色写死的近白**不吃 `--ink` / `--muted`：`.accent-custom`（「自定义颜色」这一行的文字与描边）和 `.background-swatch--custom`（「上传图片」卡片里的 ＋ 与虚线框）。因此**每一套浅色都得各自补覆盖**，不能只补一套：纸媒走 `[data-visual='classic'][data-theme='light']` 那一块（文字 `--muted`、描边 `--ink` 11%，与同面板的 `.setting-label` / `.setting-group` 对齐），现代走 `[data-visual='modern'][data-color-mode='light']` 那一块。漏一处就是浅底上的近白文字——实测对比度 1.0 / 1.1，肉眼只剩一个孤零零的色点或一个几乎看不见的 ＋。
+
 - 所有选择都写进 `<html>` 的 `data-*` 和内联 CSS 变量，**CSS 不读组件状态**；
 - 关闭时面板 `scrollTop` 归零，下次打开从顶部开始；
 - 自定义背景在上传时就压缩成 webp data URL（最长边 1920、质量 .82）并校验体积，避免塞爆 localStorage；
