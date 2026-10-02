@@ -1,6 +1,7 @@
 import type { RouterConfig } from '@nuxt/schema'
 import { START_LOCATION } from 'vue-router'
 import { resolveDestinationTop, scrollPageTo, scrollPageToWhenReady, scrollToHashWhenReady } from '~/utils/page-scroll'
+import { scrollToPassageWhenReady } from '~/utils/passage-scroll'
 
 export default {
   // Keep Nuxt's saved positions and anchor offsets; use the browser's eased scroll.
@@ -15,8 +16,13 @@ export default {
   scrollBehavior(to, from, savedPosition) {
     const behavior = resolvedScrollBehavior()
     const samePath = to.path.replace(/\/$/, '') === from.path.replace(/\/$/, '')
+    const passage = typeof to.query.passage === 'string' && /^v1-[a-f0-9]{8}-[a-z0-9]+$/.test(to.query.passage) ? to.query.passage : ''
 
     if (samePath) {
+      if (passage && passage !== from.query.passage && !savedPosition) {
+        scrollToPassageWhenReady(passage, to.hash, behavior, to.path)
+        return false as const
+      }
       if (from.hash && !to.hash) {
         scrollPageTo(0)
         return false as const
@@ -29,6 +35,10 @@ export default {
     if (scrollToTop === false) return false as const
 
     const go = () => {
+      if (passage && !savedPosition) {
+        scrollToPassageWhenReady(passage, to.hash, behavior, to.path)
+        return false as const
+      }
       if (to.hash) {
         scrollToHashWhenReady(to.hash, behavior)
         return false as const

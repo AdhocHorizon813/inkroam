@@ -11,6 +11,8 @@ const suites = [
   'check-release-gates',
   'check-about-resident', 'check-copy-link', 'check-error-page',
   'check-article-images',
+  'check-roam',
+  'check-passage-link',
   'check-recent-counts', 'check-toc-active', 'check-topics', 'check-reading-polish',
   'check-reading-appearance',
   'check-appearance-mode',

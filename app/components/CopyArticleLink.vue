@@ -1,22 +1,38 @@
 <script setup lang="ts">
+import { passageUrl, selectedPassage, type PassageSelection } from '~/utils/passage-link'
 const status = ref('')
 const manualLink = ref('')
 const busy = ref(false)
 const linkField = ref<HTMLInputElement | null>(null)
+const selection = ref<PassageSelection | null>(null)
+let captured: PassageSelection | null = null
+
+function syncSelection() {
+  selection.value = selectedPassage(document.querySelector('.article-content'), window.getSelection())
+}
+function captureSelection() {
+  syncSelection()
+  captured = selection.value
+}
+onMounted(() => {
+  document.addEventListener('selectionchange', syncSelection)
+  syncSelection()
+})
+onBeforeUnmount(() => document.removeEventListener('selectionchange', syncSelection))
 
 async function copyLink() {
   if (busy.value) return
   busy.value = true
   status.value = ''
   manualLink.value = ''
-  const url = new URL(window.location.href)
-  url.search = ''
-  url.hash = ''
+  const chosen = captured ?? selection.value
+  captured = null
+  const url = passageUrl(window.location.href, chosen)
   try {
-    await navigator.clipboard.writeText(url.href)
-    status.value = '链接已复制。'
+    await navigator.clipboard.writeText(url)
+    status.value = chosen?.passage ? '选段链接已复制。' : chosen?.heading ? '已复制所在章节链接。' : '链接已复制。'
   } catch {
-    manualLink.value = url.href
+    manualLink.value = url
     status.value = '未能自动复制，请选择下方链接手动复制。'
     await nextTick()
     linkField.value?.focus()
@@ -29,7 +45,7 @@ async function copyLink() {
 
 <template>
   <div class="copy-article-link">
-    <button class="text-link" type="button" :disabled="busy" @click="copyLink">复制本文链接</button>
+    <button class="text-link" type="button" :disabled="busy" @pointerdown="captureSelection" @pointercancel="captured = null" @pointerleave="captured = null" @click="copyLink">{{ selection ? '复制选段链接' : '复制本文链接' }}</button>
     <div class="copy-status" role="status" aria-live="polite">{{ status }}</div>
     <label v-if="manualLink" class="copy-manual">
       <span class="visually-hidden">本文链接，可手动复制</span>

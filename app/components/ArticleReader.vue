@@ -119,6 +119,7 @@ watch(() => route.fullPath, async () => {
       <article
         ref="articleContent"
         class="article-content"
+        :data-article-path="post.path"
         @click="onContentClick"
         @keydown="onContentKeydown"
       >
