@@ -56,7 +56,16 @@ async function copyLink() {
 
 <style scoped>
 .copy-article-link { margin-top: 12px; }
-.copy-article-link button { min-height: 44px; margin-top: 0; background: none; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); cursor: pointer; font: inherit; font-size: 13px; }
+/* 下划线继续用 .text-link 的 border-bottom：classic 下显式取 var(--ink)，与同页其它
+   .text-link 的线色、粗细完全一致；modern 主题的 :root[data-visual='modern'] .text-link
+   优先级更高（0,3,0 > scoped 的 0,2,1），线色仍由那条规则决定——所以这里不能改用
+   text-decoration 另画一条，否则会和它叠成两条线。
+   旧写法靠 min-height: 44px 把文字在盒内垂直居中，border 因此落到文字下方约 16.5px
+   （2026-10-02 浏览器实测）；改用 padding 定位：padding-top 维持文字原位，padding-bottom
+   决定线距（与同页 .text-link 一致：classic 5px，modern 主题自带的 padding 生效时为 8px）。
+   盒子不再有 44px，触控高度由 ::after 撑出，避免顺带改掉下方的间距。 */
+.copy-article-link button { position: relative; margin-top: 0; padding: 14px 6px 5px; background: none; border: 0; border-bottom: 1px solid var(--ink); color: var(--ink); cursor: pointer; font: inherit; font-size: 13px; }
+.copy-article-link button::after { content: ''; position: absolute; left: -8px; right: -8px; top: 50%; height: 44px; transform: translateY(-50%); }
 .copy-article-link button:disabled { cursor: wait; }
 .copy-article-link button:focus-visible,
 .copy-manual input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
