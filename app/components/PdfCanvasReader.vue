@@ -102,6 +102,19 @@ function go(delta: number) {
   jumpToPage(next)
 }
 
+function onReaderKeydown(event: KeyboardEvent) {
+  // Browser/OS shortcuts (especially Alt+Left/Right history) keep their default action.
+  if (status.value !== 'ready' || event.defaultPrevented || event.isComposing
+    || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+  if (event.target !== event.currentTarget) return
+  switch (event.key) {
+    case 'ArrowLeft': case 'PageUp': event.preventDefault(); go(-1); break
+    case 'ArrowRight': case 'PageDown': event.preventDefault(); go(1); break
+    case 'Home': event.preventDefault(); jumpToPage(1); break
+    case 'End': event.preventDefault(); jumpToPage(pageCount.value); break
+  }
+}
+
 function changeZoom(step: number) {
   const next = Math.min(4, Math.max(0.5, zoom.value * (step > 0 ? 1.25 : 0.8)))
   zoom.value = Math.round(next * 100) / 100
@@ -190,10 +203,7 @@ onBeforeUnmount(() => {
       @touchstart.passive="onTouchStart"
       @touchend="onTouchEnd"
       @touchcancel="swipeStart = null"
-      @keydown.left.prevent="go(-1)"
-      @keydown.right.prevent="go(1)"
-      @keydown.home.prevent="jumpToPage(1)"
-      @keydown.end.prevent="jumpToPage(pageCount)"
+      @keydown="onReaderKeydown"
     >
       <p v-if="status === 'loading'" class="pdf-reader__state">正在加载 PDF…</p>
       <canvas

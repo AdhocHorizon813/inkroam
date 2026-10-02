@@ -41,6 +41,7 @@ const lightboxImages = ref<{ src: string, alt: string }[]>([])
 function collectImages() {
   if (!articleContent.value) return []
   return Array.from(articleContent.value.querySelectorAll<HTMLImageElement>('img'))
+    .filter(image => !image.closest('a, button'))
 }
 
 function openLightbox(target: HTMLImageElement) {
@@ -56,6 +57,9 @@ function openLightbox(target: HTMLImageElement) {
 
 function onContentClick(event: MouseEvent) {
   if (!(event.target instanceof HTMLImageElement)) return
+  // Linked images retain native navigation, including opening a new tab.
+  if (event.defaultPrevented || event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+    || event.target.closest('a, button')) return
   event.preventDefault()
   openLightbox(event.target)
 }
@@ -63,6 +67,8 @@ function onContentClick(event: MouseEvent) {
 function onContentKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' && event.key !== ' ') return
   if (!(event.target instanceof HTMLImageElement)) return
+  if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+    || event.target.closest('a, button')) return
   event.preventDefault()
   openLightbox(event.target)
 }

@@ -6,7 +6,7 @@
 
 | 操作 | 行为 |
 | --- | --- |
-| 点击正文图片 | 打开灯箱（任何 `<img>` 都生效） |
+| 点击正文独立图片 | 打开灯箱；链接/按钮里的图片保留原操作 |
 | 双击图片 | 在光标处放大到 250%；再次双击复位回适应视图 |
 | 滚轮 / 触控板 | 以光标为锚点连续缩放，范围 100%–600% |
 | 拖拽（放大后） | 平移画面，边界约束保证至少 64px 留在视口内 |
@@ -30,7 +30,9 @@
 - 覆盖未来新增的图片和手写 HTML `<img>`；
 - 不侵入内容渲染管线。
 
-实现见 `app/pages/posts/[slug].vue` 的 `collectImages` / `openLightbox` / `onContentClick` / `onContentKeydown`。
+实现见 `app/components/ArticleReader.vue` 的 `collectImages` / `openLightbox` / `onContentClick` / `onContentKeydown`。
+
+2026-10-02：只给不在 `<a>` / `<button>` 内的图片添加灯箱键盘角色，并以同一集合计算画廊序号。带链接的图片不再被 `preventDefault()` 劫持；修饰键点击、非主键点击、输入法组合及已处理的事件均保留原行为。普通图片的点击、Enter/空格打开、灯箱布局和动效不变。`check-article-images.mjs` 覆盖这些分支；使用DOM替身，不代替浏览器验收。
 
 ### 2. Teleport 到 `<body>`
 

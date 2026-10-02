@@ -313,6 +313,8 @@ classic 主题下它退回正常文档流、不吸顶——纸媒风格不需要
 
 ## 内嵌 PDF 阅读器
 
+2026-10-02 键盘补充：自带 canvas 阅读器聚焦画布框时，左右键或 PageUp/PageDown 翻页，Home/End 到首尾；加载期间、子控件事件、输入法组合、已处理事件以及带 Alt/Ctrl/Meta/Shift 的组合键不拦截，尤其保留 Alt+左右的浏览器历史导航。采用统一 `onReaderKeydown`，不再用无条件 `.prevent`；不改变原生PDF分支、控件外观或动效。自动回归使用模拟渲染器；本轮浏览器连接不可用，实际按键体验仍待验收。
+
 正文里的 `::pdf-viewer{src="/pdfs/…" title="…"}` 由 `app/components/content/PdfViewer.vue` 渲染，按环境分三种形态：
 
 | 环境 | 形态 | 说明 |
