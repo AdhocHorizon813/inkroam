@@ -21,5 +21,5 @@ for (const name of readdirSync(course).filter(name => name.endsWith('.md')).sort
     count++
   }
 }
-if (count !== 10) throw new Error(`Expected 10 complete programs; found ${count}`)
+if (count !== 13) throw new Error(`Expected 13 complete programs; found ${count}`)
 console.log(`PASS: ${count} C17 programs compiled with warnings as errors and passed sample assertions. Output: ${output}`)
