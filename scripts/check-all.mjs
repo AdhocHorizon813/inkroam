@@ -21,7 +21,7 @@ const suites = [
   'check-scroll-writes',
   'check-scroll-lifecycle',
   'check-search-grouping',
-  'check-search-filters', 'check-pdf-controls',
+  'check-search-filters', 'check-pdf-controls', 'check-pdf-search',
   'check-filter-select', 'check-calendar', 'check-search-popover',
 ]
 if (built) suites.push('check-notes', 'check-search-math', 'check-built-links')

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
+import { findPdfMatches, type PdfMatch } from '~/utils/pdf-search'
 
 const props = defineProps<{ src: string; title?: string }>()
 const emit = defineEmits<{ failed: [] }>()
@@ -14,6 +15,132 @@ const busy = ref(false)
 const pageInput = ref('1')
 const rotation = ref(0)
 const notice = ref('')
+const searchOpen = ref(false)
+const searchInput = ref<HTMLInputElement | null>(null)
+const searchButton = ref<HTMLButtonElement | null>(null)
+const query = ref('')
+const matches = ref<PdfMatch[]>([])
+const selectedMatch = ref(-1)
+const searchedPages = ref(0)
+const searching = ref(false)
+const searchNotice = ref('')
+const textHost = ref<HTMLElement | null>(null)
+let searchToken = 0
+let textLayer: import('pdfjs-dist').TextLayer | null = null
+let layerPage = 0
+let revealMatch = false
+const textCache = new Map<number, Awaited<ReturnType<import('pdfjs-dist').PDFPageProxy['getTextContent']>>>()
+
+async function toggleSearch() {
+  searchOpen.value = !searchOpen.value
+  if (searchOpen.value) {
+    await nextTick()
+    searchInput.value?.focus()
+  } else {
+    searchToken++
+    searching.value = false
+    matches.value = []
+    selectedMatch.value = -1
+    query.value = ''
+    searchNotice.value = ''
+    textLayer?.cancel()
+    textLayer = null
+    textHost.value?.replaceChildren()
+    textCache.clear()
+    searchButton.value?.focus()
+  }
+}
+
+async function searchDocument() {
+  const current = ++searchToken
+  matches.value = []
+  selectedMatch.value = -1
+  searchedPages.value = 0
+  searchNotice.value = ''
+  paintMatches()
+  const value = query.value.trim()
+  searching.value = !!value && !!pdf
+  if (!value || !pdf) return
+  let failures = 0
+  for (let number = 1; number <= pdf.numPages; number++) {
+    if (disposed || current !== searchToken) return
+    try {
+      let content = textCache.get(number)
+      if (!content) content = await (await pdf.getPage(number)).getTextContent()
+      if (disposed || current !== searchToken) return
+      textCache.set(number, content)
+      const items = content.items.filter((item): item is import('pdfjs-dist/types/src/display/api').TextItem => 'str' in item)
+      matches.value.push(...findPdfMatches(items, value, number))
+      if (selectedMatch.value === -1 && matches.value.length) selectMatch(0)
+    } catch { failures++ }
+    if (disposed || current !== searchToken) return
+    searchedPages.value = number
+    // Let typing, scrolling and rendering proceed between pages.
+    await new Promise(resolve => setTimeout(resolve, 0))
+  }
+  if (disposed || current !== searchToken) return
+  searching.value = false
+  searchNotice.value = failures ? `${failures} 页文字未能读取，结果可能不完整。` : matches.value.length ? '' : '未找到匹配；扫描图片或特殊编码文字可能无法搜索。'
+  paintMatches()
+}
+
+function invalidateSearch() {
+  searchToken++
+  searching.value = false
+  matches.value = []
+  selectedMatch.value = -1
+  searchNotice.value = ''
+  paintMatches()
+}
+
+function selectMatch(index: number) {
+  if (!matches.value.length) return
+  selectedMatch.value = (index + matches.value.length) % matches.value.length
+  const match = matches.value[selectedMatch.value]!
+  revealMatch = true
+  if (match.page !== pageNumber.value) jumpToPage(match.page)
+  else if (textLayer && layerPage === match.page) paintMatches()
+  else renderPage()
+}
+
+function paintMatches() {
+  if (!textLayer) return
+  const divisions = textLayer.textDivs
+  divisions.forEach((div, index) => { div.textContent = textLayer!.textContentItemsStr[index] || '' })
+  const pieces = new Map<number, { start: number; end: number; active: boolean }[]>()
+  matches.value.forEach((match, index) => {
+    if (match.page !== layerPage) return
+    match.parts.forEach(part => {
+      const list = pieces.get(part.item) || []
+      list.push({ ...part, active: index === selectedMatch.value })
+      pieces.set(part.item, list)
+    })
+  })
+  let active: HTMLElement | undefined
+  pieces.forEach((parts, item) => {
+    const div = divisions[item]
+    if (!div) return
+    const text = textLayer!.textContentItemsStr[item] || ''
+    div.replaceChildren()
+    let end = 0
+    parts.forEach(part => {
+      div.append(document.createTextNode(text.slice(end, part.start)))
+      const mark = document.createElement('mark')
+      mark.className = part.active ? 'is-current' : ''
+      mark.textContent = text.slice(part.start, part.end)
+      div.append(mark)
+      if (part.active && !active) active = mark
+      end = part.end
+    })
+    div.append(document.createTextNode(text.slice(end)))
+  })
+  if (revealMatch && active && frame.value && layerPage === pageNumber.value) {
+    const bounds = active.getBoundingClientRect()
+    const box = frame.value.getBoundingClientRect()
+    frame.value.scrollTo({ top: frame.value.scrollTop + bounds.top - box.top - box.height / 2, left: frame.value.scrollLeft + bounds.left - box.left - box.width / 2, behavior: 'instant' })
+    revealMatch = false
+  }
+}
 let disposed = false
 let loadingTask: import('pdfjs-dist').PDFDocumentLoadingTask | null = null
 const storageKey = computed(() => `inkroam-pdf-position:${props.src}`)
@@ -64,6 +191,9 @@ async function renderPage() {
   if (!pdf || !target || disposed) return
   const current = ++token
   busy.value = true
+  textLayer?.cancel()
+  textLayer = null
+  textHost.value?.replaceChildren()
   try {
     const page = await pdf.getPage(pageNumber.value)
     if (current !== token) return
@@ -84,7 +214,24 @@ async function renderPage() {
     // pdfjs v5 推荐传 canvas 本身（canvasContext 仅作向后兼容）。
     task = page.render({ canvas: target, viewport })
     await task.promise
+    if (current !== token || disposed) return
     task = null
+    if (searchOpen.value && query.value.trim() && textHost.value) {
+      try {
+        const content = textCache.get(pageNumber.value) || await page.getTextContent()
+        const { TextLayer } = await import('pdfjs-dist')
+        if (current !== token || disposed || !searchOpen.value) return
+        const cssViewport = page.getViewport({ scale: fit * zoom.value, rotation: angle })
+        textHost.value.style.setProperty('--total-scale-factor', String(cssViewport.scale))
+        const layer = new TextLayer({ textContentSource: content, container: textHost.value, viewport: cssViewport })
+        textLayer = layer
+        layerPage = pageNumber.value
+        await layer.render()
+        if (current === token && !disposed && textLayer === layer) paintMatches()
+      } catch {
+        if (current === token && searchOpen.value) searchNotice.value = '本页文字高亮暂不可用，仍可翻页阅读。'
+      }
+    }
   } catch (error) {
     // 翻页太快会取消上一次渲染，这不是错误。
     if ((error as { name?: string }).name !== 'RenderingCancelledException' && current === token) {
@@ -184,6 +331,9 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   disposed = true
+  searchToken++
+  textLayer?.cancel()
+  textCache.clear()
   token++
   observer?.disconnect()
   task?.cancel()
@@ -206,12 +356,15 @@ onBeforeUnmount(() => {
       @keydown="onReaderKeydown"
     >
       <p v-if="status === 'loading'" class="pdf-reader__state">正在加载 PDF…</p>
+      <div v-show="status === 'ready'" class="pdf-reader__page">
       <canvas
         v-show="status === 'ready'"
         ref="canvas"
         class="pdf-reader__canvas"
         :aria-label="`第 ${pageNumber} 页，共 ${pageCount} 页`"
       />
+      <div ref="textHost" class="pdf-reader__text" aria-hidden="true" />
+      </div>
     </div>
     <div v-if="status === 'ready'" class="pdf-reader__bar">
       <button type="button" aria-label="上一页" :disabled="pageNumber <= 1" @click="go(-1)">‹</button>
@@ -225,7 +378,20 @@ onBeforeUnmount(() => {
         <button type="button" aria-label="适应宽度" @click="resetZoom">{{ Math.round(zoom * 100) }}%</button>
         <button type="button" aria-label="放大" :disabled="zoom >= 4" @click="changeZoom(1)">＋</button>
         <button type="button" aria-label="顺时针旋转九十度" @click="rotatePage">旋转</button>
+        <button ref="searchButton" type="button" aria-label="搜索此 PDF" :aria-expanded="searchOpen" @click="toggleSearch"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
       </span>
+    </div>
+    <div class="pdf-reader__search" :class="{ 'is-open': searchOpen }" :inert="!searchOpen">
+      <div class="pdf-reader__search-inner">
+        <form class="pdf-reader__bar pdf-reader__find" role="search" aria-label="在当前 PDF 中搜索" @submit.prevent="searchDocument" @keydown.esc.stop.prevent="toggleSearch">
+          <input ref="searchInput" v-model="query" type="search" placeholder="搜索此 PDF" aria-label="PDF 搜索关键词" @input="invalidateSearch">
+          <button type="submit">查找</button>
+          <button type="button" aria-label="上一个匹配" :disabled="!matches.length" @click="selectMatch(selectedMatch - 1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg></button>
+          <button type="button" aria-label="下一个匹配" :disabled="!matches.length" @click="selectMatch(selectedMatch + 1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 10 6 6 6-6"/></svg></button>
+          <button type="button" @click="toggleSearch">关闭</button>
+          <span class="pdf-reader__results" role="status">{{ matches.length ? `${selectedMatch + 1} / ${matches.length} 处` : '' }}{{ searching ? ` · 已搜索 ${searchedPages} / ${pageCount} 页` : '' }}{{ searchNotice }}</span>
+        </form>
+      </div>
     </div>
     <div class="pdf-reader__notice" role="status" aria-live="polite">{{ notice }}</div>
   </div>
@@ -233,6 +399,26 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .pdf-reader { display: grid; }
+.pdf-reader__page { position: relative; width: max-content; height: max-content; }
+.pdf-reader__canvas { display: block; }
+/* PDF.js TextLayer geometry, scoped to this reader; never import the full viewer UI. */
+.pdf-reader__text { position: absolute; inset: 0; overflow: clip; line-height: 1; text-align: initial; text-size-adjust: none; transform-origin: 0 0; pointer-events: none; --min-font-size: 1; --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv: calc(1 / var(--min-font-size)); }
+.pdf-reader__text :deep(span), .pdf-reader__text :deep(br) { color: transparent; position: absolute; white-space: pre; transform-origin: 0 0; }
+.pdf-reader__text :deep(> span) { --font-height: 0; font-size: calc(var(--text-scale-factor) * var(--font-height)); --scale-x: 1; --rotate: 0deg; transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv)); }
+.pdf-reader__text :deep(mark) { color: transparent; background: rgb(255 195 0 / .32); padding: 0; }
+.pdf-reader__text :deep(mark.is-current) { background: rgb(255 125 0 / .5); }
+.pdf-reader__text { --scale-round-x: 1px; --scale-round-y: 1px; }
+.pdf-reader__text[data-main-rotation='90'] { transform: rotate(90deg) translateY(-100%); }
+.pdf-reader__text[data-main-rotation='180'] { transform: rotate(180deg) translate(-100%, -100%); }
+.pdf-reader__text[data-main-rotation='270'] { transform: rotate(270deg) translateX(-100%); }
+.pdf-reader__search { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows 280ms var(--ease-fluid), visibility 280ms; }
+.pdf-reader__search.is-open { grid-template-rows: 1fr; visibility: visible; }
+.pdf-reader__search-inner { min-height: 0; overflow: hidden; }
+.pdf-reader__find input { flex: 1 1 160px; min-width: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--ink); font: 16px var(--sans); }
+.pdf-reader__find input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pdf-reader__results { flex-basis: 100%; color: var(--muted); font: 12px/1.6 var(--sans); }
+.pdf-reader__results:empty { display: none; }
+@media (prefers-reduced-motion: reduce) { .pdf-reader__search { transition: none; } }
 .pdf-reader__frame {
   display: grid; justify-items: safe center; overflow: auto;
   max-height: clamp(340px, 68vh, 880px);

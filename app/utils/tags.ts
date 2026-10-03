@@ -1,4 +1,5 @@
 export const tagSlugMap: Record<string, string> = {
+  '算法与数据结构': 'algorithms-and-data-structures',
   'GPT-5.6 Sol': 'gpt-5-6-sol',
   'GPT-6  Astra': 'gpt-6-astra',
   'AI': 'ai',

@@ -6,6 +6,7 @@ import ts from 'typescript'
 const source = readFileSync('app/components/PdfCanvasReader.vue', 'utf8')
 const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   .replace(/import type[^\n]+\n/, '')
+  .replace(/import \{ findPdfMatches[^\n]+\n/, '')
   .replace(/async function openDocument\(\) \{[\s\S]*?\n\}/, 'async function openDocument() { return fakePdf }')
 const code = ts.transpile(script, { target: ts.ScriptTarget.ES2022 })
 async function mount(saved) {

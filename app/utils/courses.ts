@@ -1,4 +1,5 @@
 export const courses = [
+  { slug: 'data-structures', name: '数据结构', english: 'Data Structures' },
   { slug: 'equations-of-mathematical-physics', name: '数学物理方程', english: 'Equations of Mathematical Physics' },
   { slug: 'functional-analysis', name: '泛函分析', english: 'Functional Analysis' },
   { slug: 'mathematical-statistics', name: '数理统计', english: 'Mathematical Statistics' },
