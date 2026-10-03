@@ -89,7 +89,7 @@ PDF 附件的呈现偏好也走共享状态：`useState('pdf-fallback', () => 'c
 
 | Key | 内容 |
 | --- | --- |
-| `paper-trail-appearance-v5` | 主配置 JSON：`visual` / `colorMode` / 三种材质 / 三档模糊 / 遮罩透明度 / `accent` / `latestPostCount` / `latestNoteCount` / `pdfFallback` |
+| `paper-trail-appearance-v5` | 主配置 JSON：`visual` / `colorMode` / 三种材质 / 三档模糊 / 遮罩透明度 / `accent` / `latestPostCount` / `latestNoteCount` / `pdfFallback` / `diagramScale`（Mermaid 图的显示比例，0–100） |
 | `paper-trail-appearance-v4` | 旧版本配置，首次读取时自动迁移（旧的单一 `blur` 会拆成 nav/content 两档） |
 | `paper-trail-custom-background` | 自定义背景，压缩后的 webp data URL |
 | `paper-trail-custom-background-name` | 自定义背景的文件名，用于按钮文案 |

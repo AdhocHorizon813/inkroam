@@ -6,8 +6,8 @@ import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
 
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-// This harness tests count preferences, not browser PDF capabilities.
-const compiled = ts.transpile(source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replaceAll('import.meta.client', 'false'), { target: ts.ScriptTarget.ES2022 })
+// This harness tests count preferences, not browser PDF capabilities or scrolling.
+const compiled = ts.transpile(source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'false'), { target: ts.ScriptTarget.ES2022 })
 
 function mount(saved) {
   const shared = {}
@@ -16,6 +16,8 @@ function mount(saved) {
   let stored
   const context = vm.createContext({
     decodeAppearanceStorage,
+    /* 面板自绘滑条的组合式函数要真 DOM 与滚动事件，本套件不测滚动，桩成空实现。 */
+    usePageScrollable: () => ({}),
     supportsEmbeddedPdf: () => false,
     ref: value => ({ value }), reactive: value => value,
     // The panel derives the default canvas from colorMode + system appearance; lazy stub is enough here.

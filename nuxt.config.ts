@@ -6,6 +6,10 @@ export default defineNuxtConfig({
     experimental: { sqliteConnector: 'native' },
     build: {
       markdown: {
+        highlight: {
+          theme: { default: 'github-light', dark: 'github-dark' },
+          langs: ['c', 'cpp', 'python', 'js', 'jsx', 'json', 'ts', 'tsx', 'vue', 'css', 'html', 'bash', 'md', 'mdc', 'yaml'],
+        },
         remarkPlugins: { 'remark-math': {} },
         rehypePlugins: { 'rehype-katex': {} },
       },
@@ -45,6 +49,7 @@ export default defineNuxtConfig({
         'data-material': 'mica',
         'data-nav-material': 'mica',
         'data-dropdown-material': 'mica',
+        'data-code-material': 'mica',
         'data-background': 'flat',
         'data-color-mode': 'dark',
       },

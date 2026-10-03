@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { supportsEmbeddedPdf } from '~/utils/pdf-embed'
 import { decodeAppearanceStorage } from '~/utils/appearance-storage'
+import { usePageScrollable } from '~/composables/usePageScrollable'
 
 type VisualMode = 'modern' | 'classic'
 type ColorMode = 'dark' | 'light' | 'auto'
@@ -14,11 +15,12 @@ type PdfFallbackMode = 'card' | 'reader'
 interface AppearanceState {
   visual: VisualMode
   colorMode: ColorMode
-  /* 「默认设置」开关：受管项（四组材质、四条模糊、遮罩透明度、背景氛围）是否跟随明暗自动取值。 */
+  /* 「默认设置」开关：受管项（四组材质、四条模糊、遮罩透明度、背景氛围、图表尺寸）是否跟随明暗自动取值。 */
   defaultSettings: boolean
   backgroundTint: boolean
   navMaterial: MaterialMode
   contentMaterial: MaterialMode
+  codeMaterial: MaterialMode
   dropdownMaterial: MaterialMode
   backgroundMaterial: MaterialMode
   background: BackgroundMode
@@ -26,6 +28,7 @@ interface AppearanceState {
   backgroundPicked?: boolean
   navBlur: number
   contentBlur: number
+  codeBlur: number
   dropdownBlur: number
   backgroundBlur: number
   backgroundOverlay: number
@@ -33,20 +36,27 @@ interface AppearanceState {
   latestPostCount: LatestPostCount
   latestNoteCount: LatestPostCount
   pdfFallback: PdfFallbackMode
+  /* 图（mermaid）的显示比例，%：100 = mermaid 的原生尺寸，出厂 75。宽图不自动缩小、
+     由容器横向滑动，尺寸因此是一个偏好值。它和其他出厂值一样受「默认设置」开关管，
+     关掉开关才能留着自己的值。 */
+  diagramScale: number
 }
 
 /* 出厂默认分两套，按解析后的明暗取。
    浅色这一套是用户在面板上逐条定下来的：四组材质都用液态玻璃，模糊 14 / 5 / 4 / 0 px，遮罩 40%。
    深色沿用 v5 原来的云母与 12 / 10 / 12 / 4 px —— 深浅不必对称：浅色底图的明暗落差本来就小，
    同一档模糊在浅色上更容易把正文糊成一层灰雾，所以浅色要更轻。
-   两套都保留 40% 遮罩。 */
+   两套都保留 40% 遮罩，图（mermaid）的显示比例两套都是 75%。 */
 type AppearanceDefaults = Pick<
   AppearanceState,
-  'navMaterial' | 'contentMaterial' | 'dropdownMaterial' | 'backgroundMaterial'
-  | 'navBlur' | 'contentBlur' | 'dropdownBlur' | 'backgroundBlur' | 'backgroundOverlay'
+  'navMaterial' | 'contentMaterial' | 'codeMaterial' | 'dropdownMaterial' | 'backgroundMaterial'
+  | 'navBlur' | 'contentBlur' | 'codeBlur' | 'dropdownBlur' | 'backgroundBlur' | 'backgroundOverlay'
+  | 'diagramScale'
 >
 
 const LIGHT_DEFAULTS: AppearanceDefaults = {
+  codeMaterial: 'liquid',
+  codeBlur: 5,
   navMaterial: 'liquid',
   contentMaterial: 'liquid',
   dropdownMaterial: 'liquid',
@@ -56,11 +66,14 @@ const LIGHT_DEFAULTS: AppearanceDefaults = {
   dropdownBlur: 4,
   backgroundBlur: 0,
   backgroundOverlay: 40,
+  diagramScale: 75,
 }
 
 /* v5 时代的出厂值（云母 + 12 / 10 / 12 / 4、遮罩 40%）：它是 state 的初值，也是老访客缺键时的兜底。
    老访客「从没设置过」的项因此保持改动前的观感，新默认不会被偷偷塞给他。 */
 const LEGACY_DEFAULTS: AppearanceDefaults = {
+  codeMaterial: 'mica',
+  codeBlur: 10,
   navMaterial: 'mica',
   contentMaterial: 'mica',
   dropdownMaterial: 'mica',
@@ -70,10 +83,14 @@ const LEGACY_DEFAULTS: AppearanceDefaults = {
   dropdownBlur: 12,
   backgroundBlur: 4,
   backgroundOverlay: 40,
+  /* 图表尺寸是新控件：老访客缺这个键时落到这里，与两套出厂值同值（75）。 */
+  diagramScale: 75,
 }
 
 /* 深色那一套沿用 v5 的值（所以与 LEGACY_DEFAULTS 同值）：只有浅色是新定的那套。 */
 const DARK_DEFAULTS: AppearanceDefaults = {
+  codeMaterial: 'mica',
+  codeBlur: 10,
   navMaterial: 'mica',
   contentMaterial: 'mica',
   dropdownMaterial: 'mica',
@@ -83,6 +100,7 @@ const DARK_DEFAULTS: AppearanceDefaults = {
   dropdownBlur: 12,
   backgroundBlur: 4,
   backgroundOverlay: 40,
+  diagramScale: 75,
 }
 
 function appearanceDefaults(mode: 'dark' | 'light'): AppearanceDefaults {
@@ -101,6 +119,10 @@ const status = ref('')
 const pdfEmbedSupported = ref<boolean | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const panelScroll = ref<HTMLDivElement | null>(null)
+/* 菜单滚动区用与页面同一条自绘滑条：拇指的高度与位移写在这个元素上，
+   模板里的 PageScrollbar 是它的子节点（继承得到那两个变量，
+   又靠绝对定位挂在 .appearance-panel 上，所以不跟着内容滚走）。 */
+usePageScrollable(panelScroll)
 const customBackgroundPreview = ref('')
 const customBackgroundName = ref('')
 const sharedLatestPostCount = useState<LatestPostCount>('latest-post-count', () => 10)
@@ -191,6 +213,9 @@ function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppea
     normalized.backgroundPicked = false
   }
   if (typeof normalized.backgroundTint !== 'boolean') normalized.backgroundTint = true
+  if (!['liquid', 'acrylic', 'mica'].includes(normalized.codeMaterial)) normalized.codeMaterial = LEGACY_DEFAULTS.codeMaterial
+  if (!Number.isFinite(normalized.codeBlur)) normalized.codeBlur = LEGACY_DEFAULTS.codeBlur
+  normalized.codeBlur = Math.max(0, Math.min(48, normalized.codeBlur))
   if (!['liquid', 'acrylic', 'mica'].includes(normalized.dropdownMaterial)) normalized.dropdownMaterial = LEGACY_DEFAULTS.dropdownMaterial
   if (!Number.isFinite(normalized.dropdownBlur)) normalized.dropdownBlur = LEGACY_DEFAULTS.dropdownBlur
   normalized.dropdownBlur = Math.max(0, Math.min(48, normalized.dropdownBlur))
@@ -201,6 +226,10 @@ function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppea
     normalized.latestNoteCount = 10
   }
   if (normalized.pdfFallback !== 'card' && normalized.pdfFallback !== 'reader') normalized.pdfFallback = 'card'
+  /* 图表尺寸与其它受管项同一口径：开关启用时已被出厂值整批覆盖，这里只管坏值——
+     非数字落回出厂值，越界夹到 0–100，按滑条档位（1%）取整。 */
+  if (!Number.isFinite(normalized.diagramScale)) normalized.diagramScale = LEGACY_DEFAULTS.diagramScale
+  normalized.diagramScale = Math.round(Math.max(0, Math.min(100, normalized.diagramScale)))
   /* v5 默认 art 没有显式选择标记：迁移为跟随；手选过的 art 保持不变。 */
   if (!normalized.backgroundPicked && normalized.background === 'art') normalized.background = 'auto'
   if (!['auto', 'flat', 'theme', 'aurora', 'art', 'dusk', 'custom'].includes(normalized.background)) {
@@ -209,7 +238,7 @@ function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppea
   return normalized
 }
 
-/* 受管项 = 四组材质 + 四条模糊 + 遮罩透明度 + 背景氛围：跟随明暗、由「默认设置」开关统一管。
+/* 受管项 = 四组材质 + 四条模糊 + 遮罩透明度 + 背景氛围 + 图表尺寸：跟随明暗、由「默认设置」开关统一管。
    启用时把它们收回到厂值（画布同时回到「跟随」），禁用时一律不碰。 */
 function commitManagedDefaults() {
   Object.assign(state, appearanceDefaults(resolvedMode.value))
@@ -258,7 +287,7 @@ watch(() => state.colorMode, () => {
   if (state.defaultSettings) commitManagedDefaults()
 })
 
-const DISCRETE_FIELDS = ['visual', 'colorMode', 'defaultSettings', 'backgroundTint', 'navMaterial', 'contentMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
+const DISCRETE_FIELDS = ['visual', 'colorMode', 'defaultSettings', 'backgroundTint', 'navMaterial', 'contentMaterial', 'codeMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
 
 watch(state, (_state, from) => {
   /* 背景氛围比的是解析后的画布：follow 状态下切明暗会换图，而点当前已生效的那一项不该触发空转场。 */
@@ -328,18 +357,23 @@ function applyAppearance() {
   root.dataset.theme = mode
   root.dataset.navMaterial = state.navMaterial
   root.dataset.material = state.contentMaterial
+  root.dataset.codeMaterial = state.codeMaterial
   root.dataset.dropdownMaterial = state.dropdownMaterial
   root.dataset.backgroundMaterial = state.backgroundMaterial
   /* 写解析后的画布：CSS 只认 flat / theme / aurora / art / dusk / custom。 */
   root.dataset.background = resolvedBackground.value
   root.style.setProperty('--nav-blur', `${state.navBlur}px`)
   root.style.setProperty('--content-blur', `${state.contentBlur}px`)
+  root.style.setProperty('--code-blur', `${state.codeBlur}px`)
   root.style.setProperty('--dropdown-blur', `${state.dropdownBlur}px`)
   root.style.setProperty('--background-blur', `${state.backgroundBlur}px`)
   root.style.setProperty('--glass-blur', `${state.contentBlur}px`)
   root.style.setProperty('--modern-accent', state.accent)
   root.dataset.backgroundTint = state.backgroundTint ? 'on' : 'off'
   root.style.setProperty('--background-overlay-opacity', String(state.backgroundOverlay / 100))
+  /* 图的显示比例写成变量，而不是逐张改 svg：滑条一动由 CSS 的 calc 直接重算，
+     页面上二十张图不用重画一遍（见 MermaidDiagram.vue 里 svg 的 width）。 */
+  root.style.setProperty('--diagram-scale', String(state.diagramScale / 100))
 
   if (resolvedBackground.value === 'custom') {
     const custom = localStorage.getItem(CUSTOM_BG_KEY)
@@ -521,7 +555,7 @@ function resetAppearance() {
 
         <fieldset class="setting-group" :disabled="state.visual === 'classic'">
           <legend class="setting-label">默认设置</legend>
-          <p class="setting-hint">启用后，材质、模糊、遮罩与背景氛围按当前明暗自动取值，不能手动调整。</p>
+          <p class="setting-hint">启用后，材质、模糊、遮罩、背景氛围与图表尺寸按当前明暗自动取值，不能手动调整。</p>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.defaultSettings ? 0 : 1)">
             <button type="button" :aria-pressed="state.defaultSettings" :class="{ active: state.defaultSettings }" @click="requestDefaultSettings(true)">启用</button>
             <button type="button" :aria-pressed="!state.defaultSettings" :class="{ active: !state.defaultSettings }" @click="requestDefaultSettings(false)">禁用</button>
@@ -566,6 +600,24 @@ function resetAppearance() {
             <button type="button" :aria-pressed="state.pdfFallback === 'reader'" :class="{ active: state.pdfFallback === 'reader' }" title="直接打开页面内阅读器，省去一次点击" @click="state.pdfFallback = 'reader'">直接阅读</button>
           </div>
         </fieldset>
+
+        <div class="setting-group" :aria-disabled="managedDisabled">
+          <div class="range-heading">
+            <label class="setting-label" for="diagram-scale">图表尺寸</label>
+            <output for="diagram-scale">{{ state.diagramScale }}%</output>
+          </div>
+          <input
+            id="diagram-scale"
+            v-model.number="state.diagramScale"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            :style="{ '--range-progress': `${state.diagramScale}%` }"
+            :disabled="managedDisabled"
+          >
+          <div class="range-scale" aria-hidden="true"><span>0 %</span><span>100 %</span></div>
+        </div>
 
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">导航材质</legend>
@@ -616,6 +668,19 @@ function resetAppearance() {
             :style="{ '--range-progress': `${state.contentBlur / 48 * 100}%` }"
             :disabled="managedDisabled"
           >
+          <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
+        </div>
+
+        <fieldset class="setting-group" :disabled="managedDisabled">
+          <legend class="setting-label">代码材质</legend>
+          <div class="segmented-control" :style="segmentStyle(state.codeMaterial === 'liquid' ? 0 : state.codeMaterial === 'acrylic' ? 1 : 2)">
+            <button v-for="material in (['liquid', 'acrylic', 'mica'] as const)" :key="material" type="button" :aria-pressed="state.codeMaterial === material" :class="{ active: state.codeMaterial === material }" @click="state.codeMaterial = material">{{ { liquid: '液态玻璃', acrylic: '亚克力', mica: '云母' }[material] }}</button>
+          </div>
+        </fieldset>
+
+        <div class="setting-group" :aria-disabled="managedDisabled">
+          <div class="range-heading"><label class="setting-label" for="code-blur">代码模糊</label><output for="code-blur">{{ state.codeBlur }} px</output></div>
+          <input id="code-blur" v-model.number="state.codeBlur" type="range" min="0" max="48" step="1" :style="{ '--range-progress': `${state.codeBlur / 48 * 100}%` }" :disabled="managedDisabled">
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 
@@ -759,6 +824,7 @@ function resetAppearance() {
           <span class="visually-hidden" role="status" aria-live="polite">{{ status }}</span>
           <button type="button" @click="resetAppearance">恢复默认</button>
         </footer>
+        <PageScrollbar />
       </div>
     </section>
 
@@ -776,8 +842,8 @@ function resetAppearance() {
       </div>
       <h2 id="appearance-confirm-title">{{ dialogDefaultSettings ? '启用默认设置？' : '禁用默认设置？' }}</h2>
       <p id="appearance-confirm-description">{{ dialogDefaultSettings
-        ? '材质、模糊、遮罩与背景氛围将替换为当前明暗模式的默认值。'
-        : '保留当前的材质、模糊、遮罩与背景氛围，交由你自由调整。' }}</p>
+        ? '材质、模糊、遮罩、背景氛围与图表尺寸将替换为当前明暗模式的默认值。'
+        : '保留当前的材质、模糊、遮罩、背景氛围与图表尺寸，交由你自由调整。' }}</p>
       <p class="appearance-confirm__detail">{{ dialogDefaultSettings
         ? '这些选项会随明暗模式自动调整；禁用默认设置后，可再次手动修改。'
         : '之后切换明暗模式，不会再自动更改这些选项。' }}</p>

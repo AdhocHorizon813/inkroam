@@ -1,0 +1,257 @@
+---
+title: 第六讲：折半查找、BST/AVL、B/B+ 树与散列表
+description: 从查找长度与区间不变量出发，讲解动态查找树的平衡、多路索引与散列冲突，并给出 C 实现和手推题。
+date: 2026-10-03
+order: 6
+tags: [算法与数据结构]
+readingTime: 45 分钟
+aiGenerated: true
+draft: false
+---
+
+## 查找长度不是只看大 O
+
+**记录**是作为整体存取的一组字段，如学号、姓名、成绩；**关键字**是用于查找或排序的字段。关键字可以唯一标识记录，也可能重复，必须先约定。**查找表**是同类型记录构成、支持按键定位的数据集合；只查不改称静态查找问题，需插入删除则是动态查找问题。
+
+**成功查找**返回存在的键或记录，**失败查找**确认不存在。**查找长度**只数约定的关键字比较次数，不是数组长度，更不直接等于运行时间。**平均查找长度 ASL**按各查找事件的概率加权；“等概率”是额外假设，不写概率模型就没有唯一的平均值。
+
+查找长度是一次查找中比较关键字的次数；平均查找长度 $ASL=\sum_i p_i C_i$ 需要给出成功/失败事件的概率模型。顺序查找无哨兵时，等概率成功 ASL 为 $(n+1)/2$；失败会比较全部 n 个关键字。哨兵实现若把与哨兵的比较也算入，失败长度可记 n+1，题目口径必须一致。
+
+折半查找需要有序且能按下标高效访问。链表虽然有序，却不能 $O(1)$ 访问中点，不能因为“每次排除一半”就直接断言总时间 $O(\log n)$。
+
+## lower_bound：用半开区间避免边界混乱
+
+在非降序数组中找第一个大于等于 key 的位置，候选答案可以是 n。维护 `[lo,hi)`，其左侧均小于 key，hi 及其右侧均大于等于 key（存在时）。中点使用 `lo+(hi-lo)/2`，避免 lo+hi 溢出。
+
+若 `a[mid]<key`，mid 也不可能是答案，令 lo=mid+1；否则 mid 仍可能是第一个满足条件的位置，令 hi=mid。终止 lo=hi，返回边界。要判断是否存在还须 `pos<n && a[pos]==key`。
+
+这一模板自然处理空数组、重复键、最左最右边界。找最后一个小于等于 key 可先找第一个大于 key 的位置，再减一，但 size_t 为 0 时不能直接减一。
+
+## 折半查找判定树与 ASL
+
+对固定中点规则，每个中点构成判定树内部结点，层数就是成功比较次数；失败落在 n+1 个有序间隙，按各间隙对应比较次数计算，不要把成功与失败平均在一起。
+
+n=7 的完整平衡判定树层数为 1、2、3，对应 1、2、4 个元素，等概率成功 ASL 为 $(1+4+12)/7=17/7$。8 个失败间隙均比较 3 次，失败 ASL 为 3。这个恰好填满的例子不能替代任意 n 的加权求和。
+
+## BST 的不变量作用于整棵子树
+
+**二叉搜索树**（BST，也称二叉排序树）是用关键字大小约束左右子树的二叉树，用来支持动态查找。它不是“二叉树先排成某种外观”；结构约束决定下一步只需走左或右。**前驱/后继**在这里通常指键的有序次序中相邻记录，与树的中序相邻相一致。
+
+互异关键字约定下，左子树所有键小于根，右子树所有键大于根，不只是左孩子小、右孩子大。中序遍历得到严格递增序列，但树的形状取决于插入顺序；有序插入可能退化为链，查找/插删最坏 $O(n)$。
+
+删除分三类：叶子直接摘除；一个孩子用孩子替代它；两个孩子用中序前驱或后继的键替换，再删除那个前驱/后继。后继是右子树最左结点，最多一个右孩子，因此第二次删除较简单。若结点还包含记录，应复制完整记录或重新链接，不能只换关键字破坏键与值的对应。
+
+“中序有序”可作为验证，但全树验证不能只比较相邻父子。也可递归传开区间上下界，避免用 `INT_MIN-1` 这类越界哨兵。
+
+## AVL：维持每个结点的高度差
+
+**平衡**的目的是防止查找路径过长，不是要求左右结点数量一样。**AVL 树**是在每个结点处维持左右高度差至多 1 的 BST；**旋转**是局部重新连接父子关系、保持中序键顺序的操作。平衡因子记录高度差，正负号口径必须与代码一致。
+
+定义平衡因子 BF=左高-右高，每个结点 BF 必须在 -1、0、1。最少结点数满足 $N(h)=1+N(h-1)+N(h-2)$，与斐波那契同阶，故高度为 $O(\log n)$。
+
+| 插入导致的失衡路径 | 修复 |
+| --- | --- |
+| LL：左孩子的左侧增高 | 对失衡根右旋 |
+| RR：右孩子的右侧增高 | 对失衡根左旋 |
+| LR：左孩子的右侧增高 | 先对左孩子左旋，再对根右旋 |
+| RL：右孩子的左侧增高 | 先对右孩子右旋，再对根左旋 |
+
+LL/RR 描述插入路径，不是最终旋转方向。旋转保持中序顺序：右旋前 `y.left=x`，x.right 子树的键全部介于 x 与 y 之间，所以可以移为 y.left。旋转后先更新旧根高度，再更新新根，反过来会读取旧高度。
+
+## 完整 C 程序：边界查找与 AVL 插入
+
+程序拒绝重复键（不插入第二份，视为成功无操作）；分配失败通过 ok 返回。空树高 0。包含中序输出验证和 LL/RR/LR/RL 会出现的插入过程，释放采用后序。
+
+lower_bound 返回位置而非布尔值；insert 返回可能变化的新根，所以调用处必须接住返回值。balance 是当前结点左右高度差，旋转函数返回局部新根。手推 30、10、20：20 落在 30 的左孩子右侧，先在 10 左旋，再在 30 右旋，得到根 20、左 10、右 30。
+
+```c
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+size_t lower_bound(const int a[], size_t n, int key) {
+    size_t lo = 0, hi = n;
+    while (lo < hi) {
+        size_t mid = lo + (hi-lo)/2;
+        if (a[mid] < key) lo = mid+1; else hi = mid;
+    }
+    return lo;
+}
+typedef struct Node { int key, height; struct Node *left, *right; } Node;
+int h(const Node *p) { return p == NULL ? 0 : p->height; }
+void update(Node *p) { int l = h(p->left), r = h(p->right); p->height = 1+(l > r ? l : r); }
+Node *right_rotate(Node *y) {
+    Node *x = y->left, *middle = x->right;
+    x->right = y; y->left = middle;
+    update(y); update(x); return x;
+}
+Node *left_rotate(Node *x) {
+    Node *y = x->right, *middle = y->left;
+    y->left = x; x->right = middle;
+    update(x); update(y); return y;
+}
+Node *insert(Node *t, int key, bool *ok) {
+    if (t == NULL) {
+        Node *p = malloc(sizeof *p);
+        if (p == NULL) { *ok = false; return NULL; }
+        *p = (Node){key, 1, NULL, NULL}; return p;
+    }
+    if (key < t->key) t->left = insert(t->left, key, ok);
+    else if (key > t->key) t->right = insert(t->right, key, ok);
+    else return t;
+    if (!*ok) return t;
+    update(t);
+    int balance = h(t->left)-h(t->right);
+    if (balance > 1) {
+        if (key > t->left->key) t->left = left_rotate(t->left);
+        return right_rotate(t);
+    }
+    if (balance < -1) {
+        if (key < t->right->key) t->right = right_rotate(t->right);
+        return left_rotate(t);
+    }
+    return t;
+}
+int validate(const Node *t, int out[], size_t *n) {
+    if (t == NULL) return 0;
+    int l = validate(t->left, out, n); out[(*n)++] = t->key;
+    int r = validate(t->right, out, n);
+    assert(l-r >= -1 && l-r <= 1);
+    assert(t->height == 1+(l > r ? l : r)); return t->height;
+}
+void destroy(Node *t) {
+    if (t == NULL) return;
+    destroy(t->left); destroy(t->right); free(t);
+}
+int main(void) {
+    int a[] = {1, 2, 2, 4};
+    assert(lower_bound(a, 4, 2) == 1);
+    assert(lower_bound(a, 4, 9) == 4);
+    assert(lower_bound(NULL, 0, 0) == 0);
+    int keys[] = {30, 10, 20, 50, 40, 60, 5, 4, 3};
+    Node *root = NULL; bool ok = true;
+    for (size_t i = 0; i < sizeof keys/sizeof keys[0]; ++i) {
+        root = insert(root, keys[i], &ok);
+        if (!ok) { destroy(root); return EXIT_FAILURE; }
+    }
+    int out[9]; size_t n = 0; validate(root, out, &n);
+    assert(n == 9);
+    for (size_t i = 1; i < n; ++i) assert(out[i-1] < out[i]);
+    destroy(root); puts("search and AVL tests passed"); return 0;
+}
+```
+
+AVL 删除可能让多层祖先继续变矮，修复可能沿路径反复进行；不能直接套“插入修复最低失衡祖先后就结束”的结论。上述程序只实现插入，不把未实现的删除说成已覆盖。
+
+## B 树：降低磁盘访问层数
+
+**多路查找树**在一个结点里存多个有序键，将键域切分成多个区间，并用多个孩子指针导航。**B 树**在此基础上限制结点容量与最低占用，并让实际叶层齐平。**阶**是教材规定的容量参数，本文指最大孩子数。内部结点中的键是区间的**分隔键**；查找时比较后选择相应区间，不是把结点内键当无序集合。
+
+这里 m 阶表示最多 m 个孩子，至少需要 m>=3。非根内部结点至少 $\lceil m/2\rceil$ 个孩子；有 k 个孩子就有 k-1 个关键字。非空根至少 1 个关键字，若非叶则至少 2 个孩子。所有实际叶结点同层。
+
+有些教材把最底部 NULL 外部结点称为“叶子”；本文说实际叶是存关键字但无孩子的结点。高度公式按实际结点层数，不能同时混入外部 NULL 层。
+
+根深度计第 1 层，t=$\lceil m/2\rceil$，高度 h 的非空 B 树关键字数量满足：
+
+$$
+2t^{h-1}-1\le n\le m^h-1.
+$$
+
+左界来自根 1 个关键字、下一层至少 2 个结点、后续每层至少 t 倍，每个非根至少 t-1 个关键字。右界每层按最大分支数填满。B 树不是二叉树，不能直接使用 $2^h-1$。
+
+插入先查找到叶子位置，溢出则选择中间关键字上移并分裂，可能一路到根，根分裂才增加高度。删除后下溢，先考虑从富余兄弟借并经过父分隔键调整，否则合并并向父传播；只有根可能通过收缩减少高度。
+
+手推 3 阶 B 树，依次插入 10、20、30、40、50，结果为根 `[20,40]`，三个叶子 `[10] [30] [50]`。删除 50 后右叶不足最小 1 个键；若左兄弟 `[30]` 也不能借，则与父分隔键 40 合并为 `[30,40]`，根变为 `[20]`。借与并都不是简单挪动叶子，父分隔键必须同步变化。
+
+## B+ 树：数据落在叶层，适合范围访问
+
+B+ 树内部结点保存导航用的分隔信息，记录（或指向记录的指针）在叶子；叶子通常按键顺序链接。内部命中键不等于已经找到记录，通常仍需走到叶层。范围扫描先定位下界叶，再沿叶链遍历，避免每个键都从根查找。
+
+阶数与“内部 k 个孩子配 k 还是 k-1 个键”在教材中有不同表示约定。本系列不拿某一种 B+ 表示强套所有题目；看清题目中分隔键是子树最大值、下界还是独立边界，并据此维护。
+
+B 树和 B+ 树适合块设备索引的根本原因是高扇出降低层数、让一个磁盘块容纳多个键，不是它们在内存比较次数上必然优于所有二叉树。面试中应区分磁盘 I/O 与 CPU 比较。
+
+## 散列表：冲突不可避免，必须定义状态
+
+**散列/哈希函数**把关键字映射到有限的桶或槽下标；**冲突**指不同键映射到同一初始位置，不代表两键相等。**散列表**结合函数、存储和冲突处理策略实现查找。**桶**可容纳一组记录；**槽**在本例中容纳一条记录。**探测序列**是开放定址冲突后依次检查的位置；**墓碑**表示曾被占用但已删除，既可被复用又不能终止查找。
+
+**装填因子**是元素数与桶/槽数的比值，反映拥挤程度：开放定址有效元素数不超过槽数，拉链法的平均链长则可以大于 1。两者的装填因子范围不能混用。
+
+装填因子 $\alpha=n/m$。拉链法每个槽是一条链；开放定址把元素放在表内空槽，线性探测位置为 `(hash(key)+i)%m`。探测必须有最多 m 次的上限，满表不能无限循环。
+
+线性探测有主聚集；二次探测和双重散列可改善某些聚集，但必须证明探测序列覆盖所需槽位。双重散列步长要与表长互素，否则即使存在空槽也可能永远探测不到。
+
+删除要区分 EMPTY（从未使用）、FULL（有效）、DELETED（墓碑）。查找碰到 EMPTY 可停止，碰到 DELETED 必须继续；插入可记住第一个墓碑，但还需继续找已有同键，以免插入重复记录。
+
+## 完整 C 程序：墓碑为什么必要
+
+输入是表与整数键，put 表示集合式插入（已有键不重复添加），locate 返回槽下标或 -1，erase 标记墓碑。tomb 只记首次可复用位置；继续探测是为了排除后面已经存在相同键。长度 11 时，1、12、23 的初始槽均为 1，依次占 1、2、3；删掉槽 2 仍必须能跨过它找到槽 3。
+
+```c
+#include <assert.h>
+#include <stdbool.h>
+#include <stdio.h>
+enum { M = 11 };
+enum { EMPTY, FULL, DELETED };
+typedef struct { int key, state; } Slot;
+typedef struct { Slot slot[M]; } Table;
+int hash(int key) { int r = key % M; return r < 0 ? r+M : r; }
+int locate(const Table *t, int key) {
+    for (int i = 0; i < M; ++i) {
+        int p = (hash(key)+i)%M;
+        if (t->slot[p].state == EMPTY) return -1;
+        if (t->slot[p].state == FULL && t->slot[p].key == key) return p;
+    }
+    return -1;
+}
+bool put(Table *t, int key) {
+    int tomb = -1;
+    for (int i = 0; i < M; ++i) {
+        int p = (hash(key)+i)%M, state = t->slot[p].state;
+        if (state == FULL && t->slot[p].key == key) return true;
+        if (state == DELETED && tomb == -1) tomb = p;
+        if (state == EMPTY) {
+            if (tomb != -1) p = tomb;
+            t->slot[p] = (Slot){key, FULL}; return true;
+        }
+    }
+    if (tomb != -1) { t->slot[tomb] = (Slot){key, FULL}; return true; }
+    return false;
+}
+bool erase(Table *t, int key) {
+    int p = locate(t, key);
+    if (p == -1) return false;
+    t->slot[p].state = DELETED; return true;
+}
+int main(void) {
+    Table t;
+    for (int i = 0; i < M; ++i) t.slot[i] = (Slot){0, EMPTY};
+    assert(put(&t, 1) && put(&t, 12) && put(&t, 23));
+    assert(erase(&t, 12)); assert(locate(&t, 23) != -1);
+    assert(put(&t, -10)); assert(locate(&t, -10) != -1);
+    assert(locate(&t, 99) == -1);
+    puts("hash tombstone tests passed"); return 0;
+}
+```
+
+表容量与状态分别声明，EMPTY 为 0；代码仍显式初始化每个槽，使“空表”这一前提清楚可见。槽中 key 即使为 0，也不代表有效记录，是否占用应看 state。
+
+## 复杂度和 ASL 的条件
+
+散列期望 $O(1)$ 需要合理散列、受控装填因子等条件；最坏可退化为 $O(n)$。墓碑过多也会让探测越来越长，实际实现应重建。不能简单比较“哈希 O(1)，树 O(log n)，所以树无用”：有序遍历、范围查询、前驱后继和最坏界是不同需求。
+
+在理想随机键、常见线性探测模型下，成功与失败期望探测数分别常写为 $\tfrac12(1+1/(1-\alpha))$ 与 $\tfrac12(1+1/(1-\alpha)^2)$；这是有假设的近似分析，不用于替代给定散列表的逐项计数。具体表题按指定探测路径算每个键/每个起始槽的比较次数。
+
+## 自编题
+
+**1. AVL 插入 30、10、20，是什么型？** LR：先对 10 左旋，再对 30 右旋，根变 20。
+
+**2. B 树有 5 个孩子的结点有几个键？** 本文约定下是 4；若题目是 B+ 索引结点，先读它的表示约定。
+
+**3. 哈希搜索遇墓碑就停止，会漏掉谁？** 例如 1、12、23 在长度 11 的表中形成探测链，删除 12 后若提前停止，就找不到 23。
+
+**4. 相同键插入 BST 右侧，中序是严格递增吗？** 非降序，不是严格递增。AVL 旋转还可能改变“相同键固定右侧”的局部形态，常用计数字段比硬塞重复结点更容易维护。
+
+**5. 折半查找判定树是完全二叉树吗？** 不一定；它通常高度平衡，但中点取法与元素数量可能导致底层位置不满足完全树的从左连续条件。

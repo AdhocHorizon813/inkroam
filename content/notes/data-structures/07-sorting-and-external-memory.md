@@ -1,0 +1,286 @@
+---
+title: 第七讲：内部排序、堆、基数排序与外部归并
+description: 用不变量理解排序而非背模板，给出七种比较排序的 C 实现，讨论稳定性、递归退化、外排 I/O 与置换选择。
+date: 2026-10-03
+order: 7
+tags: [算法与数据结构]
+readingTime: 50 分钟
+aiGenerated: true
+draft: false
+---
+
+## 先明确稳定性与原地的含义
+
+**排序**是按关键字顺序重新排列记录，既要有序，又必须保留原有全部记录且不重复增加。**升序**在有重复键时通常指非降序。**比较排序**只靠键之间的大小比较决定顺序；计数、基数等方法进一步利用键的范围或位结构。
+
+**内部排序**指待排记录都能放入内存；**外部排序**指数据不能一次装入内存，必须借助外部存储。**趟**是算法的一轮主要处理，含义随算法而异，并不是每趟都把整个数组完全排序。**逆序对**是在原序列中前面的键大于后面的键的一对下标，它衡量乱序程度，与相等键的稳定性不是同一概念。
+
+**辅助空间**是除约定输入输出外的额外存储。**分治**先把大问题分成更小问题、分别解决再组合；**枢轴**是快排用来划分键域的参照值；**归并**是将已有序的序列合成为更长有序序列，不是再对它们完整排序一次。
+
+稳定排序保持相等关键字记录的原始相对次序。例如 `(2,A),(1,B),(2,C)` 排序后 A 应仍在 C 前。若只拿裸整数测试，看不出稳定性是否被破坏。
+
+原地通常指只用常数级额外数据存储，但快排的递归栈要单独算，不能一面说原地一面忽略 $O(\log n)$ 甚至 $O(n)$ 调用栈。复杂度表必须说明实现与输入假设。
+
+| 算法 | 最好 | 平均 | 最坏 | 辅助空间 | 常规实现稳定性 |
+| --- | --- | --- | --- | --- | --- |
+| 直接插入 | $O(n)$ | $O(n^2)$ | $O(n^2)$ | $O(1)$ | 稳定 |
+| 带提前停止的冒泡 | $O(n)$ | $O(n^2)$ | $O(n^2)$ | $O(1)$ | 稳定 |
+| 简单选择 | $O(n^2)$ | $O(n^2)$ | $O(n^2)$ | $O(1)$ | 不稳定 |
+| 希尔 | 依增量序列 | 依增量序列 | 依增量序列 | $O(1)$ | 不稳定 |
+| 堆排序 | $O(n\log n)$ | $O(n\log n)$ | $O(n\log n)$ | $O(1)$ | 不稳定 |
+| 归并 | $O(n\log n)$ | $O(n\log n)$ | $O(n\log n)$ | 数组版 $O(n)$ | 可稳定 |
+| 快排 | $O(n\log n)$ | 随机模型下 $O(n\log n)$ | $O(n^2)$ | 与递归策略有关 | 不稳定 |
+
+表中的快排最好值指常见互异键二路划分模型；三路快排面对全相等键可单轮完成为 $O(n)$。不能把具体优化与常规表格不加区别地混用。希尔的减半增量最坏可达 $O(n^2)$，不能给所有增量统一写一个精确的 $O(n^{1.3})$。
+
+## 简单排序：不变量不同，动作也不同
+
+直接插入维护左侧已排序区，将当前记录插到合适位置。只在旧键**大于**新键时后移，遇相等就停，保持稳定。折半插入减少比较次数，但数组搬移仍可能 $O(n^2)$，不能因此把总时间改成 $O(n\log n)$。
+
+冒泡通过相邻逆序交换，每轮把最大值推到尚未完成区域的末尾；整轮没交换即可结束。简单选择每轮从剩余区选最小值，通常与边界直接交换，可能跨过相等记录破坏稳定。例如 `(2,A),(2,B),(1,C)` 首轮交换后变 `(1,C),(2,B),(2,A)`。
+
+希尔按 gap 分组做插入，最后 gap 必须为 1。早期长距离移动减少局部逆序，但也可能改变相等键顺序，因此一般不稳定。
+
+## 堆不是二叉搜索树
+
+**堆**是满足局部堆序的完全二叉树：大根堆每个父键不小于孩子，小根堆反之。**优先队列**是支持插入和取出最高优先级元素的抽象接口，堆是它的一种实现。**下滤**是让一个可能过小的大根堆父键沿孩子方向下移，直至恢复堆序。它修复的是一条局部路径，前提是其孩子子树已经为堆。
+
+大根堆只要求父键不小于孩子，左右子树之间没有全局大小顺序，中序遍历不保证有序。它用完全二叉树形状保证高度 $O(\log n)$，并用数组隐式保存链接。
+
+0 基数组孩子为 2i+1、2i+2。自底向上建堆从最后一个非叶结点开始下滤。大多数结点高度很小，工作量为：
+
+$$
+\sum_{h\ge0}O\left(\frac{n}{2^{h+1}}h\right)=O(n).
+$$
+
+不能把 n 个结点都按下滤最坏 $O(\log n)$ 累加，误报标准自底向上建堆为 $O(n\log n)$。随后 n-1 次取最大值和恢复堆才产生排序总时间 $O(n\log n)$。
+
+## 归并：稳定来自相等时的选择
+
+递归把数组分成两个已排序段，再用两个指针线性合并。两段头部相等时先取左边，因为左段记录原先就在右段记录之前。若写成严格小于并在相等时取右边，会破坏跨段相等记录的稳定性。
+
+链表归并可通过重新连接结点减少额外数组需求；数组版通常用 $O(n)$ 缓冲区。面试回答“归并空间是多少”时，应先说明数组还是链表、递归还是迭代。
+
+## 快排：划分正确不等于不退化
+
+二路快排选枢轴，划分后递归处理两边。若每次只分出一个元素，就有 $T(n)=T(n-1)+O(n)=O(n^2)$。随机枢轴或三数取中能改善常见情况，但不能把所有实现的最坏界说成对数线性。
+
+三路划分维护 `<pivot`、`==pivot`、未知、`>pivot` 四段。相等区无需递归，特别适合重复键。交换未知元素与右侧元素后，当前位置换来的数尚未检查，i 不能直接加一。
+
+下面程序只递归较小一边，较大一边用循环继续。这样即使时间退化，递归栈仍可控制在 $O(\log n)$，但**并没有消除最坏 $O(n^2)$ 时间**。
+
+## 完整 C 程序：七种比较排序及统一测试
+
+为方便复现，归并缓冲区最多 256 个整数，main 的测试样本更小；其他算法以传入数组和长度为约定。输入数组有效，n=0 时允许空指针。merge_sort 在容量不足时返回 false。
+
+所有函数直接修改数组，没有另返回一份排序结果。快排区间是 `[lo,hi)`，lt、i、gt 分别标出小于区末端、未知区起点、大于区起点；归并的 i、j 是两个输入段游标，k 是输出游标。以 `[3,1,2]` 为例，插入处理 1 后为 `[1,3,2]`，再把 3 后移插入 2；归并则先形成有序子段，再比较两段段首。相同结果来自不同的中间状态。
+
+```c
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+void swap(int *a, int *b) { int t = *a; *a = *b; *b = t; }
+void insertion(int a[], size_t n) {
+    for (size_t i = 1; i < n; ++i) {
+        int key = a[i]; size_t j = i;
+        while (j > 0 && a[j-1] > key) { a[j] = a[j-1]; --j; }
+        a[j] = key;
+    }
+}
+void bubble(int a[], size_t n) {
+    for (size_t end = n; end > 1; --end) {
+        bool changed = false;
+        for (size_t i = 1; i < end; ++i)
+            if (a[i-1] > a[i]) { swap(&a[i-1], &a[i]); changed = true; }
+        if (!changed) break;
+    }
+}
+void selection(int a[], size_t n) {
+    for (size_t i = 0; i < n; ++i) {
+        size_t best = i;
+        for (size_t j = i+1; j < n; ++j) if (a[j] < a[best]) best = j;
+        swap(&a[i], &a[best]);
+    }
+}
+void shell(int a[], size_t n) {
+    for (size_t gap = n/2; gap > 0; gap /= 2)
+        for (size_t i = gap; i < n; ++i) {
+            int key = a[i]; size_t j = i;
+            while (j >= gap && a[j-gap] > key) { a[j] = a[j-gap]; j -= gap; }
+            a[j] = key;
+        }
+}
+void sift_down(int a[], size_t root, size_t n) {
+    while (root < n/2) {
+        size_t child = 2*root+1;
+        if (child+1 < n && a[child+1] > a[child]) ++child;
+        if (a[root] >= a[child]) return;
+        swap(&a[root], &a[child]); root = child;
+    }
+}
+void heap_sort(int a[], size_t n) {
+    for (size_t i = n/2; i > 0; --i) sift_down(a, i-1, n);
+    for (size_t end = n; end > 1; --end) {
+        swap(&a[0], &a[end-1]); sift_down(a, 0, end-1);
+    }
+}
+void quick_part(int a[], size_t lo, size_t hi) {
+    while (hi-lo > 1) {
+        int pivot = a[lo+(hi-lo)/2];
+        size_t lt = lo, i = lo, gt = hi;
+        while (i < gt) {
+            if (a[i] < pivot) { swap(&a[lt], &a[i]); ++lt; ++i; }
+            else if (a[i] > pivot) { --gt; swap(&a[i], &a[gt]); }
+            else ++i;
+        }
+        if (lt-lo < hi-gt) { quick_part(a, lo, lt); lo = gt; }
+        else { quick_part(a, gt, hi); hi = lt; }
+    }
+}
+void quick_sort(int a[], size_t n) { quick_part(a, 0, n); }
+void merge_part(int a[], int tmp[], size_t lo, size_t hi) {
+    if (hi-lo < 2) return;
+    size_t mid = lo+(hi-lo)/2;
+    merge_part(a, tmp, lo, mid); merge_part(a, tmp, mid, hi);
+    size_t i = lo, j = mid, k = lo;
+    while (i < mid && j < hi) tmp[k++] = a[i] <= a[j] ? a[i++] : a[j++];
+    while (i < mid) tmp[k++] = a[i++];
+    while (j < hi) tmp[k++] = a[j++];
+    for (k = lo; k < hi; ++k) a[k] = tmp[k];
+}
+bool merge_sort(int a[], size_t n) {
+    if (n > 256) return false;
+    int tmp[256]; merge_part(a, tmp, 0, n); return true;
+}
+int compare(const void *a, const void *b) {
+    int x = *(const int *)a, y = *(const int *)b;
+    return (x > y)-(x < y);
+}
+int main(void) {
+    void (*sorts[])(int *, size_t) = {insertion, bubble, selection, shell, heap_sort, quick_sort};
+    int samples[][8] = {{3,-1,3,0,9,2,2,1}, {1,2,3,4,5,6,7,8},
+                       {8,7,6,5,4,3,2,1}, {2,2,2,2,2,2,2,2}};
+    for (size_t s = 0; s < 4; ++s) {
+        int expected[8]; memcpy(expected, samples[s], sizeof expected);
+        qsort(expected, 8, sizeof expected[0], compare);
+        for (size_t f = 0; f < sizeof sorts/sizeof sorts[0]; ++f) {
+            int a[8]; memcpy(a, samples[s], sizeof a); sorts[f](a, 8);
+            assert(memcmp(a, expected, sizeof a) == 0);
+            sorts[f](NULL, 0);
+        }
+        int a[8]; memcpy(a, samples[s], sizeof a);
+        assert(merge_sort(a, 8) && memcmp(a, expected, sizeof a) == 0);
+    }
+    assert(merge_sort(NULL, 0));
+    puts("comparison sorting tests passed"); return 0;
+}
+```
+
+这些测试验证顺序正确，不验证记录稳定性。稳定性可在插入、冒泡、归并版本中把数据换成 `{key, original_index}`，比较时只看 key，再检查相等键的 original_index 是否递增。C 标准库 qsort 不承诺稳定，也不保证一定是快速排序；这里只把它用作整数有序结果的参照。
+
+## 比较排序下界与非比较排序
+
+互异 n 个键有 n! 种排列，比较判定树至少 n! 个叶子，高度至少 $\log_2(n!)=\Omega(n\log n)$。这是比较模型下界，不限制利用键值结构的计数和基数排序。
+
+计数排序适合键范围大小 K 可控，时间 $O(n+K)$、额外空间通常 $O(n+K)$。负数可平移，但键域跨度计算也可能溢出。LSD 基数排序按低位到高位，**每一趟必须稳定**，否则高位相同的记录会破坏已建立的低位顺序。d 位、基数 r 时常记 $O(d(n+r))$，不能无条件简写为 O(n)。
+
+## 完整 C 程序：非负整数十进制 LSD
+
+最多 128 个 unsigned 整数；用前缀和加从右到左分配保持每一趟稳定。exp 的更新先检查最大键剩余位数，避免乘 10 溢出。本例不处理带负号整数。
+
+```c
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+
+bool radix_sort(unsigned a[], size_t n) {
+    if (n > 128 || (n != 0 && a == NULL)) return false;
+    if (n == 0) return true;
+    unsigned max = a[0], tmp[128];
+    for (size_t i = 1; i < n; ++i) if (a[i] > max) max = a[i];
+    for (unsigned exp = 1;;) {
+        size_t count[10] = {0};
+        for (size_t i = 0; i < n; ++i) ++count[(a[i]/exp)%10];
+        for (size_t d = 1; d < 10; ++d) count[d] += count[d-1];
+        for (size_t i = n; i > 0; --i) {
+            unsigned key = a[i-1]; tmp[--count[(key/exp)%10]] = key;
+        }
+        for (size_t i = 0; i < n; ++i) a[i] = tmp[i];
+        if (max/exp < 10) break;
+        exp *= 10;
+    }
+    return true;
+}
+int main(void) {
+    unsigned a[] = {170,45,75,90,802,24,2,66,0,45};
+    assert(radix_sort(a, 10));
+    for (size_t i = 1; i < 10; ++i) assert(a[i-1] <= a[i]);
+    assert(radix_sort(NULL, 0));
+    puts("radix tests passed"); return 0;
+}
+```
+
+## 外部排序：瓶颈从比较转向 I/O
+
+**块**是这里计数的外部数据传输单位，**缓冲区**是在内存中暂存输入/输出块的空间，**有序段（run）**是已按键排序、后续可参与归并的一段记录。**k 路归并**同时从 k 个有序输入段中选择当前最小记录输出，而不是同时运行 k 次完整排序。**I/O** 指数据在内存与外部存储之间的读写，本节单位是块，不是单条记录。
+
+当数据无法一次装入内存，不能把数组快排直接扩展为不断随机访问磁盘。外部归并先生成能放入内存的有序初始段，再多路顺序归并。运行时间高度依赖块传输、缓冲区和归并趟数，而非只看比较次数。
+
+设总数据占 N 个块，内存可同时容纳 B 个块：简单初始段生成得到 $R=\lceil N/B\rceil$ 段。理想情况下 B-1 块用于不同输入段，1 块用于输出，因此最多 B-1 路归并。每一趟完整读写数据约 2N 次块传输。若 B>=3、R>1，需要：
+
+$$
+p=\left\lceil\log_{B-1} R\right\rceil
+$$
+
+趟归并，总块传输约 $2N(1+p)$，包括初始段生成。最后结果若直接流水交给下游、不落盘，可少一次最终写入；这是另一种计数约定。
+
+例：N=1000 块、B=11 块，初始 91 段，10 路归并两趟，约 $2\times1000\times3=6000$ 次块传输。路数越大并非无限好：还需要归并选择结构、每路缓冲与设备吞吐，不能忽略内存预算。
+
+### 败者树解决选择最小段首
+
+```mermaid
+flowchart LR
+    accTitle: 外部归并排序的阶段
+    accDescr: 外部数据按内存容量分批读取并排序，写成初始有序段，再多轮多路归并，直到只剩一个有序段。
+    A["外部原始数据"] --> B["分批读入内存并排序"]
+    B --> C["写出初始有序段"]
+    C --> D["多路归并：输入缓冲与输出缓冲"]
+    D --> E{"只剩一段？"}
+    E -->|否| D
+    E -->|是| F["完整有序结果"]
+```
+
+k 路归并每次只需比较各输入段当前最小记录。朴素逐路扫描每输出一个记录 O(k)；小根堆或败者树将更新代价降到 O(log k)。败者树保存比赛中的失败者，胜者沿路径向上，替换一个叶子只需重赛其到根路径。它减少的是 CPU 选择代价，不直接改变固定路数下的读写数据量。
+
+### 置换选择为什么可能产生更长初始段
+
+内存保持一个小根堆，输出最小值后读入新记录。若新键不小于刚输出的键，可继续参加当前段；否则冻结到下一段。当当前活跃堆空了，本段结束，解冻后开始新段。
+
+随机独立、适当连续键分布下，初始段平均长度常接近内存记录数 M 的两倍，但**不是保证每段都有 2M**。逆序输入可能只生成约 M 长度，已排序输入可形成很长甚至完整一段。不要把 M 个记录与 B 个块混用单位。相关机制可对照 [OpenDSA 外部排序](https://opendsax.cs.vt.edu/OpenDSA/Books/Everything/html/ExternalSort.html)。
+
+### 最佳归并树为什么又遇见哈夫曼
+
+若有序段长度不同，二路合并一次的搬运代价与两段长度之和成正比，反复合并最短两段可最小化总搬运量，正是哈夫曼式最佳归并模式。多路版本若要求满 k 叉归并树，需要满足叶子数模条件，必要时补零权虚段；不要把二路贪心代码不加调整地当成任意路归并。
+
+## 自编综合题
+
+**1. 已基本有序、小规模数组选什么？** 插入排序常有优势，逆序对少时搬移少，代码与常数开销小；不是所有 n 都该先快排。
+
+**2. 求最大 k 个元素一定要全排序吗？** 可维护大小 k 的小根堆，时间 $O(n\log k)$、空间 $O(k)$，再按需要排序这 k 个输出。若要求最坏确定界，可进一步讨论选择算法。
+
+**3. 某轮后最大元素已在最后，能唯一判断用了冒泡吗？** 不能，选择、堆或快排的特定过程也可能产生相同局面。考试中应结合多轮中间状态、稳定性和分区特征判断。
+
+**4. 归并两段长度 m、n，最多比较几次？** 若两段非空，最多 m+n-1 次关键字比较；一段空了，复制另一段无需再比较关键字。
+
+**5. 全相等键下二路与三路快排有什么区别？** 某些二路实现分区极不均匀而退化；本讲三路把全部元素归入相等段，只扫描一遍，且不递归相等段。
+
+**6. 排序算法题怎样写满分结构？** 先说明输入规模与约束，再给算法与不变量，最后证明终止/有序/元素不丢失，分析时间空间与稳定性。外排另列块数、缓冲数量、初始段数和读写计数口径。
+
+## 七讲之后应能连成的一条线
+
+二级指针维护链接，递归遍历维护子问题，栈队列维护待处理顺序，堆维护极值，平衡树维护查找路径，哈希维护探测关系，外排维护块级有序段。它们不是互不相干的模板，而是在不同约束下选择一种便于维护的不变量。

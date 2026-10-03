@@ -106,6 +106,46 @@ html { scroll-behavior: smooth; overflow-y: scroll; }
     }
   }
 }
+
+/* 外观菜单的滚动区用同一套自绘滑条：同一个 PageScrollbar 组件、同一个 usePageScrollable
+   （写在滚动元素上的 --page-scrollbar-thumb-size/-offset 由组件继承）。
+   它必须是滚动元素的子节点才继承得到变量，但又不能跟着内容滚走 —— 所以绝对定位到
+   .appearance-panel（包含块在滚动容器之外，滚不带走它）。面板的 padding 是 0
+   （line 2206 的 padding: 0 !important），right: 0 正好落在滚动区预留的 10px 槽位上。
+   手机上（指针粗、无 hover）整段不生效，保持原生覆盖式滑条；Firefox 没有
+   ::-webkit-* 伪元素，同样退回全局的原生细样式。 */
+@media (hover: hover) and (pointer: fine) {
+  @supports selector(::-webkit-scrollbar) {
+    .appearance-panel__scroll {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
+    .appearance-panel__scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+    .appearance-panel__scroll::-webkit-scrollbar-track { background: transparent; }
+    .appearance-panel__scroll::-webkit-scrollbar-thumb { background: transparent; }
+    .appearance-panel .page-scrollbar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: auto;
+      right: 0;
+      z-index: 3;
+      width: 10px;
+      display: block;
+      pointer-events: none;
+    }
+    .appearance-panel__scroll[data-scrollable='false'] .page-scrollbar__thumb {
+      opacity: 0;
+      transition-duration: 500ms;
+      transition-timing-function: var(--ease-exit);
+      transition-delay: var(--page-scrollbar-delay, 300ms);
+    }
+    .appearance-panel__scroll[data-scrollable-settled='false'] { --page-scrollbar-delay: 0ms; }
+    @media (prefers-reduced-motion: reduce) {
+      .appearance-panel__scroll[data-scrollable='false'] .page-scrollbar__thumb { transition: none; }
+    }
+  }
+}
 body {
   margin: 0;
   background: var(--paper);
@@ -1440,8 +1480,7 @@ button { font: inherit; }
 :root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .hero,
 :root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .latest-section,
 :root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .manifesto,
-:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .standard-page,
-:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .article-page {
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .standard-page {
   backdrop-filter: blur(var(--content-blur)) saturate(135%);
   -webkit-backdrop-filter: blur(var(--content-blur)) saturate(135%);
 }
@@ -1902,12 +1941,13 @@ button { font: inherit; }
   width: min(390px, calc(100vw - 28px));
   max-height: min(740px, calc(100vh - 82px));
   max-height: min(740px, calc(100dvh - 82px));
-  border-radius: 7px;
+  /* 圆角跟导航栏一致（同一个 --nav-radius）；纸媒那份没有这个变量，退回 7px 保持原样。 */
+  border-radius: var(--nav-radius, 7px);
   visibility: hidden;
   pointer-events: none;
   transform: translate3d(0, 50px, 0);
   transform-origin: bottom right;
-  clip-path: inset(calc(100% - 44px) 0 0 calc(100% - 86px) round 7px);
+  clip-path: inset(calc(100% - 44px) 0 0 calc(100% - 86px) round var(--nav-radius, 7px));
   transition:
     transform 160ms var(--ease-exit),
     clip-path 160ms var(--ease-exit),
@@ -1918,7 +1958,7 @@ button { font: inherit; }
   visibility: visible;
   pointer-events: auto;
   transform: translate3d(0, 0, 0);
-  clip-path: inset(0 round 7px);
+  clip-path: inset(0 round var(--nav-radius, 7px));
   transition:
     transform 240ms var(--ease-panel),
     clip-path 240ms var(--ease-panel),
@@ -1932,10 +1972,18 @@ button { font: inherit; }
 }
 
 /* Editorial scale: quieter geometry and stronger content hierarchy. */
+/* 外观菜单的圆角跟导航栏保持一致（用户定的）：导航栏自身仍是原来的字面值
+   （竖屏桌面 14px、横屏 12px、手机 12px），菜单只有这一个值可取，就取常见窗口下
+   的 12px。声明在 :root 而不是现代层里，是为了让纸媒那张菜单也一起对齐
+   （纸媒导航栏本身仍是直角，不引用这个变量）。 */
+:root { --nav-radius: 12px; }
 :root[data-visual='modern'] .site-shell { width: min(1120px, calc(100% - 36px)); }
 :root[data-visual='modern'] .site-header {
   position: sticky !important;
-  top: 14px;
+  /* 吸顶位置必须与 shell 的 padding-top 相等（见本区块 site-shell 的 18px）：
+     两者不等时，页面一滚动导航就会先往上顶一段再停住。下面每一档
+     （手机 10px、横屏 7/8/10px）都按同样的规则成对取值。 */
+  top: 18px;
   width: 100%;
   height: 54px;
   padding-inline: 11px 13px;
@@ -1971,7 +2019,8 @@ button { font: inherit; }
 
 @media (max-width: 767.98px) {
   :root[data-visual='modern'] .site-shell { width: min(100% - 18px, 1120px); }
-  :root[data-visual='modern'] .site-header { top: 9px; height: 50px; border-radius: 12px; }
+  /* 手机：吸顶 top 与手机块里 shell 的 padding-top 10px 对齐（原为 9px，滚动时有 1px 上跳）。 */
+  :root[data-visual='modern'] .site-header { top: 10px; height: 50px; border-radius: 12px; }
   :root[data-visual='modern'] .brand-mark { width: 30px; height: 30px; }
   :root[data-visual='modern'] .main-nav a { padding: 7px 9px; }
   .nav-highlight { height: 30px; }
@@ -2650,6 +2699,9 @@ fieldset.setting-group > legend.setting-label {
      （内容模糊是面层的模糊，浮层就嵌在面层里，跟着它调等于没调）。 */
   --dropdown-blur: 12px;
   --background-blur: 4px;
+  /* 图的显示比例（阅读设置的「图表尺寸」）：1 = mermaid 原生尺寸。这里的兜底值必须与
+     AppearancePanel 里 diagramScale 的初值（75）一致，挂载前不跳一下尺寸。 */
+  --diagram-scale: 0.75;
 }
 
 :root[data-visual='modern'][data-nav-material] .site-header,
@@ -2662,8 +2714,33 @@ fieldset.setting-group > legend.setting-label {
 :root[data-visual='modern'][data-material] .hero,
 :root[data-visual='modern'][data-material] .latest-section,
 :root[data-visual='modern'][data-material] .manifesto,
-:root[data-visual='modern'][data-material] .standard-page,
+:root[data-visual='modern'][data-material] .standard-page {
+  backdrop-filter: blur(var(--content-blur)) saturate(var(--surface-saturation));
+  -webkit-backdrop-filter: blur(var(--content-blur)) saturate(var(--surface-saturation));
+}
+
+/* 文章页这张卡片的玻璃放在它自己的负层级伪元素上，卡片元素本身不再带 backdrop-filter。
+   这不是换外观：blur 是线性滤镜、卡片底色是平色，blur(底色 + 环境) 与 底色 + blur(环境)
+   等价，改动前后整卡逐像素比对平均差 0.08/255（tmp/probe-page-snap.mjs）。
+   原因是规范：卡片自己一旦带 backdrop-filter，它就是这块区域的 backdrop root，
+   卡内任何元素再写 backdrop-filter 只能糊到卡片自己那层平色 —— 实测「代码模糊」
+   0/24/48px 三档像素零变化。玻璃挪到伪元素后卡片不是 backdrop root 了，
+   卡内 .article-code 的 backdrop-filter 才真的生效（同一条通道、同一套 0–48 值）。
+   contain: layout 只是补回 backdrop-filter 顺带给固定/绝对定位后代的包含块
+   （卡内的 ImageLightbox 等），它不建立 backdrop root、也不裁切内容。 */
 :root[data-visual='modern'][data-material] .article-page {
+  position: relative;
+  contain: layout;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-visual='modern'][data-material] .article-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
   backdrop-filter: blur(var(--content-blur)) saturate(var(--surface-saturation));
   -webkit-backdrop-filter: blur(var(--content-blur)) saturate(var(--surface-saturation));
 }

@@ -19,6 +19,7 @@
 
 | 中文课程名 | 磁盘子目录 / 网页路径中的课程名 |
 | --- | --- |
+| 数据结构 | `data-structures` |
 | 数学物理方程 | `equations-of-mathematical-physics` |
 | 泛函分析 | `functional-analysis` |
 | 数理统计 | `mathematical-statistics` |
@@ -115,6 +116,16 @@ Markdown 入口照常进入课程、归档及搜索，但 PDF 内部文字不参
 图片进入文章后会自动获得灯箱能力（点击放大、双击/滚轮缩放），并继承 `.article-content img` 的 `max-width: 100%; height: auto;`，不会变形。行为细节见 [article-image-lightbox.md](article-image-lightbox.md)。
 
 图片下方的说明文字用普通段落书写即可；如果用 `<figure>` + `<figcaption>`，样式也已就绪。
+
+## 表格、代码与 Mermaid
+
+普通代码围栏请标注语言（如 `c`、`cpp`、`python`），构建时使用 Shiki 双主题高亮，无须客户端高亮引擎。工具栏显示语言、复制原文和当前块的太阳/月亮切换；默认跟随页面明暗，手动切换只影响当前块，不保存为全站偏好。复制成功以对号反馈，权限失败选中代码供手动复制。阅读外观中「代码材质」「代码模糊」独立控制所有普通代码块，遵循默认设置的管理与持久化规则，不影响 Mermaid 图。
+
+文章/笔记统一使用 ArticleTable 的横向滚动容器和 ArticleCode 的多行代码容器；行内 code 的小背景不会应用到 pre 内。长行保留缩进并在自身滚动，不强制折行；表格保留原生 table 语义。样式位于 `app/assets/css/article-technical.css`，只影响正文技术内容，不改变页面背景、阅读设置与动画。
+
+使用标准 `mermaid` 代码围栏编写流程图。Mermaid 11.17.2 只在图表接近视口时动态加载，普通代码不加载库；安全模式 strict、flowchart htmlLabels=false，不允许围栏里带初始化指令或 YAML 配置。每幅图建议写 accTitle/accDescr，图前后保留文字解释。无 JavaScript、加载失败或尚未接近可视区时保留源码；渲染后可展开源码。两种视觉和明暗通过已有变量/主题属性适配。图按 Mermaid 的原生尺寸绘制，**不自动等比缩小**（原生 1391px 的流程图压进窄栏只剩四成，字会被挤到看不清），装不下时在图表自己的容器里横向滚动，页面本身不横滚；显示比例由「阅读外观 → 图表尺寸」决定（0–100%，出厂 75%，属于「默认设置」的受管项，关掉开关才能自己调）。不要把 Mermaid 当作所有示意图的必要格式。
+
+参考 [Mermaid 官方用法](https://mermaid.js.org/config/usage.html)。不使用 CDN、不上传笔记，不在构建端启动浏览器渲染图表。
 
 ## 数学公式
 

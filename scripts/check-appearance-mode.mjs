@@ -7,7 +7,7 @@ import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
 
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 const script = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-const compiled = ts.transpile(script.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replaceAll('import.meta.client', 'true'), { target: ts.ScriptTarget.ES2022 })
+const compiled = ts.transpile(script.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'true'), { target: ts.ScriptTarget.ES2022 })
 async function mount(saved, dark = false, options = {}) {
   const mounted = [], cleanup = [], shared = {}, media = { matches: dark, addEventListener() {}, removeEventListener() {} }
   const root = { dataset: {}, style: { setProperty() {}, removeProperty() {} } }
@@ -15,6 +15,8 @@ async function mount(saved, dark = false, options = {}) {
   const reads = []
   const context = vm.createContext({ ref, reactive, computed, watch, nextTick,
     decodeAppearanceStorage,
+    /* 面板自绘滑条的组合式函数要真 DOM 与滚动事件，本套件不测滚动，桩成空实现。 */
+    usePageScrollable: () => ({}),
     supportsEmbeddedPdf: () => false, onMounted: fn => mounted.push(fn), onUnmounted: fn => cleanup.push(fn),
     useState: (key, init) => shared[key] ||= ref(init()),
     window: { matchMedia: () => media }, document: { documentElement: root },
@@ -36,10 +38,10 @@ async function mount(saved, dark = false, options = {}) {
     stop: () => { cleanup.forEach(fn => fn()); scope.stop() },
   }
 }
-const controlled = ['navMaterial','contentMaterial','dropdownMaterial','backgroundMaterial','navBlur','contentBlur','dropdownBlur','backgroundBlur','backgroundOverlay']
+const controlled = ['navMaterial','contentMaterial','dropdownMaterial','backgroundMaterial','navBlur','contentBlur','dropdownBlur','backgroundBlur','backgroundOverlay','codeMaterial','codeBlur','diagramScale']
 const values = state => controlled.map(key => state[key])
-const light = ['liquid','liquid','liquid','liquid',14,5,4,0,40]
-const dark = ['mica','mica','mica','mica',12,10,12,4,40]
+const light = ['liquid','liquid','liquid','liquid',14,5,4,0,40,'liquid',5,75]
+const dark = ['mica','mica','mica','mica',12,10,12,4,40,'mica',10,75]
 const app = await mount(null)
 try {
   assert.deepEqual(values(app.state), light)
@@ -91,6 +93,9 @@ console.log('PASS: real Vue watchers apply manual/system light-dark-auto presets
 // Freeze initialization semantics before moving normalization out of reactive state.
 // Assertions cover the mounted component and real watcher flush, not only the decoder.
 const cases = [
+  { saved: { codeMaterial: 'invalid', codeBlur: -10 }, expected: { codeMaterial: 'mica', codeBlur: 0 } },
+  { saved: { codeBlur: 99 }, expected: { codeBlur: 48 } },
+  { saved: { codeBlur: '24' }, expected: { codeBlur: 10 } },
   { saved: {}, expected: { defaultSettings: false, navMaterial: 'mica', navBlur: 12, background: 'auto' } },
   { saved: { defaultSettings: 'true', backgroundTint: 'false' }, expected: { defaultSettings: false, backgroundTint: true } },
   { saved: { dropdownMaterial: 'invalid', dropdownBlur: -10 }, expected: { dropdownMaterial: 'mica', dropdownBlur: 0 } },
@@ -148,6 +153,8 @@ function originalNormalize(state, stored, systemDark) {
   if (state.pdfFallback !== 'card' && state.pdfFallback !== 'reader') state.pdfFallback = 'card'
   if (!state.backgroundPicked && state.background === 'art') state.background = 'auto'
   if (!['auto', 'flat', 'theme', 'aurora', 'art', 'dusk', 'custom'].includes(state.background)) state.background = 'auto'
+  if (!Number.isFinite(state.diagramScale)) state.diagramScale = 75
+  state.diagramScale = Math.round(Math.max(0, Math.min(100, state.diagramScale)))
   return state
 }
 const probe = await mount(null)
@@ -158,7 +165,8 @@ try {
   for (const systemDark of [false, true]) {
     for (const enabled of [undefined, false, true, 'true']) {
       for (const mode of ['auto', 'light', 'dark']) {
-        for (const variant of cases.map(fixture => fixture.saved).filter(Boolean)) {
+        // New code controls are covered above; the frozen oracle predates them.
+        for (const variant of cases.map(fixture => fixture.saved).filter(Boolean).filter(value => !('codeMaterial' in value || 'codeBlur' in value))) {
           const saved = Object.freeze({ ...variant, colorMode: mode, defaultSettings: enabled })
           const result = probe.normalizeStoredAppearance(initial, saved, systemDark)
           assert.deepEqual(plain(result), plain(originalNormalize({ ...initial }, saved, systemDark)))

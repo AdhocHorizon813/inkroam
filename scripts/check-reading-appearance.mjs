@@ -65,7 +65,7 @@ assert(!css.includes("[data-background]:not([data-background='flat'])"), 'Glass 
 
 /* 脚本重跑一遍真实逻辑：默认画布怎么解析、旧存储怎么迁移、手选之后还跟不跟随。 */
 const compiled = ts.transpile(
-  source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replaceAll('import.meta.client', 'true'),
+  source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'true'),
   { target: ts.ScriptTarget.ES2022 },
 )
 
@@ -84,6 +84,8 @@ function mount(saved, { systemDark = false, defer = false } = {}) {
   let stored = null
   const context = vm.createContext({
     decodeAppearanceStorage,
+    /* 面板自绘滑条的组合式函数要真 DOM 与滚动事件，本套件不测滚动，桩成空实现。 */
+    usePageScrollable: () => ({}),
     supportsEmbeddedPdf: () => false,
     ref: value => ({ value }), reactive: value => value,
     computed: compute => ({ get value() { return compute() } }),
@@ -196,11 +198,11 @@ assert.equal(fresh.dataset.background, 'art')
    （四组材质都用液态玻璃，模糊 14 / 5 / 4 / 0 px，遮罩 40%），深色沿用云母与 12 / 10 / 12 / 4。 */
 const LIGHT_DEFAULTS = {
   navMaterial: 'liquid', contentMaterial: 'liquid', dropdownMaterial: 'liquid', backgroundMaterial: 'liquid',
-  navBlur: 14, contentBlur: 5, dropdownBlur: 4, backgroundBlur: 0, backgroundOverlay: 40,
+  navBlur: 14, contentBlur: 5, dropdownBlur: 4, backgroundBlur: 0, backgroundOverlay: 40, diagramScale: 75,
 }
 const DARK_DEFAULTS = {
   navMaterial: 'mica', contentMaterial: 'mica', dropdownMaterial: 'mica', backgroundMaterial: 'mica',
-  navBlur: 12, contentBlur: 10, dropdownBlur: 12, backgroundBlur: 4, backgroundOverlay: 40,
+  navBlur: 12, contentBlur: 10, dropdownBlur: 12, backgroundBlur: 4, backgroundOverlay: 40, diagramScale: 75,
 }
 const readDefaults = (probe) => Object.fromEntries(Object.keys(LIGHT_DEFAULTS).map(key => [key, probe.state[key]]))
 
@@ -225,7 +227,7 @@ assert.deepEqual(readDefaults(follower), LIGHT_DEFAULTS)
 /* 用户报的毛病就在这里：非默认设置下切系统深浅色，值一个都不该被换掉。 */
 const manual = {
   navMaterial: 'acrylic', navBlur: 30, contentMaterial: 'mica', contentBlur: 22, dropdownMaterial: 'acrylic',
-  dropdownBlur: 18, backgroundMaterial: 'mica', backgroundBlur: 26, backgroundOverlay: 66,
+  dropdownBlur: 18, backgroundMaterial: 'mica', backgroundBlur: 26, backgroundOverlay: 66, diagramScale: 40,
 }
 const tuned = mount({ ...manual, background: 'aurora' })
 assert.equal(tuned.state.defaultSettings, false, 'Stored preferences without the switch count as manual')
@@ -247,6 +249,7 @@ assert.equal(upgraded.state.navMaterial, 'mica', 'A missing key keeps the materi
 assert.equal(upgraded.state.contentBlur, 10, 'A missing key keeps the blur it used to show')
 assert.equal(upgraded.state.dropdownBlur, 12)
 assert.equal(upgraded.state.backgroundBlur, 4)
+assert.equal(upgraded.state.diagramScale, 75, 'A key old visitors never had keeps the factory size')
 
 /* 二次确认：弹窗一开一关不动状态，确认之后才落。 */
 const asked = mount()
@@ -276,6 +279,18 @@ assert.equal(kept.state.backgroundOverlay, 0)
 assert.equal(mount({ dropdownMaterial: 'paper', dropdownBlur: 'x' }).state.dropdownMaterial, 'mica')
 assert.equal(mount({ dropdownBlur: 'x' }).state.dropdownBlur, 12)
 
+/* 图表尺寸是受管项：坏值修回出厂值、越界夹到 0–100、按滑条档位（1%）取整；
+   「默认设置」启用时与其它受管项一起被出厂值覆盖，禁用时用户自己的值原样留着。 */
+assert.equal(mount(null).state.diagramScale, 75, 'New visitors start at the factory size')
+assert.equal(mount({ diagramScale: -5 }).state.diagramScale, 0, 'Below the range clamps to the minimum')
+assert.equal(mount({ diagramScale: 240 }).state.diagramScale, 100, 'Above the range clamps to the native size')
+assert.equal(mount({ diagramScale: 62.4 }).state.diagramScale, 62, 'A stored value snaps to the slider steps')
+assert.equal(mount({ diagramScale: 0 }).state.diagramScale, 0, 'An explicit 0 survives the boundary clamp')
+assert.equal(mount({ diagramScale: null }).state.diagramScale, 75, 'A missing value falls back to the factory size')
+assert.equal(mount({ diagramScale: 20, defaultSettings: false }).state.diagramScale, 20, 'A manual size survives the OS appearance')
+assert.equal(mount({ diagramScale: 20, defaultSettings: true }).state.diagramScale, 75, 'The managed switch takes the diagram size back to the factory value')
+assert.equal(mount({ diagramScale: 20 }).save().diagramScale, 20, 'The manual size is persisted with the rest')
+
 /* 恢复默认按当前明暗走：深色机器上恢复出来的是深色那一套。 */
 const darkReset = mount(null, { systemDark: true })
 darkReset.reset()
@@ -287,14 +302,31 @@ assert(template.indexOf('视觉风格') < template.indexOf('默认设置'), 'The
 assert(template.indexOf('默认设置') < template.indexOf('外观模式'), 'The switch sits above the appearance mode')
 assert.equal(
   [...template.matchAll(/<fieldset class="setting-group" :disabled="managedDisabled">/g)].length,
-  5,
-  'Four material groups and the canvas follow the switch',
+  6,
+  'Five material groups and the canvas follow the switch',
 )
 assert.equal(
   [...template.matchAll(/<div class="setting-group" :aria-disabled="managedDisabled">/g)].length,
-  5,
-  'The four sliders and the overlay follow the switch',
+  7,
+  'The six sliders and the overlay follow the switch',
 )
+/* 「图表尺寸」是视觉上复用同一套滑条、但语义上独立的阅读项：它管的是图在正文里的显示比例，
+   材质与模糊跟它没关系，所以既不挂 managedDisabled，也不进上面那两句计数。 */
+/* 「图表尺寸」沿用同一套滑条外观，并且与其它受管项一样跟着「默认设置」开关禁用：
+   它管的是图在正文里的显示比例，属于出厂值的一部分。 */
+assert(template.includes('v-model.number="state.diagramScale"'), 'The panel owns a diagram-size slider')
+assert(/min="0"[\s\S]*?max="100"[\s\S]*?step="1"/.test(template), 'The slider spans 0–100% in 1% steps')
+assert(template.includes("'--range-progress': `${state.diagramScale}%`"), 'The filled part is the value itself (min 0)')
+assert(template.includes('<label class="setting-label" for="diagram-scale">图表尺寸</label>'), 'The slider reuses the shared range markup')
+assert(template.includes('<output for="diagram-scale">{{ state.diagramScale }}%</output>'), 'The slider reuses the shared range markup')
+assert.match(template, /<div class="range-scale" aria-hidden="true"><span>0 %<\/span><span>100 %<\/span><\/div>/, 'The slider reuses the shared endpoints row')
+const sizeGroup = template.match(/<div class="setting-group" :aria-disabled="managedDisabled">\s*<div class="range-heading">\s*<label class="setting-label" for="diagram-scale">[\s\S]*?<div class="range-scale" aria-hidden="true">[\s\S]*?<\/div>\s*<\/div>/)[0]
+assert(sizeGroup.includes('type="range"') && sizeGroup.includes(':disabled="managedDisabled"'), 'The slider disables with the switch like the other managed controls')
+assert(!sizeGroup.includes('setting-hint'), 'The slider carries no explanatory small print')
+assert(source.includes("root.style.setProperty('--diagram-scale', String(state.diagramScale / 100))"), 'The panel publishes the ratio as one CSS variable')
+assert(css.includes('--diagram-scale: 0.75;'), 'The stylesheet keeps a pre-mount fallback equal to the factory size')
+assert.equal([...source.matchAll(/diagramScale: 75,/g)].length, 3, 'All three factory sets carry the diagram size')
+assert(/'diagramScale'/.test(source), 'The diagram size is part of the factory-defaults field list')
 assert(
   /<fieldset class="setting-group" :disabled="state\.visual === 'classic'">\s*<legend class="setting-label">默认设置<\/legend>/.test(template),
   'The switch itself only disables with the paper look',

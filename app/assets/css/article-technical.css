@@ -1,0 +1,118 @@
+/* Technical prose only. Keep page surfaces, typography and motion untouched. */
+.article-content pre {
+  max-width: 100%; min-width: 0; margin: 1.7em 0; padding: 20px 22px;
+  overflow-x: auto; overscroll-behavior-x: contain; tab-size: 4;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink);
+  font: 14px/1.8 ui-monospace, 'Cascadia Code', Consolas, 'Liberation Mono', monospace;
+  text-align: left; white-space: pre; overflow-wrap: normal; word-break: normal;
+}
+.article-content pre code,
+:root[data-visual='modern'] .article-content pre code {
+  display: block; padding: 0; border: 0; border-radius: 0;
+  background: transparent; color: inherit; font: inherit;
+  white-space: inherit; overflow-wrap: normal; word-break: normal;
+}
+.article-content pre code .line { display: block; }
+.article-code {
+  --code-bg: #fff; --code-ink: #24292e; --code-line: #d1d5da;
+  --code-sun-opacity: 1; --code-moon-opacity: 0; --code-sun-turn: 0deg; --code-moon-turn: -60deg;
+  max-width: 100%; min-width: 0; margin: 1.7em 0;
+  overflow: hidden; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--code-bg); color: var(--code-ink);
+}
+:root[data-color-mode='dark'] .article-code:not([data-code-theme='light']),
+.article-code[data-code-theme='dark'] {
+  --code-bg: #24292e; --code-ink: #e1e4e8; --code-line: #444d56;
+  --code-sun-opacity: 0; --code-moon-opacity: 1; --code-sun-turn: 60deg; --code-moon-turn: 0deg;
+}
+/* 代码板与内容卡片同一套机制、同一套数值：模糊与饱和走同一条 backdrop-filter 通道
+   （内容模糊对 .article-page 就是这一句），半径用自己的 --code-blur（面板 0–48，
+   初值与内容模糊一致：亮 5 / 暗 10），面板没写入时退回内容模糊那一档。
+   卡片（.article-page）自己先把背景糊了一道，代码板再糊等于糊一张糊过的图，所以
+   同一密度下代码板的可见量只有卡片的约六成 —— 密度是唯一必须让一档的地方。
+   实测（暗色云母，tmp/probe-code-alpha.mjs，代码板 0→48px）：密度 62% → 平均
+   0.91/255、变化像素 15.5%；46% → 1.34、31.8%；30% → 1.74、45.6%；0% → 2.49、65.3%。
+   对照「内容模糊 0→48px 改卡片」是平均 1.54/255、变化像素 37%。取下面这一档，
+   代码模糊的可见量与内容模糊对卡片的可见量同量级，代码板本身也更透。 */
+:root[data-visual='modern'] .article-code {
+  --code-opacity: 36%; --code-saturation: 100%; --code-brightness: 1;
+  background: color-mix(in srgb, var(--code-bg) var(--code-opacity), transparent);
+  backdrop-filter: blur(var(--code-blur, var(--content-blur, 10px))) saturate(var(--code-saturation)) brightness(var(--code-brightness));
+  -webkit-backdrop-filter: blur(var(--code-blur, var(--content-blur, 10px))) saturate(var(--code-saturation)) brightness(var(--code-brightness));
+}
+:root[data-visual='modern'][data-code-material='acrylic'] .article-code {
+  /* 饱和沿用内容卡片 acrylic 那条（main.css: saturate(135%)）。 */
+  --code-opacity: 30%; --code-saturation: 135%;
+}
+:root[data-visual='modern'][data-code-material='liquid'] .article-code {
+  /* 液态玻璃沿用内容卡片那条的 saturate(145%) brightness(1.03)，不额外加高光：
+     main.css 里那条 145deg 镜面属于导航材质（.appearance-trigger::before），
+     内容卡片（.article-page）是平色 + 模糊，没有左上角高光。 */
+  --code-opacity: 46%; --code-saturation: 145%; --code-brightness: 1.03;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-visual='modern'] .article-code { background: var(--code-bg); }
+}
+.article-code-toolbar {
+  display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 4px 12px 4px 20px;
+  border-bottom: 1px solid var(--code-line); font: 12px/1.5 var(--sans);
+}
+.article-code-language { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.article-code-actions { display: flex; flex: 0 0 auto; gap: 4px; margin-left: auto; }
+.article-code-actions button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-width: 36px; min-height: 36px; padding: 6px 8px; border: 0; border-radius: 6px;
+  background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+.article-code-actions button:hover { background: color-mix(in srgb, var(--code-ink) 8%, transparent); }
+.article-code-actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.article-code-actions svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; flex-shrink: 0; }
+.article-code-theme-icon, .article-code-copy-icon { position: relative; display: inline-grid; place-items: center; width: 16px; height: 16px; }
+.article-code-theme-icon svg { position: absolute; transition: transform 280ms var(--ease-fluid), opacity 180ms var(--ease-exit); }
+.article-code-sun { opacity: var(--code-sun-opacity); transform: rotate(var(--code-sun-turn)) scale(calc(.7 + var(--code-sun-opacity) * .3)); }
+.article-code-moon { opacity: var(--code-moon-opacity); transform: rotate(var(--code-moon-turn)) scale(calc(.7 + var(--code-moon-opacity) * .3)); }
+.code-icon-enter-active, .code-icon-leave-active { transition: opacity 140ms var(--ease-exit), transform 180ms var(--ease-fluid); }
+.code-icon-enter-from, .code-icon-leave-to { opacity: 0; transform: scale(.65); }
+/* 文字状态：宽度固定（5em，放得下最长的「请手动复制」）、文字居中，所以换字时按钮宽度
+   与图标位置都不动；新旧两条叠在同一个网格格里，旧的上移淡出、新的从下方顶上。 */
+.article-code-state { display: inline-grid; justify-items: center; width: 5em; overflow: hidden; }
+.article-code-state > * { grid-area: 1 / 1; }
+.code-label-enter-active { transition: opacity 150ms var(--ease-exit), transform 240ms var(--ease-settle); }
+.code-label-leave-active { transition: opacity 110ms var(--ease-exit), transform 170ms var(--ease-exit); }
+.code-label-enter-from { opacity: 0; transform: translateY(7px); }
+.code-label-leave-to { opacity: 0; transform: translateY(-7px); }
+.article-code-check { stroke-dasharray: 24; animation: code-check-draw 240ms var(--ease-fluid) both; }
+@keyframes code-check-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .article-code-theme-icon svg, .code-icon-enter-active, .code-icon-leave-active,
+  .code-label-enter-active, .code-label-leave-active { transition: none; }
+  .article-code-check { animation: none; }
+}
+.article-content .article-code pre { margin: 0; border: 0; border-radius: 0; background: transparent; color: inherit; }
+/* MDC emits dual-theme variables. Scope overrides to these blocks, not global .dark. */
+html .article-content .article-code pre span {
+  color: var(--shiki-default, inherit); background: var(--shiki-default-bg, transparent);
+  font-style: var(--shiki-default-font-style, normal); font-weight: var(--shiki-default-font-weight, inherit);
+  text-decoration: var(--shiki-default-text-decoration, none);
+}
+html[data-color-mode='dark'] .article-content .article-code:not([data-code-theme='light']) pre span,
+html .article-content .article-code[data-code-theme='dark'] pre span {
+  color: var(--shiki-dark, inherit); background: var(--shiki-dark-bg, transparent);
+  font-style: var(--shiki-dark-font-style, normal); font-weight: var(--shiki-dark-font-weight, inherit);
+  text-decoration: var(--shiki-dark-text-decoration, none);
+}
+.article-table-scroll {
+  max-width: 100%; min-width: 0; margin: 1.7em 0;
+  overflow-x: auto; overscroll-behavior-x: contain;
+}
+.article-table-scroll table { width: 100%; border-collapse: collapse; color: var(--ink); font: 15px/1.8 var(--serif); }
+.article-table-scroll th, .article-table-scroll td { padding: 12px 16px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); min-width: 8em; }
+.article-table-scroll th { font-weight: 600; background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.article-table-scroll td code { white-space: nowrap; }
+.article-content pre:focus-visible, .article-table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 640px) {
+  .article-content pre { padding: 16px; font-size: 13px; }
+  .article-table-scroll table { font-size: 14px; }
+  .article-table-scroll th, .article-table-scroll td { padding: 10px 12px; }
+}

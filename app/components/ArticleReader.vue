@@ -2,6 +2,9 @@
 import { getTagSlug } from '~/utils/tags'
 import { courseForPath } from '~/utils/courses'
 import PdfViewer from '~/components/content/PdfViewer.vue'
+import ArticleCode from '~/components/content/ArticleCode.vue'
+import ArticleTable from '~/components/content/ArticleTable.vue'
+import '~/assets/css/article-technical.css'
 
 const route = useRoute()
 const course = courseForPath(route.path)
@@ -123,7 +126,7 @@ watch(() => route.fullPath, async () => {
         @click="onContentClick"
         @keydown="onContentKeydown"
       >
-        <ContentRenderer :value="post" :components="{ 'pdf-viewer': PdfViewer, PdfViewer }" />
+        <ContentRenderer :value="post" :components="{ 'pdf-viewer': PdfViewer, PdfViewer, pre: ArticleCode, table: ArticleTable }" />
       </article>
     </div>
 
