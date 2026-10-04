@@ -14,6 +14,18 @@ assert.equal(courseNeighbours('/notes/a/missing', notes).next, undefined)
 assert.equal(courseNeighbours('/notes/a/one', [make('one', '2026-01-01')]).previous, undefined)
 assert.equal(courseNeighbours('/notes/a/early', notes).next.path, '/notes/a/late')
 
+const sequence = [0, 1, 2, 9, 10, 17].map(n => make(`lesson-${n}`, '2026-01-01', String(n)))
+const shuffled = [...sequence].reverse()
+for (let i = 0; i < sequence.length; i++) {
+  const neighbours = courseNeighbours(sequence[i].path, shuffled)
+  assert.equal(neighbours.previous?.path, sequence[i - 1]?.path)
+  assert.equal(neighbours.next?.path, sequence[i + 1]?.path)
+}
+assert.deepEqual(shuffled, [...sequence].reverse(), 'Sorting must not mutate query data')
+for (const order of [undefined, null, '', ' ', 'invalid', -1, 1.5]) {
+  assert.equal(courseNeighbours(sequence.at(-1).path, [...sequence, make('unordered', '2025-01-01', order)]).next?.path, '/notes/a/unordered')
+}
+
 if (process.argv.includes('--built')) {
   const load = path => parse(readFileSync(`.output/public/${path}_payload.json`, 'utf8'), {
     ShallowReactive: value => value, ShallowRef: value => value,
@@ -33,6 +45,16 @@ if (process.argv.includes('--built')) {
   }
   const article = Object.values(load('posts/004world-inside-a-black-hole/')).find(value => value?.body)
   assert(article, 'The article reader still receives its own complete body')
+  const lessons = load('notes/data-structures/00-study-guide/')['course-sequence-data-structures']
+    .toSorted((a, b) => Number(a.order) - Number(b.order))
+  assert(lessons.length >= 18, 'Validate the real course, including two-digit lesson orders')
+  for (let i = 0; i < lessons.length; i++) {
+    const html = readFileSync(`.output/public${lessons[i].path}/index.html`, 'utf8')
+    const nav = html.match(/<nav[^>]*aria-label="课程阅读导航"[\s\S]*?<\/nav>/)?.[0]
+    assert(nav, `${lessons[i].path}: navigation exists`)
+    const links = [...nav.matchAll(/href="([^"]+)"/g)].map(match => match[1].replace(/^\/inkroam(?=\/)/, ''))
+    assert.deepEqual(links, ['/notes/data-structures', lessons[i - 1]?.path, lessons[i + 1]?.path].filter(Boolean), `${lessons[i].path}: rendered previous/next links`)
+  }
 }
 console.log('PASS: course order, boundaries, drafts, course isolation and requested payload checks.')
 

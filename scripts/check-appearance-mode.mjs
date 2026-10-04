@@ -30,7 +30,7 @@ async function mount(saved, dark = false, options = {}) {
       setItem: (_, value) => { stored = JSON.parse(value) }, removeItem() {} },
   })
   const scope = effectScope()
-  scope.run(() => vm.runInContext(`${compiled}\nglobalThis.exposed = { state, status, initialState: { ...state }, normalizeStoredAppearance, onSystemThemeChange, requestDefaultSettings, confirmDefaultSettings };`, context))
+  scope.run(() => vm.runInContext(`${compiled}\nglobalThis.exposed = { state, status, isOpen, panelScroll, initialState: { ...state }, normalizeStoredAppearance, onSystemThemeChange, requestDefaultSettings, confirmDefaultSettings };`, context))
   mounted.forEach(fn => fn())
   await nextTick()
   return { ...context.exposed, root, shared, reads, stored: () => stored,
@@ -44,6 +44,13 @@ const light = ['liquid','liquid','liquid','liquid',14,5,4,0,40,'liquid',5,75]
 const dark = ['mica','mica','mica','mica',12,10,12,4,40,'mica',10,75]
 const app = await mount(null)
 try {
+  app.panelScroll.value = { scrollTop: 640 }
+  for (const open of [true, false, true, false, true]) {
+    app.isOpen.value = open
+    await nextTick()
+    await nextTick()
+    assert.equal(app.panelScroll.value.scrollTop, 640, 'Reopening preserves the settings scroll position')
+  }
   assert.deepEqual(values(app.state), light)
   for (const [mode, expected] of [['dark', dark], ['light', light], ['dark', dark], ['auto', light]]) {
     app.state.colorMode = mode

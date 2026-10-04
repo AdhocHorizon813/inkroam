@@ -342,11 +342,7 @@ watch(sharedPdfFallback, (value) => {
   if (value !== state.pdfFallback) state.pdfFallback = value
 })
 
-watch(isOpen, async (open) => {
-  if (!open) return
-  await nextTick()
-  if (panelScroll.value) panelScroll.value.scrollTop = 0
-})
+// The panel remains mounted while closed; keep its native scroll position on reopen.
 
 function applyAppearance() {
   if (!import.meta.client) return
