@@ -244,6 +244,151 @@ int main(void) {
 
 推导后根关系：依次访问 A 的每个孩子及其子孙，最后访问 A；二叉树中序会先处理 A 的左子树，其中 right 链负责依次处理兄弟，最后访问 A，恰好相同。一般树层序则不能直接用转换后二叉树的普通层序替代。
 
+### 从一张孩子名单，逐格转换成二叉树
+
+先固定“有序”的含义：孩子从左到右有指定次序，森林中的树也有先后次序。不是按字母排序；下面恰好用字母命名，顺序由题目给出。
+
+森林由两棵树组成：第一棵根为A，A的孩子依次是B、C、D，B的孩子是E、F；第二棵根为G，G只有孩子H。其余结点没有孩子。先列名单，再改表示，不要凭图片里线段的倾斜角度猜关系。
+
+| 结点 | 原树的孩子名单 | firstChild（转换后的left） | nextSibling（转换后的right） |
+| --- | --- | --- | --- |
+| A | B、C、D | B | G（森林的下一棵树根） |
+| B | E、F | E | C |
+| C | 空 | 空 | D |
+| D | 空 | 空 | 空 |
+| E | 空 | 空 | F |
+| F | 空 | 空 | 空 |
+| G | H | H | 空 |
+| H | 空 | 空 | 空 |
+
+A.right=G是森林根链的约定，不表示原来A与G存在父子关系。B.right=C也不表示B原本有孩子C。表中的同一个地址字段，在两种解释下名字与含义不同，这就是转换的核心。
+
+逆向恢复时，看到A.left=B，只能先得到A的第一个孩子；然后沿B.right找到C，再沿C.right找到D，这一整条右链才是A的孩子名单。恢复B的孩子时重新从B.left=E开始，沿E.right找到F。**找孩子要先向左一次，再连续向右；不能把所有可达结点都当直接孩子。**
+
+### 四种序列放在同一个例子里比较
+
+先根访问A，再完整处理B的子树E、F，再处理C、D，最后进入以G为根的树，得到 `ABEFCDGH`。后根则先完成A的全部孩子子树再访问A，得到 `EFBCDAHG`。
+
+| 要求的顺序 | 结果 | 正在使用的关系 |
+| --- | --- | --- |
+| 原森林先根（逐棵树） | A B E F C D G H | 原树孩子名单 |
+| 转换后二叉树前序 | A B E F C D G H | left/right二叉关系 |
+| 原森林后根（逐棵树） | E F B C D A H G | 原树孩子名单 |
+| 转换后二叉树中序 | E F B C D A H G | left/right二叉关系 |
+| 原森林按深度层序，所有根先入队 | A G B C D H E F | 所有根深度同为0 |
+| 转换后二叉树普通层序 | A B G E C H F D | 二叉树的边数深度 |
+
+最后两行不同，因为右兄弟边在原树里不增加深度，在二叉树里却是一条下降边。“森林层序”题必须声明是否所有根先入队；若题目要求逐棵树做层序，序列又会变成 `ABCDEF GH`，不能省略这个口径。
+
+对本例“所有根先入队”的原森林层序，队列左端出队：
+
+| 刚输出谁 | 新加入的直接孩子 | 操作后的队列 |
+| --- | --- | --- |
+| 初始化 | A、G两个根 | A G |
+| A | B C D | G B C D |
+| G | H | B C D H |
+| B | E F | C D H E F |
+| C、D、H依次输出 | 都没有 | E F |
+| E、F依次输出 | 都没有 | 空 |
+
+这一追踪也解释了BFS为什么要队列：刚发现的下一层不能插到当前层前面。
+
+### 综合题：什么保留，什么不保留
+
+本例有8个结点、2棵树，原森林的真实边数是8−2=6；转换后是含8个结点的一棵二叉树，边数是7。多出来的关系来自把根串联；其他原来的父子关系有些改用兄弟链间接表达。因此转换不是保持全部原边的“把图旋转一下”。
+
+原森林叶子有C、D、E、F、H，共5个；转换后二叉树的叶子只有D、F、H，共3个。判断原树叶子只检查left为空，因为right可能仍指向兄弟。原森林最高3层，转换后二叉树最高4层，例如A→B→E→F。不能直接沿用高度。
+
+自测：原树A的度是多少？答案是3，计算方法是从A.left开始沿右链数B、C、D，而不是数A在二叉树里有几个孩子。再问原森林有几棵树？从二叉根A沿right数A、G，答案是2。
+
+### 完整 C 程序：同一组链接，两种层序解释
+
+下面不申请堆内存。8个Node对象存放在main的数组中，函数只读它们，main结束前地址都有效；不能对这些对象调用free。first/next分别是第一个孩子、下一个兄弟，转为二叉树解释时分别充当left/right。程序不做对象复制，验证的是表示与遍历的对应，而不是文件格式转换。
+
+输出对象Output里text存字符序列、n存已写长度。visit追加一个字符后立刻补字符串终止符。队列中的每一项是Node地址，不是整个Node对象。前提是合法森林：无环、无共享结点，且最多8个结点；断言用于此固定样例的容量检查，不是通用恶意输入校验。
+
+```c
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+
+enum { CAP = 8 };
+typedef struct Node {
+    char key;
+    struct Node *first, *next;
+} Node;
+typedef struct { char text[CAP + 1]; size_t n; } Output;
+
+void visit(const Node *p, Output *out) {
+    assert(out->n < CAP);
+    out->text[out->n++] = p->key;
+    out->text[out->n] = '\0';
+}
+void preorder(const Node *p, Output *out) {
+    if (p == NULL) return;
+    visit(p, out);
+    preorder(p->first, out);
+    preorder(p->next, out);
+}
+void inorder(const Node *p, Output *out) {
+    if (p == NULL) return;
+    inorder(p->first, out);
+    visit(p, out);
+    inorder(p->next, out);
+}
+void enqueue(const Node *queue[], size_t *tail, const Node *p) {
+    assert(*tail < CAP);
+    queue[(*tail)++] = p;
+}
+void level(const Node *root, bool as_forest, Output *out) {
+    const Node *queue[CAP];
+    size_t head = 0, tail = 0;
+    if (as_forest) {
+        for (const Node *r = root; r != NULL; r = r->next)
+            enqueue(queue, &tail, r);
+    } else if (root != NULL) {
+        enqueue(queue, &tail, root);
+    }
+    while (head < tail) {
+        const Node *p = queue[head++];
+        visit(p, out);
+        if (as_forest) {
+            for (const Node *c = p->first; c != NULL; c = c->next)
+                enqueue(queue, &tail, c);
+        } else {
+            if (p->first != NULL) enqueue(queue, &tail, p->first);
+            if (p->next != NULL) enqueue(queue, &tail, p->next);
+        }
+    }
+}
+int main(void) {
+    Node nodes[CAP];
+    const char labels[] = "ABCDEFGH";
+    for (size_t i = 0; i < CAP; ++i)
+        nodes[i] = (Node){labels[i], NULL, NULL};
+    nodes[0].first = &nodes[1]; nodes[0].next = &nodes[6];
+    nodes[1].first = &nodes[4]; nodes[1].next = &nodes[2];
+    nodes[2].next = &nodes[3]; nodes[4].next = &nodes[5];
+    nodes[6].first = &nodes[7];
+    Output pre = {{0}, 0}, in = {{0}, 0};
+    Output forest = {{0}, 0}, binary = {{0}, 0}, empty = {{0}, 0};
+    preorder(nodes, &pre); inorder(nodes, &in);
+    level(nodes, true, &forest); level(nodes, false, &binary);
+    level(NULL, true, &empty);
+    assert(strcmp(pre.text, "ABEFCDGH") == 0);
+    assert(strcmp(in.text, "EFBCDAHG") == 0);
+    assert(strcmp(forest.text, "AGBCDHEF") == 0);
+    assert(strcmp(binary.text, "ABGECHFD") == 0);
+    assert(empty.n == 0);
+    puts("forest and binary interpretation tests passed");
+    return 0;
+}
+```
+
+as_forest=true时，初始化先沿根的兄弟链入队，之后每个出队结点只枚举自己的孩子链；不能再额外将p.next作为孩子入队，否则兄弟会重复。false时才把两个字段都当二叉孩子。两种遍历都是每个结点访问一次，时间O(n)，队列容量最多O(n)；递归前序/中序辅助空间按转换后二叉树高度计算。
+
 ## 哈夫曼树：最小化的是带权路径长度
 
 **权值**是叶子的重要程度或出现频数等非负数；**带权路径长度**把每个叶子深度乘以其权值后求和；**哈夫曼树**是在给定叶子权值下达到最小带权路径长度的二叉树。这里的叶子代表原始符号，合并生成的内部结点代表一组符号，不是新增字符。
@@ -315,6 +460,65 @@ int main(void) {
 ```
 
 哈夫曼编码将每个字符放在叶子，左/右分支标 0/1，因此任一叶子编码不是另一叶子的前缀，可无歧义逐位解码。“前缀码”不等于“等长码”，也不等于任意贪心分配更短编码。
+
+### 从合并过程真正写出码表
+
+前面的程序输出WPL=38，但38本身不是一张码表。现在让a、b、c、d分别出现2、3、7、9次，沿用同一组合并。先把每个符号画成一个叶子，内部结点只记总权值，不额外代表某个符号。
+
+| 步骤 | 选出的两项 | 新子树 | 当前仍参与选择的权值 |
+| --- | --- | --- | --- |
+| 初始 | 无 | 四个独立叶子 | 2,3,7,9 |
+| 1 | 2与3 | 权5，孩子a、b | 5,7,9 |
+| 2 | 5与7 | 权12，孩子为权5的整棵子树、c | 9,12 |
+| 3 | 9与12 | 权21，成为整棵树的根 | 21 |
+
+这里选择“较小权值放左边”，并把左边标0、右边标1；这只是确定一张具体码表的约定，交换左右仍可能得到同样最优的WPL。
+
+```text
+                    21
+                0 /    \ 1
+                d:9     12
+                     0 /  \ 1
+                       5   c:7
+                    0 / \ 1
+                    a:2 b:3
+```
+
+| 符号 | 从根到叶的边标记 | 码长 | 频数×码长 |
+| --- | --- | --- | --- |
+| d | 0 | 1 | 9 |
+| c | 11 | 2 | 14 |
+| a | 100 | 3 | 6 |
+| b | 101 | 3 | 9 |
+
+合计38位。若这21个符号按上述频数组成一段消息，平均码长是38/21位/符号；四种符号使用等长二进制码需要每个2位，共42位。这里仅比较消息负载，不计算存储树、频数表、长度等头部开销，因此不能直接宣称一个真实小文件一定压缩了4位。
+
+### 编码是拼接，解码是走到叶子后重新出发
+
+消息cab编码为c的11、a的100、b的101，拼起来是`11100101`，没有分隔符。解码时从根逐位走：
+
+| 已读位的位置 | 本次读入 | 当前从根累计路径 | 是否输出 |
+| --- | --- | --- | --- |
+| 1 | 1 | 1，到内部结点12 | 否，继续 |
+| 2 | 1 | 11，到c | 输出c，回到根 |
+| 3 | 1 | 1 | 否 |
+| 4 | 0 | 10，到内部结点5 | 否 |
+| 5 | 0 | 100，到a | 输出a，回到根 |
+| 6 | 1 | 1 | 否 |
+| 7 | 0 | 10 | 否 |
+| 8 | 1 | 101，到b | 输出b，回到根 |
+
+不能读到路径1就输出“权12”，因为内部权值不是符号。位串若在`10`处结束，当前位置仍是内部结点，表示缺少后续位，不是一个完整符号。反过来，位翻转可能恰好变成另一串合法符号，前缀码保证可分界，却不保证检错，更不等于纠错码。
+
+前缀性质来自“符号只放叶子”：假如一个符号码字是另一个的前缀，那么走到前者的叶子之后还要继续沿边到后者，和叶子没有孩子矛盾。这个论证不需要所有码长相同。
+
+### 常见边界不是给公式硬打补丁
+
+只有一个符号时，数学上的树只有根，根到自身0条边，所以WPL为0。但若把所有出现都编码成空串，解码器无法仅由位串知道重复多少次；文件格式需另存长度，或约定该符号使用一位码。选择哪种是协议问题，不能同时用0位的WPL和1位的文件计数。
+
+权值相等时，最优树可能不唯一。不同左右安排、同权项的不同选择顺序会改变码字，答案检查应同时看前缀性质、权值对应和WPL，而不是只比对一张图。若题目规定同权按符号次序选取，则须服从该规则。
+
+本节新增的是完整的手工构造与编码/解码过程；上面的C程序仍只计算WPL，没有因此变成通用压缩器。
 
 ## 自编练习与易错辨析
 
