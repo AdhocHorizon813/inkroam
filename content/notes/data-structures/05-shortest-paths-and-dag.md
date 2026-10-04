@@ -62,6 +62,39 @@ b确定后，a的4还可以改成3，所以“发现”不等于“确定”。B
 
 INF 不是实际路径长度。先判断可达再做加法，还必须考虑整数溢出；使用很大的整数不意味着任意相加都安全。不可达目标不能沿 prev 一直走，初值应明确是 -1。
 
+### 距离是一个最优化问题，不是数组里恰好存着的数
+
+给定有限有向带权图、源点s，将δ(s,v)定义为所有s到v游走权值的下确界。不可达时约定+∞；若可从s进入某个负环、再从该环到v，则下确界为−∞，不存在达到它的有限最短游走；其他可达顶点有有限最短距离。不能把“图里有负环”直接说成每个顶点都没有最短路。
+
+若相关路线无负环，游走中的非负环可以删除而不增加权值，因此至少存在一条不重复顶点的最优路径，边数至多|V|−1。这个结论为Bellman-Ford的轮数提供依据，不是因为数组恰好有这么多格。
+
+一次松弛检查d[v]是否大于d[u]+w(u,v)。d[u]必须先代表一条实际已发现路线，才能在它后面接边；“不可达哨兵+负权”没有对应路线。下面全部顶点距离已有限，只演示一条边的更新：
+
+```c
+#include <assert.h>
+#include <stdio.h>
+int main(void) {
+    long long du = 5, dv = 10, weight = -2;
+    long long candidate = du + weight;
+    printf("old=%lld candidate=%lld\n", dv, candidate);
+    if (candidate < dv) dv = candidate;
+    printf("new=%lld\n", dv);
+    assert(dv == 3);
+    return 0;
+}
+```
+
+<!-- study-run:BEGIN sha256=eaf5bd9c996e56c1deea7ddaad5dc7beb645e47a1b47290bf135720ba368dbb0 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+old=10 candidate=3
+new=3
+```
+<!-- study-run:END -->
+
+更新为3只证明已找到权值3的路线，不能单凭这一条边证明没有权值2的路线。松弛保持“当前值是可实现的上界”，全局算法的结束条件才负责证明最优。这里数值很小，不代表任意long long加法都不会溢出。
+
 ## Dijkstra 为什么不能有负边
 
 每步从未确定顶点中选择 dist 最小的 u，永久确定它。非负边保证任何从尚未确定区域绕行再进入 u 的路径，不可能把 u 的距离变得更小。
@@ -77,6 +110,136 @@ INF 不是实际路径长度。先判断可达再做加法，还必须考虑整�
 只有“源点可达负环且从该负环又能到达目标”时，那个目标才没有有限最短距离。图中别处有不可达负环，不影响该源点的结果；可达负环也不意味着每个顶点都受影响。
 
 原地松弛一轮可能传播多条边，不应把它精确解释为“这一轮只允许多一条边”；正确说法是完成 k 轮后，至多 k 条边的最短路径已获得足够机会。若使用上一轮数组的副本，才能严格逐层限制边数。复杂度 $O(VE)$，辅助空间通常 $O(V)$。
+
+### Bellman-Ford实践：距离、负环影响和路径是三种不同结果
+
+先补齐上一节的可运行版本。为方便逐轮理解，这里不用原地更新：第k轮只读取第k-1轮，所以d[k][v]严格表示**使用至多k条边**的最短游走长度。递推是保留旧值，或接上最后一条边：
+
+$$d_k(v)=\min\left(d_{k-1}(v),\ \min_{(u,v)\in E}(d_{k-1}(u)+w(u,v))\right).$$
+
+不可达由布尔值单独记录，不拿一个巨大整数参与加法。有限最短路可去掉非负环，保留不超过n-1条边的简单路径。因此完成n-1轮后，若还有可松弛的边u→v，v一定受到源点可达负环影响；随后沿出边传播标记。**不是所有顶点都因此没有最短路**，既不能逆着边传播，也不能把另一个不可达负环算进来。
+
+下例图有8个顶点。0→1权1，1→2权1，2→1权-3，环权和-2；2还能到3，因此1、2、3均为负无穷。0→4权5且4无出边，故4仍为有限距离5。5和6构成负环但源点不能到达，仍是不可达；7孤立。
+
+| 轮次 | 到1的值 | 到2的值 | 到3的值 | 到4的值 |
+| --- | --- | --- | --- | --- |
+| 0 | 不可达 | 不可达 | 不可达 | 不可达 |
+| 1 | 1 | 不可达 | 不可达 | 5 |
+| 2 | 1 | 2 | 不可达 | 5 |
+| 3 | -1 | 2 | 4 | 5 |
+| 4 | -1 | 0 | 4 | 5 |
+
+第三轮到1的候选是上一轮到2的2加-3，得到-1；不能再用刚产生的-1更新同轮到2，因为这会破坏“至多3条边”的定义。不断下降不是收敛到某个很小的整数，而是可以任意小。
+
+```c
+#include <assert.h>
+#include <stdbool.h>
+#include <stdio.h>
+enum { CAP = 8 };
+typedef struct { int u, v, w; } Edge;
+typedef struct {
+    int n, source;
+    bool reach[CAP][CAP], negative[CAP];
+    long long d[CAP][CAP];
+    int take[CAP][CAP]; /* -1: carry previous layer; otherwise edge index */
+} Result;
+static bool solve(int n, int source, const Edge *e, int m, Result *r) {
+    if (!r || n < 1 || n > CAP || source < 0 || source >= n
+        || m < 0 || (m > 0 && !e)) return false;
+    for (int j = 0; j < m; ++j)
+        if (e[j].u < 0 || e[j].u >= n || e[j].v < 0 || e[j].v >= n
+            || e[j].w < -1000000 || e[j].w > 1000000) return false;
+    *r = (Result){0}; r->n = n; r->source = source;
+    r->reach[0][source] = true;
+    for (int k = 1; k < n; ++k) {
+        for (int v = 0; v < n; ++v) {
+            r->reach[k][v] = r->reach[k-1][v];
+            r->d[k][v] = r->d[k-1][v]; r->take[k][v] = -1;
+        }
+        for (int j = 0; j < m; ++j) {
+            int u = e[j].u, v = e[j].v;
+            if (!r->reach[k-1][u]) continue;
+            long long candidate = r->d[k-1][u] + e[j].w;
+            if (!r->reach[k][v] || candidate < r->d[k][v]) {
+                r->reach[k][v] = true; r->d[k][v] = candidate;
+                r->take[k][v] = j;
+            }
+        }
+    }
+    int last = n - 1;
+    for (int j = 0; j < m; ++j) {
+        int u = e[j].u, v = e[j].v;
+        if (r->reach[last][u] && (!r->reach[last][v]
+            || r->d[last][u] + e[j].w < r->d[last][v]))
+            r->negative[v] = true;
+    }
+    for (int pass = 0; pass < n; ++pass)
+        for (int j = 0; j < m; ++j)
+            if (r->negative[e[j].u]) r->negative[e[j].v] = true;
+    return true;
+}
+static void show(const Result *r, const Edge *e, int target) {
+    int k = r->n - 1, v = target, reverse[CAP], count = 0;
+    printf("v=%d: ", target);
+    if (!r->reach[k][v]) { puts("unreachable"); return; }
+    if (r->negative[v]) { puts("-infinity"); return; }
+    printf("distance=%lld path=", r->d[k][v]);
+    reverse[count++] = v;
+    for (; k > 0; --k) {
+        int j = r->take[k][v];
+        if (j >= 0) {
+            assert(e[j].v == v);
+            v = e[j].u; reverse[count++] = v;
+        }
+    }
+    assert(v == r->source);
+    for (int i = count - 1; i >= 0; --i)
+        printf("%d%s", reverse[i], i ? "->" : "\n");
+}
+int main(void) {
+    const Edge e[] = {{0,1,1},{1,2,1},{2,1,-3},{2,3,2},
+                      {0,4,5},{5,6,-1},{6,5,0}};
+    Result r;
+    assert(solve(8, 0, e, 7, &r));
+    for (int v = 0; v < 8; ++v) {
+        assert(r.negative[v] == (v >= 1 && v <= 3));
+        assert(r.reach[7][v] == (v <= 4));
+        show(&r, e, v);
+    }
+    assert(r.d[7][4] == 5 && r.d[7][0] == 0);
+    const Edge finite[] = {{0,1,4},{0,2,5},{1,2,-2}};
+    assert(solve(3, 0, finite, 3, &r));
+    assert(!r.negative[2] && r.d[2][2] == 2);
+    show(&r, finite, 2);
+    const Edge self[] = {{0,0,-1}};
+    assert(solve(1, 0, self, 1, &r) && r.negative[0]);
+    assert(solve(1, 0, NULL, 0, &r) && !r.negative[0]);
+    assert(!solve(0, 0, NULL, 0, &r));
+    puts("Bellman-Ford boundary checks passed");
+    return 0;
+}
+```
+
+<!-- study-run:BEGIN sha256=863636611f614354cbf81a7cc48da972ddfa3a1a81fc94cc9a030e05398e6d71 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+v=0: distance=0 path=0
+v=1: -infinity
+v=2: -infinity
+v=3: -infinity
+v=4: distance=5 path=0->4
+v=5: unreachable
+v=6: unreachable
+v=7: unreachable
+v=2: distance=2 path=0->1->2
+Bellman-Ford boundary checks passed
+```
+<!-- study-run:END -->
+
+**路径为什么按层保存？** take[k][v]记下本轮答案来自哪条最后边；若是-1，答案直接继承上一轮。恢复时每次k减1，只有真的采用一条边才追加前驱顶点，因此至多记录n个顶点，不会卡在负环中；负无穷结果本来就不应显示“最短路径”。同权时保留先得到的答案，不保证路径字典序最小。
+
+**代价与边界。** 这个教学版保留所有层，时间为$O(n^2+nm)$，空间为$O(n^2)$（不含输入边表），并不是空间$O(n)$的优化版。n≤8且每条边绝对值≤一百万，参与运算的至多8条边，long long足够；扩大范围时必须重新做溢出分析。参数检查不可能验证任意指针后确实有m条边，调用者必须提供有效数组。断言与样例覆盖不是对任意输入正确性的形式证明。
 
 ## Floyd 的循环顺序来自状态定义
 
@@ -254,6 +417,14 @@ int main(void) {
     return 0;
 }
 ```
+
+<!-- study-run:BEGIN sha256=873d804fb45e66881f9ae2ca0e3de37be123cef218ecd0181f6356f3dd4fc6b8 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+shortest path and DAG tests passed
+```
+<!-- study-run:END -->
 
 调用者保证 `1<=n<=16`、源点有效、输出数组足够大。Dijkstra 与关键路径的数组看起来类似，但一个做 min 的距离优化，一个做 max 的依赖聚合，不能复制粘贴后只改函数名。
 

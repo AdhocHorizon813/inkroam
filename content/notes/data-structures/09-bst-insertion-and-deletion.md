@@ -27,6 +27,48 @@ draft: false
 
 ## 三、查找和插入：slot保存“可以改写的入口”
 
+### 先验证“整棵子树”，再讨论怎么修改它
+
+仅检查父亲和直接孩子是不够的：根10的左孩子5，5的右孩子12，每条直接边似乎都满足方向要求，但12落在10的左子树，违反BST定义。下面用开区间传递祖先约束，NULL表示空子树。示例键均为int，用long long上下界覆盖INT_MIN和INT_MAX；这是本程序的平台前提，并用静态断言检查。
+
+```c
+#include <assert.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
+_Static_assert(LLONG_MIN < INT_MIN && LLONG_MAX > INT_MAX,
+               "long long must strictly contain int range");
+typedef struct Node { int key; struct Node *left, *right; } Node;
+static bool valid(const Node *p, long long low, long long high) {
+    if (!p) return true;
+    return low < p->key && p->key < high
+        && valid(p->left, low, p->key)
+        && valid(p->right, p->key, high);
+}
+int main(void) {
+    Node bad = {12, NULL, NULL};
+    Node left = {5, NULL, &bad};
+    Node root = {10, &left, NULL};
+    printf("before: %d\n", valid(&root, LLONG_MIN, LLONG_MAX));
+    assert(!valid(&root, LLONG_MIN, LLONG_MAX));
+    bad.key = 7;
+    printf("after: %d\n", valid(&root, LLONG_MIN, LLONG_MAX));
+    assert(valid(&root, LLONG_MIN, LLONG_MAX));
+    return 0;
+}
+```
+
+<!-- study-run:BEGIN sha256=04a5268d38ef877979dd659b47193c6a4654b4b9e3b183720f31f84e7abcf752 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+before: 0
+after: 1
+```
+<!-- study-run:END -->
+
+进入根的左子树，上界从正无穷的替代边界收紧为10；再进入5的右子树，下界变成5，但上界仍是10。因此需要5<key<10，12被拒绝，7被接受。前提是输入真的是有限、无环、没有共享孩子的树；这个检查器不负责检测指针环或悬空指针。
+
 只读查找用 `const Node *p` 即可：key小就向左，大就向右，相等成功，走空失败。
 
 插入要修改一条原本为空的链接。它可能是调用者的root，也可能是某个left/right字段，类型都是 `Node *` 对象。因此用 `Node **slot` 保存该对象的地址，可以统一处理空树和非空树。
@@ -236,6 +278,14 @@ int main(void) {
     return 0;
 }
 ```
+
+<!-- study-run:BEGIN sha256=102ff674ad978d28d1c53a6af87cc8051a46a6c266104188131c50015b855e2b -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+BST mutation tests passed
+```
+<!-- study-run:END -->
 
 测试使用assert执行部分操作，所以编译教学程序时不要加`-DNDEBUG`；该选项会移除断言及其表达式。正式应用应在断言外执行操作，再检查结果。本程序检查分配失败并清理已有树，但没有故障注入测试，不能宣称实际测过每一次malloc失败。
 

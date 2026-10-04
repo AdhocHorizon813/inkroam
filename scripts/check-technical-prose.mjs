@@ -73,7 +73,7 @@ assert.match(utility, /import\('mermaid'\)/)
 assert.match(utility, /securityLevel: 'strict'/)
 assert.match(utility, /htmlLabels: false/)
 const files = readdirSync('content/notes/data-structures').filter(name => name.endsWith('.md')).sort()
-assert.equal(files.length, 11)
+assert.equal(files.length, 12)
 for (const [order, file] of files.entries()) {
   const text = readFileSync(`content/notes/data-structures/${file}`, 'utf8')
   assert.match(text, new RegExp(`order: ${order}\\r?\\n`))
@@ -93,4 +93,4 @@ for (const [order, file] of files.entries()) {
     if (text.includes('```mermaid')) assert.match(html, /article-diagram/)
   }
 }
-console.log('PASS: eleven notes and technical-prose contracts' + (process.argv.includes('--built') ? ', SSR table/code/diagram routing' : '') + '. Not browser geometry or SVG rendering.')
+console.log('PASS: twelve notes and technical-prose contracts' + (process.argv.includes('--built') ? ', SSR table/code/diagram routing' : '') + '. Not browser geometry or SVG rendering.')

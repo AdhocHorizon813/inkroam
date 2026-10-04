@@ -46,6 +46,46 @@ flowchart TD
 
 顺序扫描中序找根会产生最坏 $O(n^2)$；建立关键字到中序下标的映射后，查找可做到 $O(1)$，总时间 $O(n)$。关键字重复时映射不再唯一，不能直接套这个论证。
 
+### 一个只显示区间划分的小程序
+
+唯一重建的论证可以写成规模归纳：空区间只有空树；非空前序首项确定根，互异标识让根在中序中位置唯一；中序左右两段确定左右结点集合及规模，进而唯一切分前序；两边规模严格小于n，用归纳假设完成。它只适用于合法、同源、标识互异的两个序列，不是任何两个等长字符串都能重建。
+
+本段只打印固定合法输入的每次划分，不分配结点；合法性拒绝与内存失败处理仍见后面的完整程序。pre与in是当前位置加长度，不会真的切断原字符串。
+
+```c
+#include <assert.h>
+#include <stddef.h>
+#include <stdio.h>
+static void trace(const char *pre, const char *in, size_t n) {
+    if (n == 0) return;
+    size_t k = 0;
+    while (k < n && in[k] != pre[0]) ++k;
+    assert(k < n);
+    printf("root=%c left=%u right=%u\n", pre[0], (unsigned)k, (unsigned)(n-k-1));
+    trace(pre+1, in, k);
+    trace(pre+1+k, in+k+1, n-k-1);
+}
+int main(void) {
+    trace("ABDECF", "DBEACF", 6);
+    return 0;
+}
+```
+
+<!-- study-run:BEGIN sha256=8633ee646b4e7f7a9f858111b0773563098c6c7d508a6f1366280e4b5b81c0b6 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+root=A left=3 right=2
+root=B left=1 right=1
+root=D left=0 right=0
+root=E left=0 right=0
+root=C left=0 right=1
+root=F left=0 right=0
+```
+<!-- study-run:END -->
+
+第一行的left=3意味着下一次左递归处理BDE，不是“把中序的前三个字符当作前序”。两个序列传递的是同一组结点的不同访问顺序，只有规模与集合可以对应，具体字符位置不逐项对应。
+
 ## 线索化到底节省了什么
 
 ### 慢读：把序列当成带边界的子问题
@@ -219,6 +259,14 @@ int main(void) {
 }
 ```
 
+<!-- study-run:BEGIN sha256=1fc2241e618c7c55a9121214940d7fb199e9a6744d6ac7c5a75d6e3ca2ee5fde -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+reconstruction and threading tests passed
+```
+<!-- study-run:END -->
+
 线索化时间 $O(n)$、递归栈 $O(h)$；线索化完成后的整个中序扫描为 $O(n)$、辅助空间 $O(1)$。单次 next 不一定 $O(1)$，它可能沿右子树的左链走 $O(h)$；但完整扫描每条相关孩子边只走有限次，不能误报总时间 $O(nh)$。
 
 程序的重建采用扫描找根，最坏 $O(n^2)$。字符集大小固定为 256，也明确了它不是任意 Unicode 字符解析器。
@@ -387,6 +435,14 @@ int main(void) {
 }
 ```
 
+<!-- study-run:BEGIN sha256=45c6d83d0e95bebb4f16b223cb5b6d3f71ea3a1be04e077c8d338cf36ba99683 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+forest and binary interpretation tests passed
+```
+<!-- study-run:END -->
+
 as_forest=true时，初始化先沿根的兄弟链入队，之后每个出队结点只枚举自己的孩子链；不能再额外将p.next作为孩子入队，否则兄弟会重复。false时才把两个字段都当二叉孩子。两种遍历都是每个结点访问一次，时间O(n)，队列容量最多O(n)；递归前序/中序辅助空间按转换后二叉树高度计算。
 
 ## 哈夫曼树：最小化的是带权路径长度
@@ -458,6 +514,14 @@ int main(void) {
     return 0;
 }
 ```
+
+<!-- study-run:BEGIN sha256=1b2df60fcb9bd68a6406e2b19afc74a049feda227a72d07f54fed8aa99eea694 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+Huffman tests passed
+```
+<!-- study-run:END -->
 
 哈夫曼编码将每个字符放在叶子，左/右分支标 0/1，因此任一叶子编码不是另一叶子的前缀，可无歧义逐位解码。“前缀码”不等于“等长码”，也不等于任意贪心分配更短编码。
 

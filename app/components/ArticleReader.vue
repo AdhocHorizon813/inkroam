@@ -4,6 +4,7 @@ import { courseForPath } from '~/utils/courses'
 import PdfViewer from '~/components/content/PdfViewer.vue'
 import ArticleCode from '~/components/content/ArticleCode.vue'
 import ArticleTable from '~/components/content/ArticleTable.vue'
+import TreeWalk from '~/components/content/TreeWalk.vue'
 import '~/assets/css/article-technical.css'
 
 const route = useRoute()
@@ -126,7 +127,7 @@ watch(() => route.fullPath, async () => {
         @click="onContentClick"
         @keydown="onContentKeydown"
       >
-        <ContentRenderer :value="post" :components="{ 'pdf-viewer': PdfViewer, PdfViewer, pre: ArticleCode, table: ArticleTable }" />
+        <ContentRenderer :value="post" :components="{ 'pdf-viewer': PdfViewer, PdfViewer, 'tree-walk': TreeWalk, TreeWalk, pre: ArticleCode, table: ArticleTable }" />
       </article>
     </div>
 

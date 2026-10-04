@@ -48,6 +48,50 @@ flowchart LR
 
 声明中的 `*` 表示指针类型，表达式中的 `*` 是间接访问。`int *p, q;` 中只有 p 是指针，建议分别声明以免误读。
 
+### 严格区分对象、值、表达式与生命周期
+
+C中的对象是可用于表示值的一块数据存储；对象类型决定如何解释它。指针对象p本身存放一个指针值，它与被指向的整数对象x是两个对象。表达式`*p`在p有效指向x时指称x，并不是复制一个新的x；表达式`&p`取得的是p这个对象的地址。
+
+可修改左值不是“写在等号左边就成立”的语法外观：它必须指称可修改对象。例如本例的x、*p、**pp可赋值；整数常量7不是对象入口，不能赋值。数组名通常转换成首元素指针，但数组对象本身不是可用赋值运算符整体替换的指针变量。
+
+下面只比较指针是否指向预期对象，不打印随运行变化的真实地址。这样可以稳定核对状态，同时避免把示意地址当作机器上的真实地址。
+
+```c
+#include <assert.h>
+#include <stdio.h>
+int main(void) {
+    int x = 7;
+    int *p = &x;
+    int **pp = &p;
+    printf("p points to x: %d\n", p == &x);
+    printf("pp points to p: %d\n", pp == &p);
+    **pp = 12;
+    assert(x == 12);
+    printf("x=%d, *p=%d, **pp=%d\n", x, *p, **pp);
+    return 0;
+}
+```
+
+<!-- study-run:BEGIN sha256=68f6fae3ffe20f9ef8e216d81535fa7eded18bf7f2747961f8c9cee6466d7ea6 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+p points to x: 1
+pp points to p: 1
+x=12, *p=12, **pp=12
+```
+<!-- study-run:END -->
+
+```mermaid
+flowchart LR
+    accTitle: 二级指针涉及三个不同对象
+    accDescr: pp对象保存p的地址，p对象保存x的地址，x对象保存整数值。写双重解引用最终修改x。
+    PP["pp 指针对象"] -->|保存p的地址| P["p 指针对象"]
+    P -->|保存x的地址| X["x 整数对象：12"]
+```
+
+箭头表示指向关系，不表示对象在内存中左右相邻。对象生命周期结束后，不能继续通过指向它的旧指针读写；将一个别名置NULL也不会同步修改其他别名。本文的“所有权”是程序约定的释放责任，不是C类型系统自动提供的保障。`const`限制某条访问路径上的修改权限，不是生命周期保证。
+
 ## 参数永远按值传递
 
 ### 慢读：先分清“格子”和“格子里写的值”
@@ -215,6 +259,16 @@ int main(void) {
 }
 ```
 
+<!-- study-run:BEGIN sha256=7d91ebc5eaef94ca1b0b64e4b481c6ba2d4bc4e827ba4bf781db53606c72f1cf -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+read data: 7
+local p now reads: 20
+pointer layers tests passed
+```
+<!-- study-run:END -->
+
 运行时依次显示 `read data: 7`、`local p now reads: 20`、`pointer layers tests passed`。第二行特意展示“函数内已经指向b，但外面的root仍指向a”的时刻；随后的断言验证它，而不是靠打印猜测。assert是运行时检查条件的宏，条件不成立会终止程序；示例测试不要关闭断言。
 
 `Node a = {7, NULL}`按字段声明顺序初始化：data为7、next为空。`&a`取得a的位置；`root == &a`比较root保存的地址是不是a的位置，不比较两结点的数据。区分这里的赋值`=`与比较`==`也很重要。
@@ -305,6 +359,14 @@ int main(void) {
     return 0;
 }
 ```
+
+<!-- study-run:BEGIN sha256=03a86a420b44364a922451635d58afa8055cab92ff5cf90b18d5222a4c7bfe57 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+pointer tests passed
+```
+<!-- study-run:END -->
 
 ### 核心循环的不变量
 

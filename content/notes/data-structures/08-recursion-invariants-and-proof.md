@@ -49,6 +49,48 @@ draft: false
 
 ## 三、用归纳法证明递归，另用度量证明终止
 
+### 先打印进入和返回，看见两种相反顺序
+
+下面的n不是一个被所有调用共用的变量。每一层调用都有自己的参数对象；进入下一层时，上一层等待它返回。示例只计算3以内的和，不把小范围测试等同于任意整数都不会溢出。
+
+```c
+#include <assert.h>
+#include <stdio.h>
+static int sum(int n) {
+    printf("enter %d\n", n);
+    if (n == 0) {
+        puts("return 0 -> 0");
+        return 0;
+    }
+    int smaller = sum(n - 1);
+    int answer = smaller + n;
+    printf("return %d -> %d\n", n, answer);
+    return answer;
+}
+int main(void) {
+    int answer = sum(3);
+    assert(answer == 6);
+    return 0;
+}
+```
+
+<!-- study-run:BEGIN sha256=2617d73793a81e6c602a564cce991df630eaea8378d3981027f7cb220b7ce803 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+enter 3
+enter 2
+enter 1
+enter 0
+return 0 -> 0
+return 1 -> 1
+return 2 -> 3
+return 3 -> 6
+```
+<!-- study-run:END -->
+
+进入顺序3、2、1、0，而完成顺序0、1、2、3。sum(2)返回3时，外层sum(3)才执行answer=3+3。数学等式$S(3)=S(2)+3$描述值的关系；这份输出额外揭示求值的时间顺序。不能把一条等式看作所有计算瞬间同时完成。
+
 对前n项求和：基例n=0符合空和定义。假设n-1项返回正确，则加上未计入的第n项便得到前n项之和。注意假设只用于更小规模；不能假设“当前函数本来就正确”再推出它正确。
 
 终止另证：度量取非负整数n，每次递归减少1，最终到0。更一般地，递归重建树可取区间长度，链表递归可取剩余结点数。若结构含环，沿next走不一定减少“剩余未访问结点”，原证明失效。
@@ -161,6 +203,14 @@ int main(void) {
     return 0;
 }
 ```
+
+<!-- study-run:BEGIN sha256=89d1a0520510752c2abde7fce563e8784175bbf269239d5c4d3fd4e1a9ef59a2 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+proof bridge tests passed
+```
+<!-- study-run:END -->
 
 读代码时先注意 `size_t` 是无符号的大小类型。`n-1`写在n=0返回之后，避免从0减1变成很大的数；`hi-lo`依赖lo≤hi的不变量。语言细节和数学前提在这里直接相接。
 

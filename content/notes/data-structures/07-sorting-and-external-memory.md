@@ -81,6 +81,48 @@ draft: false
 
 ## 堆不是二叉搜索树
 
+### 从数组下标推出树，而不是背图
+
+零基下标的完全二叉树采用层序存放。结点i的左、右孩子候选下标是2i+1、2i+2；只有小于n才存在。非根结点的父下标是整数商(i-1)/2。最大堆要求每条父子边上父键不小于子键，既不要求左右兄弟有序，也不要求左子树所有键小于右子树。
+
+```mermaid
+flowchart TD
+    accTitle: 最大堆与数组下标
+    accDescr: 下标0的9连接下标1的7和下标2的8，7连接3和2
+    A["a[0] = 9"] --> B["a[1] = 7"]
+    A --> C["a[2] = 8"]
+    B --> D["a[3] = 3"]
+    B --> E["a[4] = 2"]
+```
+
+```c
+#include <assert.h>
+#include <stdio.h>
+int main(void) {
+    const int a[] = {9, 7, 8, 3, 2};
+    for (int child = 1; child < 5; ++child) {
+        int parent = (child - 1) / 2;
+        printf("parent[%d]=%d >= child[%d]=%d\n",
+               parent, a[parent], child, a[child]);
+        assert(a[parent] >= a[child]);
+    }
+    return 0;
+}
+```
+
+<!-- study-run:BEGIN sha256=1cb4c7e4ef6e63ecc7f855c97f0437fa0fc9a93f7a2ffcd0548dbdcd0321d81d -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+parent[0]=9 >= child[1]=7
+parent[0]=9 >= child[2]=8
+parent[1]=7 >= child[3]=3
+parent[1]=7 >= child[4]=2
+```
+<!-- study-run:END -->
+
+这里验证4条边就覆盖了全部堆序条件，不必比较任意两结点。由根到任意结点的路径反复使用不等式传递性，才能推出根是全局最大值。数组仍不是降序数组：7后面是8。堆排序每次移出最大值以后还必须恢复堆序。
+
 **堆**是满足局部堆序的完全二叉树：大根堆每个父键不小于孩子，小根堆反之。**优先队列**是支持插入和取出最高优先级元素的抽象接口，堆是它的一种实现。**下滤**是让一个可能过小的大根堆父键沿孩子方向下移，直至恢复堆序。它修复的是一条局部路径，前提是其孩子子树已经为堆。
 
 大根堆只要求父键不小于孩子，左右子树之间没有全局大小顺序，中序遍历不保证有序。它用完全二叉树形状保证高度 $O(\log n)$，并用数组隐式保存链接。
@@ -277,6 +319,14 @@ int main(void) {
 }
 ```
 
+<!-- study-run:BEGIN sha256=6d5409f791b99aca44ee268dc25106d3aae2f7fad440b0b1dd5978ac85b36bec -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+comparison sorting tests passed
+```
+<!-- study-run:END -->
+
 这些测试验证顺序正确，不验证记录稳定性。稳定性可在插入、冒泡、归并版本中把数据换成 `{key, original_index}`，比较时只看 key，再检查相等键的 original_index 是否递增。C 标准库 qsort 不承诺稳定，也不保证一定是快速排序；这里只把它用作整数有序结果的参照。
 
 ## 比较排序下界与非比较排序
@@ -335,6 +385,14 @@ int main(void) {
     puts("radix tests passed"); return 0;
 }
 ```
+
+<!-- study-run:BEGIN sha256=538bf057ffde755ff38e2633d771704c7b8ed2f90c3049ae23af068fcb438bb1 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+radix tests passed
+```
+<!-- study-run:END -->
 
 ## 外部排序：瓶颈从比较转向 I/O
 
@@ -543,6 +601,14 @@ int main(void) {
 }
 ```
 
+<!-- study-run:BEGIN sha256=54558d62851061ebf436d831ec3261321ec72712704bf100b1958817cfe06c59 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+replacement selection: traces and 1093 invariant cases passed
+```
+<!-- study-run:END -->
+
 验证器同时检查每段非降序、段边界连续有效，以及输入输出多重集一致。最后一项必须保留重复次数：只把元素放进集合比较，会漏掉“两个2变成一个2”的错误。测试用qsort是为了独立检查记录没有丢失，不是生成有序段时偷偷使用全量排序。
 
 如果下一步改用小根堆，可把“是否属于当前段”作为比键值更高优先级的比较条件，活跃记录排在冻结记录前；或分别管理两部分。无论哪种实现，M个候选的总预算不能翻倍。当前代码故意先展示线性扫描版，以便看清这两个独立职责。
@@ -660,6 +726,14 @@ int main(void) {
     return 0;
 }
 ```
+
+<!-- study-run:BEGIN sha256=1be1405206a79865466fe24beff9e98cb70b7f8b9ce37faac477507817e92c46 -->
+本段代码的实测输出（GCC，C17；不代表所有输入）：
+
+```text
+loser-tree merge: traces, extremes and 256 small cases passed
+```
+<!-- study-run:END -->
 
 重点慢读replay：changed永远是刚推进的来源段，决定从哪个叶子的父亲开始；candidate则可能在途中换成另一段的胜者。路径不用跟着candidate重新选，因为我们正在重新决定“原先发生改变的那棵子树”每一级的新胜者。到更高一层时，另一侧依然由该格原存的opponent代表。
 

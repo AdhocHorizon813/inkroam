@@ -12,7 +12,7 @@
 
 ## 阅读功能
 
-- **数据结构讲义**：[导读与十讲](content/notes/data-structures/00-study-guide.md)，共 11 篇，面向数学与应用数学背景，先定义概念再讲算法，配慢速手推、C17 示例与练习；包含指针层级对照、森林转换、递归证明、BST 插删，以及查找/排序/外排自编题解。运行 `node scripts/check-study-code.mjs` 可直接抽取并编译正文中的 17 个完整程序（需 GCC）；包含置换选择教学模拟与四路败者树归并。笔记内 Mermaid 流程图按需渲染，表格和长代码独立横向滚动。验收与范围见 [教学内容记录](docs/data-structures-teaching.md)。
+- **数据结构讲义**：[导读与十一讲](content/notes/data-structures/00-study-guide.md)，共 12 篇，面向数学与应用数学背景，配严格定义、慢速推导、分散在知识点附近的短程序和练习。正文共 31 个完整 C17 程序，包含 Bellman-Ford 负环影响与路径恢复、BST/B树插删及外排教学模拟；每个程序后展示实测输出。运行 `node scripts/check-study-code.mjs` 编译并核对输出（需 GCC）；修改示例后用 `--write-outputs` 更新结果。第二讲含四种遍历的逐步交互，Mermaid 图按需渲染。验收与剩余范围见 [教学内容记录](docs/data-structures-teaching.md)。
 
 - **随手翻一页**：归档里的随机阅读入口，从已发布文章与笔记中选择；当前标签页内优先不重复，保留正常链接操作，不上传阅读记录。
 

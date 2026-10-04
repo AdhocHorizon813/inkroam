@@ -1,5 +1,15 @@
 # 内容创作指南
 
+## 数据结构讲义的实测输出与交互
+
+每个裸`c`围栏需是含`int main(void)`的完整独立程序。短示例放在相应知识点旁，解释变量、输入约束和每步状态，不集中堆到文末。
+
+审阅代码后执行`node scripts/check-study-code.mjs --write-outputs`：脚本逐段用GCC C17严格编译、执行断言，全部成功才更新代码后的study-run标记区，并保存tmp/study-code-*/execution-report.json（编译器版本、源码SHA256、stdout、stderr、退出状态）。默认不加参数只校验，输出或源码哈希不同会失败。Windows旧MinGW用__USE_MINGW_ANSI_STDIO启用标准格式化。生成区不要手工伪造；程序数量改变需同步脚本预期及教学文档。
+
+这会在本机执行仓库C代码，不是安全沙箱；只运行经过审阅的可信示例，不用于读者提交的任意代码。网站展示静态实测结果，不提供在线C执行服务。样例测试通过不等于对所有输入的证明。
+
+第二讲使用MDC组件`::tree-walk`（以单独一行`::`结束）。四种遍历采用固定教学树、手动逐步推进，没有额外依赖；正文保留最终序列作为无JS回退。逻辑测试为`node scripts/check-tree-walk.mjs`，修改示例树时同步测试和正文。
+
 ## 新建一篇文章
 
 1. 复制 `content/posts/_article-template.md`（带下划线前缀，不会被发布）；
