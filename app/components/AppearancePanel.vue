@@ -567,6 +567,8 @@ function resetAppearance() {
           </div>
         </fieldset>
 
+        <DisplayModeSettings />
+
         <fieldset class="setting-group">
           <legend class="setting-label">最近文章</legend>
           <div class="segmented-control" :style="segmentStyle(state.latestPostCount === 5 ? 0 : state.latestPostCount === 10 ? 1 : 2)">
