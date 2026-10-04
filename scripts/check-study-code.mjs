@@ -28,6 +28,12 @@ for (const name of readdirSync(course).filter(name => name.endsWith('.md')).sort
     if (build.error || build.status !== 0) throw new Error(`${name}: ${build.error || build.stderr}`)
     const run = spawnSync(join(process.cwd(), binary), [], { encoding: 'utf8', timeout: 5000 })
     if (run.error || run.status !== 0) throw new Error(`${name}: ${run.error || run.stderr || run.stdout}`)
+    if (writeOutputs) {
+      // These examples promise deterministic output; never publish an isolated capture glitch.
+      const again = spawnSync(join(process.cwd(), binary), [], { encoding: 'utf8', timeout: 5000 })
+      if (again.error || again.status !== 0 || again.stdout !== run.stdout || again.stderr !== run.stderr)
+        throw new Error(`${name}:${index}: repeated executions disagree; no outputs were updated`)
+    }
     const digest = createHash('sha256').update(block[1]).digest('hex')
     const stdout = run.stdout.replaceAll('\r\n', '\n').trimEnd()
     if (stdout.includes('```')) throw new Error(`${name}: output contains a Markdown fence`)
@@ -46,7 +52,7 @@ for (const name of readdirSync(course).filter(name => name.endsWith('.md')).sort
   updated += original.slice(cursor)
   if (writeOutputs && updated !== original) updates.push([join(course, name), updated])
 }
-if (count !== 31) throw new Error(`Expected 31 complete programs; found ${count}`)
+if (count !== 42) throw new Error(`Expected 42 complete programs; found ${count}`)
 // Do not rewrite any teaching page unless every block compiled and ran successfully.
 for (const [file, text] of updates) writeFileSync(file, text)
 writeFileSync(join(output, 'execution-report.json'), JSON.stringify({

@@ -105,6 +105,12 @@ after i=4: sum=10
 | 9 | [BST插入与删除实践](/notes/data-structures/09-bst-insertion-and-deletion) | 二级指针与查找树的综合练习 | 处理三类删除、根更新及内存释放 |
 | 10 | [查找与排序综合训练](/notes/data-structures/10-search-sort-worked-problems) | 内部排序辨析、查找与排序大题（自编） | 从题意写出不变量、边界与C程序，解释每次状态更新 |
 | 11 | [B树完整插入与删除](/notes/data-structures/11-b-tree-insertion-deletion) | B树进阶实践，固定四阶口径 | 同时维护键与孩子区间，解释借位、合并和根收缩，并逐步验证结构 |
+| 12 | [B+树更新与叶链](/notes/data-structures/12-b-plus-tree-updates) | B+树进阶实践，固定容量与精确最小值分隔键 | 区分记录与导航副本，维护内部借并、叶链、根收缩和范围扫描 |
+| 13 | [AVL删除与多层修复](/notes/data-structures/13-avl-deletion) | 平衡树更新进阶 | 解释孩子BF为0与高度传播，验证完整删除 |
+| 14 | [堆、败者树与真实文件外排](/notes/data-structures/14-external-sort-files) | 外排序工程教学 | M记录堆置换选择、任意k路、多轮文件归并和失败清理 |
+| 15 | [Huffman位流编解码](/notes/data-structures/15-huffman-bitstream) | 编码实践 | 建树、码字、字节打包、有效位数、单符号和截断 |
+| 16 | [邻接表生命周期](/notes/data-structures/16-adjacency-list-lifetime) | 图存储实践 | 构造、BFS、分配失败回滚、释放与独立距离核对 |
+| 17 | [top-k小根堆](/notes/data-structures/17-top-k-heap) | 查找排序综合应用 | 明确重复语义，维护候选不变量并输出有序结果 |
 
 对照截图继续学习时：树/森林转换与两种层序的完整例子在第三讲；图到矩阵/邻接表的映射在第四讲；ASL、AVL连续插入、B/B+更新与散列探测手推在第六讲；逐趟排序、置换选择、败者树和外排I/O题在第七讲。第十讲把查找与排序组合成完整解题过程。它们不是视频逐字讲义，题目均为自编，不能当作已核实的真题集。
 

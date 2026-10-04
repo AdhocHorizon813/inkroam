@@ -12,7 +12,7 @@
 
 ## 阅读功能
 
-- **数据结构讲义**：[导读与十一讲](content/notes/data-structures/00-study-guide.md)，共 12 篇，面向数学与应用数学背景，配严格定义、慢速推导、分散在知识点附近的短程序和练习。正文共 31 个完整 C17 程序，包含 Bellman-Ford 负环影响与路径恢复、BST/B树插删及外排教学模拟；每个程序后展示实测输出。运行 `node scripts/check-study-code.mjs` 编译并核对输出（需 GCC）；修改示例后用 `--write-outputs` 更新结果。第二讲含四种遍历的逐步交互，Mermaid 图按需渲染。验收与剩余范围见 [教学内容记录](docs/data-structures-teaching.md)。
+- **数据结构讲义**：[导读与十七讲](content/notes/data-structures/00-study-guide.md)，共 18 篇，面向数学与应用数学背景，配严格定义、慢速推导、分散短程序和练习。正文共 42 个完整 C17 程序，包含 Bellman-Ford、BST/B/B+/AVL更新、堆式置换选择与任意路败者树文件归并、Huffman位流、邻接表生命周期和top-k；每个程序后展示实测输出。运行 `node scripts/check-study-code.mjs` 编译并核对输出（需 GCC）；修改示例后用 `--write-outputs` 更新结果。第二讲含四种遍历的逐步交互，Mermaid 图按需渲染。实现限制、验证与外部待验收项见 [教学内容记录](docs/data-structures-teaching.md)。
 
 - **随手翻一页**：归档里的随机阅读入口，从已发布文章与笔记中选择；当前标签页内优先不重复，保留正常链接操作，不上传阅读记录。
 
