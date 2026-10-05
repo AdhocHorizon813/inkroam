@@ -173,6 +173,7 @@ useHead(() => ({
         </NuxtLink>
         <SlidingNav />
       </header>
+      <DepthReceivers />
       <div ref="routeFrame" class="route-frame">
         <NuxtPage :transition="false" />
       </div>

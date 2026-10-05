@@ -131,7 +131,7 @@ watch(() => route.fullPath, async () => {
       </article>
     </div>
 
-    <CourseNavigation v-if="course" :key="post.path" :path="post.path" />
+    <CourseNavigation v-if="course" :key="post.path" :path="post.path" :reading-links="post.readingLinks" />
     <RelatedEntries :current="post" />
 
     <footer class="article-end">

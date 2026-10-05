@@ -3,6 +3,11 @@ title: 第二讲：二叉树的性质、四种遍历与递归转栈
 description: 推导结点计数公式、完全二叉树编号，手推遍历过程，并用完整 C 程序实现递归、非递归和层序遍历。
 date: 2026-10-03
 order: 2
+readingLinks: [
+  { "path": "/notes/data-structures/01-pointers-and-ownership", "kind": "review", "reason": "如果左右孩子指针或函数传参仍不直观，先回顾指针指向的对象与调用者变量的区别。" },
+  { "path": "/notes/data-structures/08-recursion-invariants-and-proof", "kind": "review", "reason": "如果看不清递归返回后从哪里继续，回顾调用帧和状态追踪，再回来手推二叉树遍历。" },
+  { "path": "/notes/data-structures/03-tree-reconstruction-threading-huffman", "kind": "next", "reason": "熟悉遍历顺序后，用序列重建树，并辨别普通孩子指针与线索指针。" }
+]
 tags: [算法与数据结构]
 readingTime: 40 分钟
 aiGenerated: true

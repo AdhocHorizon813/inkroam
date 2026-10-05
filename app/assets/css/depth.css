@@ -165,7 +165,7 @@
   box-shadow:
     inset 0 0 12px 200px var(--depth-glass-glow-inner),
     inset 0 1px 0 var(--depth-glass-top),
-    0 var(--depth-glass-band-y) var(--depth-glass-band-blur) var(--depth-glass-band-spread) var(--depth-glass-light);
+    0 var(--depth-glass-band-y) var(--depth-glass-band-blur) var(--depth-glass-band-spread) var(--depth-direct-band, var(--depth-glass-light));
   /* No transition on box-shadow/background here, on purpose: interpolating a 200px
      inset wash and a 48px blur across the full-width bar repainted every frame and
      made rest <-> scrolled visibly janky. The scrolled state fades this whole
@@ -179,6 +179,9 @@
    mode, so the dark strengths and the accent tint went up; the light-mode block
    below keeps its original values, and the Y/blur ranges never move (pushing the
    offset further is what produces a second row of blurred glyphs). */
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])[data-depth-receivers='true'] {
+  --depth-direct-band: transparent;
+}
 :root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) {
   --depth-project-y: 26px;
   --depth-project-blur: 9px;

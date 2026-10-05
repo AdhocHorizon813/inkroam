@@ -3,6 +3,10 @@ title: 第八讲：从数学归纳法到递归、循环不变量与复杂度
 description: 为数学与应用数学专业读者拆解函数调用、状态更新与算法证明，用可运行C程序连接递归求和、循环和边界查找。
 date: 2026-10-04
 order: 8
+readingLinks: [
+  { "path": "/notes/data-structures/02-binary-trees-and-traversal", "kind": "next", "reason": "把调用帧和递归不变量用到具体的树上，比较递归遍历与显式栈保存了哪些状态。" },
+  { "path": "/notes/data-structures/09-bst-insertion-and-deletion", "kind": "next", "reason": "接着用键区间不变量检查插入与删除，观察代码修改链接时如何保持搜索树性质。" }
+]
 tags: [算法与数据结构]
 readingTime: 40 分钟
 aiGenerated: true

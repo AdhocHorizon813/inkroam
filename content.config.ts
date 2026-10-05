@@ -13,6 +13,11 @@ export default defineContentConfig({
         description: z.string(),
         date: z.string(),
         order: z.number().int().nonnegative().optional(),
+        readingLinks: z.array(z.object({
+          path: z.string().regex(/^\/notes\/[a-z0-9-]+\/[a-z0-9-]+$/),
+          kind: z.enum(['review', 'next']),
+          reason: z.string().trim().min(1).max(160),
+        })).max(3).optional(),
         tags: z.array(z.string()).default([]),
         readingTime: z.string().default('5 分钟'),
         aiGenerated: z.boolean().default(false),

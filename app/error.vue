@@ -33,6 +33,7 @@ useSeoMeta({
           <span>纸上漫游</span>
         </a>
       </header>
+      <DepthReceivers />
       <main class="standard-page error-page" aria-labelledby="error-title">
         <header class="page-intro">
           <p class="eyebrow">{{ missing ? '404 / PAGE NOT FOUND' : 'SOMETHING WENT WRONG' }}</p>

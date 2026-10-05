@@ -52,7 +52,9 @@ if (process.argv.includes('--built')) {
     const html = readFileSync(`.output/public${lessons[i].path}/index.html`, 'utf8')
     const nav = html.match(/<nav[^>]*aria-label="课程阅读导航"[\s\S]*?<\/nav>/)?.[0]
     assert(nav, `${lessons[i].path}: navigation exists`)
-    const links = [...nav.matchAll(/href="([^"]+)"/g)].map(match => match[1].replace(/^\/inkroam(?=\/)/, ''))
+    // Curated reading clues are separate from the original sequence controls.
+    const sequenceNav = nav.split(/<ul[^>]*class="course-navigation__reading"/)[0]
+    const links = [...sequenceNav.matchAll(/href="([^"]+)"/g)].map(match => match[1].replace(/^\/inkroam(?=\/)/, ''))
     assert.deepEqual(links, ['/notes/data-structures', lessons[i - 1]?.path, lessons[i + 1]?.path].filter(Boolean), `${lessons[i].path}: rendered previous/next links`)
   }
 }

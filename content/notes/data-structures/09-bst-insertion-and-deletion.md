@@ -3,6 +3,11 @@ title: 第九讲：把二级指针用起来——二叉搜索树的插入与删�
 description: 从键区间和可写链接出发，逐步推导BST三类删除，给出支持完整整数边界的C程序、断言与面试追问。
 date: 2026-10-04
 order: 9
+readingLinks: [
+  { "path": "/notes/data-structures/01-pointers-and-ownership", "kind": "review", "reason": "删除根结点需要修改调用者保存的链接；若 Node ** 的含义仍不清楚，可先回顾二级指针的逐步示例。" },
+  { "path": "/notes/data-structures/06-search-trees-and-hashing", "kind": "review", "reason": "回顾二叉搜索树的键区间与查找过程，区分保持有序和保持平衡这两个要求。" },
+  { "path": "/notes/data-structures/13-avl-deletion", "kind": "next", "reason": "掌握普通BST删除后，再研究高度下降如何触发AVL旋转，以及为什么可能需要沿祖先链继续调整。" }
+]
 tags: [算法与数据结构]
 readingTime: 45 分钟
 aiGenerated: true
