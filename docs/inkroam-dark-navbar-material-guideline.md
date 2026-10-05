@@ -1012,7 +1012,7 @@ filter 只能是搜索图标的 drop-shadow；text-shadow 只能是导航字形
 深色元素投影强度必须 > 浅色；浅色彩色透光 ≥ 15%
 Scrolled（[data-scrolled='true']）必须用 40–90% 的 opacity 整体淡出（面越大单位面积光效越弱）：展开方向在 scrolled 规则上走 `opacity 320ms cubic-bezier(.22, .8, .3, 1)`，收起方向在基础规则上走 `opacity 520ms cubic-bezier(.4, 0, .2, 1)`，两个方向必须非对称
 玻璃的过渡只能写 opacity：禁止 transition box-shadow/background（逐帧整屏重绘＝卡顿）；也禁止 `--ease-fluid` 那样的前沿陡峭曲线用在光效上（前 16% 走完约 95%＝突变感）
-Scrolled 的最终 A/B：只有外部环境光（`--depth-glass-light`）允许在 scrolled 下再降约 15%（深色 .17/.26、浅色 .095/.13）；本体亮度、顶部高光、几何、blur 一律不动，B 不明显更好就回 A
+Scrolled 的最终 A/B：只有外部环境光（`--depth-glass-light`）允许在 scrolled 下再降约 15%（深色 .17/.26、浅色 .095/.13）；本体亮度、顶部高光、几何、blur 一律不动；用户已判定采用 B（Navbar 就此冻结）
 ```
 
 要突破其中任一条，必须同时改脚本并在 `docs/depth-design.md` 说明理由，不能只改 CSS。

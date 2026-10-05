@@ -53,7 +53,7 @@
 
 Scrolled 状态（第三份评价 `tmp/inkroam-dark-navbar-scrolled-layer-tuning.md`，2026-10-05）：Navbar 滚动后横向展开到近满屏，同一套光学强度会被放大成横贯视口的光带，因此“面越大单位面积光效越弱”。**过渡必须保留，但不能靠插值大模糊阴影**——首版逐帧插值三层 box-shadow（200px 内扩散 + 48px 模糊）与 background 渐变，用户实测“动画太卡了”，等于整屏重绘。定为整片装饰的 compositor 友好淡出，且**两个方向非对称**：展开方向由 scrolled 规则管 `[data-scrolled='true'] .site-header::after { opacity: .58; transition: opacity 320ms cubic-bezier(.22, .8, .3, 1); }`（前沿但比 `--ease-fluid` 温和，让变暗领先变宽）；收起方向由基础规则管 `.site-header::after { transition: opacity 520ms cubic-bezier(.4, 0, .2, 1); }`（更慢更平滑，条先收窄、光再慢慢升回，避免弹回）。opacity .58 与逐项衰减的比值相当（光条 ×.55、整面受光 ×.62、顶部高光 ×.58），层数、几何、token 一律不动；踩过的坑：`box-shadow/background` 过渡会逐帧整屏重绘（卡顿），`--ease-fluid` 前 16% 就走完约 95%（突变感）。depth.css 里现有三处过渡且都是 opacity：面板 1px 反光 180ms、展开 320ms、收起 520ms；`prefers-reduced-motion` 下都为 none。
 
-最终 A/B（`tmp/deepseek-dark-navbar-scrolled-final-ab.md`，2026-10-05）：只把 Scrolled 的**外部环境光**再降约 15%（B 版）——覆盖 `--depth-glass-light`：深色 .20→.17、.30→.26，浅色 .11→.095、.15→.13；面内受光、顶部高光、光条几何/blur、整体 scrolled 淡出与 main.css 均不动，因此 bar 本体亮度不变。A = 删掉那四个 `[data-scrolled='true']` + `--depth-glass-light` 的 token 块。该建议明确要求由用户肉眼判定：B 若不明显更好就回 A，不要进入 0.018/0.020 式的无限微调。
+最终 A/B（`tmp/deepseek-dark-navbar-scrolled-final-ab.md`，2026-10-05）：只把 Scrolled 的**外部环境光**再降约 15%（B 版）——覆盖 `--depth-glass-light`：深色 .20→.17、.30→.26，浅色 .11→.095、.15→.13；面内受光、顶部高光、光条几何/blur、整体 scrolled 淡出与 main.css 均不动，因此 bar 本体亮度不变。A = 删掉那四个 `[data-scrolled='true']` + `--depth-glass-light` 的 token 块。该建议明确要求由用户肉眼判定：**用户已判定采用 B**；按该建议，Rest + Scrolled 一起冻结为 Navbar Reference，不再进入 0.018/0.020 式的无限微调。
 
 仅外观面板保留1px中空反光：opacity .24/.42；按压/键盘焦点增加 .08，过渡180ms，减少动态效果时无过渡。导航两种明暗均不使用此反光，避免与新面层线索叠成塑料亮框。下拉背景局部反光浅色 .035/.065、深色 .025/.045。
 
