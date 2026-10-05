@@ -1,6 +1,6 @@
 export default defineNuxtConfig({
   modules: ['@nuxt/content'],
-  css: ['katex/dist/katex.min.css', '~/assets/css/main.css'],
+  css: ['katex/dist/katex.min.css', '~/assets/css/main.css', '~/assets/css/depth.css'],
   devtools: { enabled: false },
   content: {
     experimental: { sqliteConnector: 'native' },

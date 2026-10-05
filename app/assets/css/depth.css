@@ -1,0 +1,254 @@
+/* Apple-inspired control-layer lighting. Original Inkroam materials and shadows
+   remain untouched. Off matches nothing; the reading surface never gets glass. */
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) {
+  --depth-rim-width: 1px;
+  --depth-rim-opacity: .24;
+  --depth-menu-light: .035;
+}
+:root[data-visual='modern'][data-depth='defined'] {
+  --depth-rim-width: 1px;
+  --depth-rim-opacity: .42;
+  --depth-menu-light: .065;
+}
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])[data-color-mode='dark'] {
+  --depth-menu-light: .025;
+}
+:root[data-visual='modern'][data-depth='defined'][data-color-mode='dark'] {
+  --depth-menu-light: .045;
+}
+
+/* The after slot is unused by main.css; before remains owned by materials.
+   Hollow highlights follow the existing radius without covering text. */
+@supports (mask-composite: exclude) {
+  :root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])
+  .appearance-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: var(--depth-rim-width);
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(125deg,
+      rgb(255 255 255 / .70) 0%, rgb(255 255 255 / .40) 8%,
+      transparent 24%, transparent 76%,
+      rgb(255 255 255 / .28) 92%, transparent 100%);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    opacity: var(--depth-rim-opacity);
+    transition: opacity 180ms var(--ease-fluid);
+  }
+  :root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])
+  .appearance-panel:is(:active, :has(:focus-visible))::after {
+    opacity: calc(var(--depth-rim-opacity) + .08);
+  }
+}
+/* Background highlights paint below text without a scrolling overlay. */
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) .dropdown-surface {
+  background-image: radial-gradient(ellipse at 0% 0%,
+    rgb(255 255 255 / var(--depth-menu-light)), transparent 55%),
+    radial-gradient(ellipse at 100% 100%,
+    rgb(255 255 255 / var(--depth-menu-light)), transparent 40%);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])
+  :is(.site-header, .appearance-panel)::after { transition: none; }
+}
+
+/* Glass participates softly: occlusion in light mode, diffuse light in dark.
+   Paint only outside the transparent decoration; never overlay header text or
+   replace its original material shadow. No bright perimeter or focus flash.
+   2026-10-05: dark mode's downward band went .065/.10 -> .11/.16 -> .20/.30,
+   because a lit surface has to shed a comparable amount of light below it, and
+   the old -12px spread kept that light squeezed against the bottom edge. Its
+   reach now has its own tokens (--depth-glass-band-*: 18px / 48px / -6px).
+   Light mode is an occlusion, not light, so it never gains the glow tokens --
+   but its band was raised the same way, .065/.095 -> .11/.15 with 16px / 40px /
+   -8px, because the user found it too weak there as well. Still deliberately
+   below the dark band so the two modes stay distinguishable. */
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) {
+  --depth-glass-light: rgb(220 230 248 / .20);
+  --depth-glass-band-y: 18px;
+  --depth-glass-band-blur: 48px;
+  --depth-glass-band-spread: -6px;
+}
+:root[data-visual='modern'][data-depth='defined'] {
+  --depth-glass-light: rgb(220 230 248 / .30);
+}
+:root[data-visual='modern'][data-color-mode='light']:is([data-depth='soft'], [data-depth='defined']) {
+  --depth-glass-light: rgb(24 30 40 / .11);
+  --depth-glass-band-y: 16px;
+  --depth-glass-band-blur: 40px;
+  --depth-glass-band-spread: -8px;
+}
+:root[data-visual='modern'][data-color-mode='light'][data-depth='defined'] {
+  --depth-glass-light: rgb(24 30 40 / .15);
+}
+/* Scrolled: the bar spans nearly the whole viewport, so the same per-pixel energy reads
+   as a full-width light bar (tmp/inkroam-dark-navbar-scrolled-layer-tuning.md: same layer,
+   never the same optical parameters). Interpolating the three box-shadow amplitudes was
+   janky (200px inset wash + 48px blur repainted across the whole viewport every frame),
+   so the decoration fades as one compositor-friendly number: opacity .58 reproduces the
+   old per-layer ratios (band x.55, wash x.62, top x.58) with no layer-list change.
+   The two directions are deliberately asymmetric: this rule carries the expand transition
+   (320ms, front-loaded but softer than --ease-fluid so the dimming leads the widening),
+   while the base rule carries the collapse one (520ms, smooth, so the bar narrows while
+   the light is still dimmed and the light then ramps back gently). */
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])[data-scrolled='true'] .site-header::after {
+  opacity: .58;
+  transition: opacity 320ms cubic-bezier(.22, .8, .3, 1);
+}
+/* A/B test B (tmp/deepseek-dark-navbar-scrolled-final-ab.md): only the outer ambient of the
+   scrolled state -- the downward band -- drops ~15%. The surface wash (--depth-glass-glow-inner),
+   the top highlight (--depth-glass-top), the band geometry/blur, the overall scrolled opacity
+   and everything in main.css stay untouched, so the bar's own brightness does not change.
+   A = current shipped version: delete these four blocks and the band returns to rest values. */
+:root[data-visual='modern'][data-scrolled='true'][data-color-mode='dark']:is([data-depth='soft'], [data-depth='defined']) {
+  --depth-glass-light: rgb(220 230 248 / .17);
+}
+:root[data-visual='modern'][data-scrolled='true'][data-color-mode='dark'][data-depth='defined'] {
+  --depth-glass-light: rgb(220 230 248 / .26);
+}
+:root[data-visual='modern'][data-scrolled='true'][data-color-mode='light']:is([data-depth='soft'], [data-depth='defined']) {
+  --depth-glass-light: rgb(24 30 40 / .095);
+}
+:root[data-visual='modern'][data-scrolled='true'][data-color-mode='light'][data-depth='defined'] {
+  --depth-glass-light: rgb(24 30 40 / .13);
+}
+/* Dark mode may look faintly self-luminous (user 2026-10-05), which supersedes
+   the old "dark glass never glows" rule. Measured with the center pixel column
+   of the user's crop, the glass body sat at a flat 33.0/33.2 while the page
+   under it reached 34.9, so the surface itself has to carry the light: an even
+   wash, no vertical offset, spread far beyond the box (the user rejected both a
+   rim-only glow and a top-weighted one as "fake highlights").
+   2026-10-05, later: docs/inkroam-dark-navbar-material-guideline.md is adopted.
+   Its section 9 rejects a halo hugging the rounded rectangle, so the tight
+   0 0 14px rim glow and its --depth-glass-glow token are gone (that also
+   matches the user's earlier "the rim is over-lit"). Sections 11/12/25 ask for
+   a top edge highlight instead of an evenly bright outline: that is
+   --depth-glass-top, a 1px inner line, not a wash over the middle.
+   Light mode leaves everything here transparent: it stays an occlusion. */
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) {
+  --depth-glass-top: transparent;
+  --depth-glass-glow-inner: transparent;
+  --depth-element-glow: 0%;
+}
+:root[data-visual='modern'][data-color-mode='dark']:is([data-depth='soft'], [data-depth='defined']) {
+  --depth-glass-top: rgb(255 255 255 / .06);
+  --depth-glass-glow-inner: rgb(226 234 250 / .12);
+  --depth-element-glow: 12%;
+}
+:root[data-visual='modern'][data-color-mode='dark'][data-depth='defined'] {
+  --depth-glass-top: rgb(255 255 255 / .08);
+  --depth-glass-glow-inner: rgb(226 234 250 / .16);
+  --depth-element-glow: 16%;
+}
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) .site-header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  /* 2026-10-05 第二份评价（tmp/inkroam-dark-navbar-material-tuning.md 第 2 节）：中间大片无内容的
+     Surface 太平，会读成磨砂亚克力板。加极弱纵向材质变化（顶 +2.5% 白、底 -1.2% 黑），目标是
+     "几乎意识不到存在，但关掉会觉得变平"。这不是方向性光照：用户否掉的是把*光*写成上重下轻的
+     伪高光，面内受光仍是下面那条无方向的 inset。要回到完全均匀，删掉这一条 background 即可
+     （check-depth 只允许 ≤3% 的渐变，不允许实心填充，也不允许 Accent 驱动表面）。 */
+  background: linear-gradient(180deg,
+    rgb(255 255 255 / .025) 0%,
+    rgb(255 255 255 / .008) 46%,
+    rgb(0 0 0 / .012) 100%);
+  /* Collapse direction (scrolled -> rest) is governed by this rule's transition: slower
+     and smooth, so the bar narrows while the light is still dimmed and the light then
+     ramps back gently instead of popping. Opacity only -- never box-shadow/background,
+     which would repaint the whole viewport every frame. */
+  transition: opacity 520ms cubic-bezier(.4, 0, .2, 1);
+  box-shadow:
+    inset 0 0 12px 200px var(--depth-glass-glow-inner),
+    inset 0 1px 0 var(--depth-glass-top),
+    0 var(--depth-glass-band-y) var(--depth-glass-band-blur) var(--depth-glass-band-spread) var(--depth-glass-light);
+  /* No transition on box-shadow/background here, on purpose: interpolating a 200px
+     inset wash and a 48px blur across the full-width bar repainted every frame and
+     made rest <-> scrolled visibly janky. The scrolled state fades this whole
+     decoration with a compositor-friendly opacity instead (see the scrolled rule). */
+}
+
+/* Project actual glyphs/alpha silhouettes, not duplicated DOM or a full slab.
+   These are offset paint effects: links, hit areas and sticky geometry stay put.
+   Light mode uses the same direction for tinted transmission and dark occlusion.
+   2026-10-05: the user asked for a stronger downward element projection in dark
+   mode, so the dark strengths and the accent tint went up; the light-mode block
+   below keeps its original values, and the Y/blur ranges never move (pushing the
+   offset further is what produces a second row of blurred glyphs). */
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) {
+  --depth-project-y: 26px;
+  --depth-project-blur: 9px;
+  --depth-project-far-y: 38px;
+  --depth-project-far-blur: 16px;
+  --depth-project-strength: 14%;
+  --depth-project-far-strength: 5%;
+  --depth-project-tint: 14%;
+}
+:root[data-visual='modern'][data-depth='defined'] {
+  --depth-project-y: 30px;
+  --depth-project-blur: 11px;
+  --depth-project-far-y: 44px;
+  --depth-project-far-blur: 20px;
+  --depth-project-strength: 22%;
+  --depth-project-far-strength: 7%;
+  --depth-project-tint: 20%;
+}
+:root[data-visual='modern'][data-color-mode='light']:is([data-depth='soft'], [data-depth='defined']) {
+  --depth-project-strength: 6%;
+  --depth-project-far-strength: 2%;
+  /* 2026-10-05：用户“看不清浅色的彩色玻璃效果” —— 彩色透光从 8% 提到 18%，鲜明档 12% → 26%；
+     深色的标识彩光比例不动。 */
+  --depth-project-tint: 18%;
+}
+:root[data-visual='modern'][data-color-mode='light'][data-depth='defined'] {
+  --depth-project-strength: 10%;
+  --depth-project-far-strength: 3%;
+  --depth-project-tint: 26%;
+}
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) .site-header {
+  overflow: visible;
+}
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])
+.site-header :is(.brand > span:last-child, .main-nav > a:not(.nav-search)) {
+  text-shadow:
+    0 var(--depth-project-y) var(--depth-project-blur) color-mix(in srgb, currentColor var(--depth-project-strength), transparent),
+    0 var(--depth-project-far-y) var(--depth-project-far-blur) color-mix(in srgb, currentColor var(--depth-project-far-strength), transparent),
+    /* Zero offset = the glyph lighting itself in dark mode; --depth-element-glow
+       is 0% in light mode, which makes this layer fully transparent instead of
+       switching geometry on and off between modes. */
+    0 0 8px color-mix(in srgb, currentColor var(--depth-element-glow), transparent);
+}
+/* One filter on the small search glyph only, never on the header/material. */
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) .site-header .nav-search svg {
+  filter:
+    drop-shadow(0 var(--depth-project-y) var(--depth-project-blur) color-mix(in srgb, currentColor var(--depth-project-strength), transparent))
+    drop-shadow(0 0 6px color-mix(in srgb, currentColor var(--depth-element-glow), transparent));
+}
+/* A separate paint-only slot preserves the original mark and its shadow.
+   Its rectangular silhouette inherits the mark's radius and accent token. */
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) .site-header .brand-mark {
+  position: relative;
+}
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) .site-header .brand-mark::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 var(--depth-project-y) var(--depth-project-far-blur) -3px color-mix(in srgb, var(--modern-accent) var(--depth-project-tint), transparent);
+}
+/* Smaller screens need a shorter projection, not a larger halo over the title. */
+@media (max-width: 767.98px) {
+  :root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) {
+    --depth-project-y: 22px;
+    --depth-project-far-y: 32px;
+  }
+  :root[data-visual='modern'][data-depth='defined'] {
+    --depth-project-y: 26px;
+    --depth-project-far-y: 36px;
+  }
+}

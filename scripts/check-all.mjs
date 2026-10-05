@@ -7,6 +7,7 @@ for (const flag of flags) {
 }
 const built = flags.has('--built')
 const suites = [
+  'check-depth',
   'check-display-mode',
   'check-technical-prose',
   'check-tree-walk',

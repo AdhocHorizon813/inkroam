@@ -30,7 +30,7 @@ async function mount(saved, dark = false, options = {}) {
       setItem: (_, value) => { stored = JSON.parse(value) }, removeItem() {} },
   })
   const scope = effectScope()
-  scope.run(() => vm.runInContext(`${compiled}\nglobalThis.exposed = { state, status, isOpen, panelScroll, initialState: { ...state }, normalizeStoredAppearance, onSystemThemeChange, requestDefaultSettings, confirmDefaultSettings };`, context))
+  scope.run(() => vm.runInContext(`${compiled}\nglobalThis.exposed = { state, status, isOpen, panelScroll, resetAppearance, initialState: { ...state }, normalizeStoredAppearance, onSystemThemeChange, requestDefaultSettings, confirmDefaultSettings };`, context))
   mounted.forEach(fn => fn())
   await nextTick()
   return { ...context.exposed, root, shared, reads, stored: () => stored,
@@ -73,6 +73,28 @@ try {
   await nextTick()
   assert.deepEqual(values(app.state), light, 'Rapid changes settle to the final mode')
 } finally { app.stop() }
+// Depth is an opt-in preference, independent of managed material presets.
+for (const saved of [null, {}, { depth: 'wrong' }, { depth: null }, { depth: 'soft' }, { depth: 'defined', defaultSettings: true }]) {
+  const instance = await mount(saved)
+  try {
+    const expected = ['soft', 'defined'].includes(saved?.depth) ? saved.depth : 'off'
+    assert.equal(instance.state.depth, expected)
+    assert.equal(instance.root.dataset.depth, expected)
+    instance.state.depth = 'defined'
+    instance.state.colorMode = 'dark'
+    await nextTick()
+    assert.equal(instance.state.depth, 'defined')
+    assert.equal(instance.stored().depth, 'defined')
+    instance.state.visual = 'classic'
+    await nextTick()
+    assert.equal(instance.root.dataset.depth, 'defined')
+    instance.resetAppearance()
+    await nextTick()
+    assert.equal(instance.root.dataset.depth, 'off')
+    assert.equal(instance.stored().depth, 'off')
+  } finally { instance.stop() }
+}
+console.log('PASS: depth defaults, validation, persistence, independent presets and reset.')
 const manual = await mount({ colorMode: 'dark', defaultSettings: false, navBlur: 31, contentBlur: 23, dropdownBlur: 17, backgroundBlur: 2, backgroundOverlay: 63, navMaterial: 'acrylic', background: 'custom', backgroundPicked: true, accent: '#c45b45', backgroundTint: false })
 try {
   const before = values(manual.state)

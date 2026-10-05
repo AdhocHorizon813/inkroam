@@ -18,6 +18,7 @@ interface AppearanceState {
   /* 「默认设置」开关：受管项（四组材质、四条模糊、遮罩透明度、背景氛围、图表尺寸）是否跟随明暗自动取值。 */
   defaultSettings: boolean
   backgroundTint: boolean
+  depth: 'off' | 'soft' | 'defined'
   navMaterial: MaterialMode
   contentMaterial: MaterialMode
   codeMaterial: MaterialMode
@@ -133,6 +134,7 @@ const state = reactive<AppearanceState>({
   /* 新访客默认「启用」：一进来就是当前明暗的出厂值。老访客在 onMounted 的迁移里被改成「禁用」。 */
   defaultSettings: true,
   backgroundTint: true,
+  depth: 'off',
   colorMode: 'auto',
   /* 初值取 v5 时代的值：老访客缺的键就落在这里（观感与改动前一致），真·新访客会在 onMounted 里
      在偏好规范化时换成当前明暗的新默认。SSR 首帧的面板内容也按这套渲染，与
@@ -213,6 +215,7 @@ function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppea
     normalized.backgroundPicked = false
   }
   if (typeof normalized.backgroundTint !== 'boolean') normalized.backgroundTint = true
+  if (!['off', 'soft', 'defined'].includes(normalized.depth)) normalized.depth = 'off'
   if (!['liquid', 'acrylic', 'mica'].includes(normalized.codeMaterial)) normalized.codeMaterial = LEGACY_DEFAULTS.codeMaterial
   if (!Number.isFinite(normalized.codeBlur)) normalized.codeBlur = LEGACY_DEFAULTS.codeBlur
   normalized.codeBlur = Math.max(0, Math.min(48, normalized.codeBlur))
@@ -287,7 +290,7 @@ watch(() => state.colorMode, () => {
   if (state.defaultSettings) commitManagedDefaults()
 })
 
-const DISCRETE_FIELDS = ['visual', 'colorMode', 'defaultSettings', 'backgroundTint', 'navMaterial', 'contentMaterial', 'codeMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
+const DISCRETE_FIELDS = ['visual', 'colorMode', 'defaultSettings', 'backgroundTint', 'depth', 'navMaterial', 'contentMaterial', 'codeMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
 
 watch(state, (_state, from) => {
   /* 背景氛围比的是解析后的画布：follow 状态下切明暗会换图，而点当前已生效的那一项不该触发空转场。 */
@@ -366,6 +369,7 @@ function applyAppearance() {
   root.style.setProperty('--glass-blur', `${state.contentBlur}px`)
   root.style.setProperty('--modern-accent', state.accent)
   root.dataset.backgroundTint = state.backgroundTint ? 'on' : 'off'
+  root.dataset.depth = state.depth
   root.style.setProperty('--background-overlay-opacity', String(state.backgroundOverlay / 100))
   /* 图的显示比例写成变量，而不是逐张改 svg：滑条一动由 CSS 的 calc 直接重算，
      页面上二十张图不用重画一遍（见 MermaidDiagram.vue 里 svg 的 width）。 */
@@ -494,6 +498,7 @@ function resetAppearance() {
     /* 「恢复默认」＝回到新访客那种状态：开关启用 + 当前明暗的出厂值（colorMode 同时重置成自动，口径一致）。 */
     defaultSettings: true,
     backgroundTint: true,
+    depth: 'off',
     ...appearanceDefaults(systemPrefersDark.value ? 'dark' : 'light'),
     background: 'auto',
     backgroundPicked: false,
@@ -568,6 +573,15 @@ function resetAppearance() {
         </fieldset>
 
         <DisplayModeSettings />
+
+        <fieldset class="setting-group">
+          <legend class="setting-label">层次感</legend>
+          <div class="segmented-control" :style="segmentStyle(state.depth === 'off' ? 0 : state.depth === 'soft' ? 1 : 2)">
+            <button type="button" :aria-pressed="state.depth === 'off'" :class="{ active: state.depth === 'off' }" @click="state.depth = 'off'">关闭</button>
+            <button type="button" :aria-pressed="state.depth === 'soft'" :class="{ active: state.depth === 'soft' }" @click="state.depth = 'soft'">轻柔</button>
+            <button type="button" :aria-pressed="state.depth === 'defined'" :class="{ active: state.depth === 'defined' }" @click="state.depth = 'defined'">鲜明</button>
+          </div>
+        </fieldset>
 
         <fieldset class="setting-group">
           <legend class="setting-label">最近文章</legend>
