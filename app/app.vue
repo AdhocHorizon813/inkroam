@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { usePageScrollable } from '~/composables/usePageScrollable'
 import { onPageScroll, pageScrollTop, rememberScrollPosition } from '~/utils/page-scroll'
+/* Explicit import on purpose: this environment cannot rewrite the .nuxt cache, so Nuxt's
+   auto-import component manifest stays stale and <DepthReceivers /> resolves to nothing
+   ("Failed to resolve component" + a hydration mismatch), leaving the whole receiver
+   layer unrendered. Importing it here removes the dependency on that manifest. */
+import DepthReceivers from '~/components/DepthReceivers.vue'
 
 const config = useRuntimeConfig()
 const route = useRoute()

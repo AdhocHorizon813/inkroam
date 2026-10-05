@@ -6,15 +6,19 @@ const css = postcss.parse(readFileSync('app/assets/css/depth.css', 'utf8'))
 css.walkRules(rule => {
   assert(rule.selector.includes("[data-depth='soft']") || rule.selector.includes("[data-depth='defined']"), 'Every rule must opt in')
   assert(rule.selector.includes("[data-visual='modern']"), 'Classic design remains unchanged')
-  assert(!/\.article-page|\.hero|\.latest-section|\.standard-page/.test(rule.selector), 'No optical effects in reading surfaces')
+  /* Reading surfaces may only receive a static cast shadow (a card's elevation is fixed
+     geometry, so it belongs on the card). Every other optical effect stays banned there. */
+  const readingSurface = /\.article-page|\.hero|\.latest-section|\.standard-page/.test(rule.selector)
+  if (readingSurface) assert(rule.nodes.every(d => d.type !== 'decl' || d.prop === 'box-shadow' || d.prop.startsWith('--depth-')), 'Reading surfaces may only receive a static box-shadow')
   rule.walkDecls(decl => {
     const allowed = rule.selector.includes('::after')
       ? ['content', 'position', 'inset', 'padding', 'border-radius', 'pointer-events', 'background', 'mask', 'mask-composite', 'opacity', 'transition', 'box-shadow']
-      : ['background-image', 'overflow', 'text-shadow', 'filter', 'position']
+      : readingSurface ? ['box-shadow']
+        : ['background-image', 'overflow', 'text-shadow', 'filter', 'position']
     assert(decl.prop.startsWith('--depth-') || allowed.includes(decl.prop), 'Do not override original shadows, layout or material filters: ' + decl.prop)
     assert(!decl.important)
     if (decl.prop === 'filter') assert(rule.selector.endsWith('.site-header .nav-search svg') && decl.value.startsWith('drop-shadow('), 'Only the small icon may use silhouette filtering')
-    if (decl.prop === 'box-shadow') assert(rule.selector.endsWith('.site-header .brand-mark::after') || rule.selector.endsWith('.site-header::after'), 'Only paint-only decorations may add shadow; never replace original surface shadows')
+    if (decl.prop === 'box-shadow') assert(rule.selector.endsWith('.site-header .brand-mark::after') || rule.selector.endsWith('.site-header::after') || readingSurface, 'Shadow only on navigation decorations and the static card elevation')
     if (decl.prop === 'text-shadow') assert(rule.selector.includes('.site-header :is(.brand > span:last-child, .main-nav > a:not(.nav-search))'), 'Only navigation glyphs project light')
     if (decl.prop === 'overflow') assert(rule.selector.endsWith('.site-header') && decl.value === 'visible')
     if (decl.prop === 'position' && !rule.selector.includes('::after')) assert(rule.selector.endsWith('.brand-mark') && decl.value === 'relative')

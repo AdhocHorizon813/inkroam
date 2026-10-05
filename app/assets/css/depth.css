@@ -172,6 +172,37 @@
      decoration with a compositor-friendly opacity instead (see the scrolled rule). */
 }
 
+/* 卡片向背景投的影：**静态 CSS**，2026-10-06 从 SVG 接光层搬回来。
+   原实现把"卡片的静态几何"当成每帧动态：固定 SVG 层必须在每次滚动重测每张卡片，
+   于是出现拖影（测→rAF→重渲染差一帧）、卡顿（每帧重渲大模糊遮罩）、闪回（卡片滑出
+   视口判空时整层卸载并回退旧光条）。阴影是静态几何，挂在卡片上即可：跟着卡片合成平移、
+   零 JS、永不卸载。位移明显大于模糊半径，才读成"往下投的影"而不是对称晕。
+   本规则接管这些表面的 box-shadow 栈（并保留一层贴近的环境影），材质自带的
+   --surface-shadow 不再叠加在这几个面上。 */
+:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])
+:is(.hero, .latest-section, .manifesto, .standard-page, .article-page) {
+  box-shadow:
+    0 3px 8px -2px rgb(0 0 0 / .16),
+    0 14px 28px -6px rgb(0 0 0 / .30);
+}
+:root[data-visual='modern'][data-depth='defined']
+:is(.hero, .latest-section, .manifesto, .standard-page, .article-page) {
+  box-shadow:
+    0 4px 10px -2px rgb(0 0 0 / .20),
+    0 20px 40px -10px rgb(0 0 0 / .40);
+}
+:root[data-visual='modern'][data-color-mode='light']:is([data-depth='soft'], [data-depth='defined'])
+:is(.hero, .latest-section, .manifesto, .standard-page, .article-page) {
+  box-shadow:
+    0 3px 8px -2px rgb(20 24 30 / .07),
+    0 14px 28px -6px rgb(20 24 30 / .14);
+}
+:root[data-visual='modern'][data-color-mode='light'][data-depth='defined']
+:is(.hero, .latest-section, .manifesto, .standard-page, .article-page) {
+  box-shadow:
+    0 4px 10px -2px rgb(20 24 30 / .09),
+    0 20px 40px -10px rgb(20 24 30 / .20);
+}
 /* Project actual glyphs/alpha silhouettes, not duplicated DOM or a full slab.
    These are offset paint effects: links, hit areas and sticky geometry stay put.
    Light mode uses the same direction for tinted transmission and dark occlusion.

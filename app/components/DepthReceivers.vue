@@ -111,12 +111,8 @@ onBeforeUnmount(() => {
         <rect v-if="header" v-bind="{ x: header.x, y: header.y, width: header.width, height: header.height, rx: header.radius }" fill="black" />
       </mask>
     </defs>
-    <!-- Card height is expressed outside the receiver; no shadow over prose. -->
-    <g :mask="`url(#${farId})`">
-      <g class="depth-receivers__elevation">
-        <rect v-for="(box, index) in surfaces" :key="index" v-bind="{ x: box.x, y: box.y, width: box.width, height: box.height, rx: box.radius }" />
-      </g>
-    </g>
+    <!-- Card elevation moved to a static box-shadow in depth.css: a card's cast shadow is
+         fixed geometry, so it scrolls with the card and needs no measurement at all. -->
     <g v-if="header" class="depth-receivers__cast">
       <g :mask="`url(#${farId})`">
         <rect class="depth-receivers__far" v-bind="{ x: header.x, y: header.y, width: header.width, height: header.height, rx: header.radius }" />
@@ -134,10 +130,10 @@ onBeforeUnmount(() => {
 :global(:root[data-scrolled='true'] .depth-receivers__cast) { opacity: .58; transition: opacity 320ms cubic-bezier(.22, .8, .3, 1); }
 .depth-receivers__near { fill: var(--depth-glass-light); filter: blur(10px); transform: translateY(8px); }
 .depth-receivers__far { fill: var(--depth-glass-light); opacity: .55; filter: blur(24px); transform: translateY(28px); }
-.depth-receivers__elevation { fill: rgb(0 0 0 / .16); filter: blur(14px); transform: translateY(10px); }
-:global(:root[data-depth='defined'] .depth-receivers__elevation) { fill: rgb(0 0 0 / .23); filter: blur(18px); transform: translateY(14px); }
-:global(:root[data-color-mode='light'] .depth-receivers__elevation) { fill: rgb(24 30 40 / .09); }
-:global(:root[data-color-mode='light'][data-depth='defined'] .depth-receivers__elevation) { fill: rgb(24 30 40 / .14); }
+/* Card elevation is a plain static box-shadow on the reading surfaces (depth.css), because
+   the old SVG elevation had to re-measure every card on every scroll frame: that ghosted,
+   janked and unrolled the whole layer mid-scroll. Only the navigation's near/far projection
+   stays on the SVG, since that one is genuinely viewport-anchored. */
 @media (max-width: 767.98px) {
   .depth-receivers__near { filter: blur(8px); transform: translateY(6px); }
   .depth-receivers__far { filter: blur(18px); transform: translateY(22px); }
