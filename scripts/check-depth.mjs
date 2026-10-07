@@ -1,6 +1,24 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import postcss from 'postcss'
+import { parse, compileStyle } from '@vue/compiler-sfc'
+
+const lightSource = readFileSync('app/components/NavDepthLight.vue', 'utf8')
+const lightStyle = parse(lightSource).descriptor.styles[0]
+const lightCss = postcss.parse(lightStyle.content)
+const lightPaint = lightCss.nodes.find(rule => rule.selector === '.nav-depth-light' && rule.nodes.some(d => d.prop === 'box-shadow'))
+assert(lightPaint, 'One continuous optical surface retains the original recipe')
+assert(!lightSource.includes('<script'), 'No per-frame JS for navbar self-emission')
+assert(!lightSource.includes('nav-depth-light__'), 'No independently rasterized endcaps or centre seam beside the logo')
+assert.equal((parse(lightSource).descriptor.template.content.match(/<span\b/g) || []).length, 1, 'Light is a single decorative surface')
+assert(lightSource.includes('aria-hidden="true"') && lightSource.includes('pointer-events: none'))
+assert(lightSource.includes('prefers-reduced-motion'))
+const compiledLight = compileStyle({ source: lightStyle.content, id: 'data-v-light-test', scoped: true })
+assert.equal(compiledLight.errors.length, 0)
+postcss.parse(compiledLight.code).walkRules(rule => {
+  assert(rule.selector.includes('.nav-depth-light'), 'Light styles never escape onto the document root')
+})
+for (const page of ['app/app.vue', 'app/error.vue']) assert(readFileSync(page, 'utf8').includes('<NavDepthLight />'))
 
 const css = postcss.parse(readFileSync('app/assets/css/depth.css', 'utf8'))
 css.walkRules(rule => {
@@ -36,7 +54,7 @@ assert.match(readFileSync('nuxt.config.ts', 'utf8'), /main\.css', '~\/assets\/cs
 const glass = css.nodes.find(rule => rule.selector?.endsWith(' .site-header::after') && !rule.selector.includes("data-scrolled='true'"))
 assert(glass.nodes.some(d => d.prop === 'box-shadow' && d.value.includes('--depth-glass-light')), 'Glass adds a restrained diffuse surface cue')
 assert(glass.nodes.some(d => d.prop === 'pointer-events' && d.value === 'none'))
-const glassBackground = glass.nodes.find(d => d.prop === 'background')
+const glassBackground = lightPaint.nodes.find(d => d.prop === 'background')
 if (glassBackground) {
   assert(/^linear-gradient\(/.test(glassBackground.value), 'Surface variation must be a gradient, never a flat fill')
   const alphas = [...glassBackground.value.matchAll(/\/\s*([\d.]+)\s*\)/g)].map(m => Number(m[1]))
@@ -50,7 +68,8 @@ assert(declarations.some(d => d.prop === 'text-shadow' && d.value.includes('curr
 assert(declarations.some(d => d.prop === 'box-shadow' && d.value.includes('--modern-accent')), 'Colored mark transmits accent-colored light')
 assert(css.nodes.some(n => n.name === 'media' && n.params.includes('767.98px')), 'Shorter mobile projection')
 const glassShadow = glass.nodes.find(d => d.prop === 'box-shadow')
-const glassLayers = glassShadow.value.split(',')
+assert(!glassShadow.value.includes('inset'), 'The changing-width decoration no longer paints the interior shadow')
+const glassLayers = `${glassShadow.value}, ${lightPaint.nodes.find(d => d.prop === 'box-shadow').value}`.split(',')
 assert(!glassLayers.some(layer => !layer.includes('inset') && /(?:^|\s)0 0 \d+px/.test(layer)), 'No halo hugs the outline: the bar must not glow at its rim (guideline section 9)')
 assert(glassLayers.some(layer => layer.includes('inset 0 1px 0') && layer.includes('--depth-glass-top')), 'Depth reads from a top edge highlight, not a full bright ring (guideline 11/12)')
 const interiorLayers = glassLayers.filter(layer => layer.includes('--depth-glass-glow-inner'))
@@ -92,9 +111,16 @@ assert(scrolledFade, 'The scrolled state weakens the decoration by fading it')
 const fadeOpacity = scrolledFade.nodes.find(d => d.prop === 'opacity')
 assert(fadeOpacity && Number(fadeOpacity.value) >= .4 && Number(fadeOpacity.value) <= .9, 'Scrolled fades to 40-90%: weaker per area, still visible')
 const fadeTransition = scrolledFade.nodes.find(d => d.prop === 'transition')
-assert(fadeTransition && /opacity 320ms cubic-bezier\(\.22, \.8, \.3, 1\)/.test(fadeTransition.value), 'Expand fade leads the widening: opacity 320ms cubic-bezier(.22, .8, .3, 1)')
+assert(fadeTransition && /opacity 480ms cubic-bezier\(\.22, \.8, \.3, 1\)/.test(fadeTransition.value), 'Temporary expand fade: 480ms after the geometry delay')
+for (const source of [lightSource, readFileSync('app/components/DepthReceivers.vue', 'utf8')]) {
+  assert(source.includes('opacity 480ms cubic-bezier(.22, .8, .3, 1) var(--depth-light-delay, 0ms)'), 'Surface and receiver fade timing stay synchronized')
+}
 /* 用户要求两个方向非对称：收起方向走基础规则那条更平滑、更慢的曲线，避免弹回。 */
 assert(baseTransition.value.includes('520ms'), 'Collapse fade settles gently: 520ms smooth curve on the base rule')
+assert(baseTransition.value.includes('var(--depth-light-delay)') && fadeTransition.value.includes('var(--depth-light-delay)'), 'Both directions wait for desktop geometry before fading')
+const lightDelays = declarations.filter(d => d.prop === '--depth-light-delay')
+assert(lightDelays.some(d => d.value === '0ms'), 'No widening delay on mobile')
+assert(lightDelays.some(d => d.value === '440ms' && d.parent.parent.params === '(min-width: 768px)'), 'Desktop light waits for the 440ms width animation')
 /* A/B test B（tmp/deepseek-dark-navbar-scrolled-final-ab.md）：只降 Scrolled 的外部环境光（下方那道光），
    本体受光/顶部高光/几何不变；静止态仍是基准值，所以 scrolled 必须严格低于静止态。 */
 const scrolledBand = declarations.find(d => d.prop === '--depth-glass-light' && d.parent.selector.includes("data-scrolled='true'") && d.parent.selector.includes("[data-color-mode='dark']"))

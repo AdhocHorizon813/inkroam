@@ -6,6 +6,7 @@ import { onPageScroll, pageScrollTop, rememberScrollPosition } from '~/utils/pag
    ("Failed to resolve component" + a hydration mismatch), leaving the whole receiver
    layer unrendered. Importing it here removes the dependency on that manifest. */
 import DepthReceivers from '~/components/DepthReceivers.vue'
+import NavDepthLight from '~/components/NavDepthLight.vue'
 
 const config = useRuntimeConfig()
 const route = useRoute()
@@ -177,6 +178,7 @@ useHead(() => ({
           <span>纸上漫游</span>
         </NuxtLink>
         <SlidingNav />
+        <NavDepthLight />
       </header>
       <DepthReceivers />
       <div ref="routeFrame" class="route-frame">

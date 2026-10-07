@@ -4,6 +4,15 @@
   --depth-rim-width: 1px;
   --depth-rim-opacity: .24;
   --depth-menu-light: .035;
+  --depth-light-delay: 0ms;
+}
+/* Intermediate diagnostic timing, NOT the final motion design after performance
+   work. Match main.css's desktop width/margin transition before fading light;
+   narrow viewports have no width animation to wait for. */
+@media (min-width: 768px) {
+  :root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) {
+    --depth-light-delay: 440ms;
+  }
 }
 :root[data-visual='modern'][data-depth='defined'] {
   --depth-rim-width: 1px;
@@ -90,12 +99,14 @@
    so the decoration fades as one compositor-friendly number: opacity .58 reproduces the
    old per-layer ratios (band x.55, wash x.62, top x.58) with no layer-list change.
    The two directions are deliberately asymmetric: this rule carries the expand transition
-   (320ms, front-loaded but softer than --ease-fluid so the dimming leads the widening),
+   (480ms, front-loaded but softer than --ease-fluid),
    while the base rule carries the collapse one (520ms, smooth, so the bar narrows while
-   the light is still dimmed and the light then ramps back gently). */
+   the light is still dimmed and the light then ramps back gently).
+   Latest user timing: desktop delays either fade by 440ms so geometry and
+   brightness no longer animate together; mobile starts the fade immediately. */
 :root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])[data-scrolled='true'] .site-header::after {
   opacity: .58;
-  transition: opacity 320ms cubic-bezier(.22, .8, .3, 1);
+  transition: opacity 480ms cubic-bezier(.22, .8, .3, 1) var(--depth-light-delay);
 }
 /* A/B test B (tmp/deepseek-dark-navbar-scrolled-final-ab.md): only the outer ambient of the
    scrolled state -- the downward band -- drops ~15%. The surface wash (--depth-glass-glow-inner),
@@ -148,23 +159,14 @@
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  /* 2026-10-05 第二份评价（tmp/inkroam-dark-navbar-material-tuning.md 第 2 节）：中间大片无内容的
-     Surface 太平，会读成磨砂亚克力板。加极弱纵向材质变化（顶 +2.5% 白、底 -1.2% 黑），目标是
-     "几乎意识不到存在，但关掉会觉得变平"。这不是方向性光照：用户否掉的是把*光*写成上重下轻的
-     伪高光，面内受光仍是下面那条无方向的 inset。要回到完全均匀，删掉这一条 background 即可
-     （check-depth 只允许 ≤3% 的渐变，不允许实心填充，也不允许 Accent 驱动表面）。 */
-  background: linear-gradient(180deg,
-    rgb(255 255 255 / .025) 0%,
-    rgb(255 255 255 / .008) 46%,
-    rgb(0 0 0 / .012) 100%);
+  /* Interior gradient, inset wash and top line live in NavDepthLight's
+     continuous surface, with the original recipe. This slot keeps the band. */
   /* Collapse direction (scrolled -> rest) is governed by this rule's transition: slower
      and smooth, so the bar narrows while the light is still dimmed and the light then
      ramps back gently instead of popping. Opacity only -- never box-shadow/background,
      which would repaint the whole viewport every frame. */
-  transition: opacity 520ms cubic-bezier(.4, 0, .2, 1);
+  transition: opacity 520ms cubic-bezier(.4, 0, .2, 1) var(--depth-light-delay);
   box-shadow:
-    inset 0 0 12px 200px var(--depth-glass-glow-inner),
-    inset 0 1px 0 var(--depth-glass-top),
     0 var(--depth-glass-band-y) var(--depth-glass-band-blur) var(--depth-glass-band-spread) var(--depth-direct-band, var(--depth-glass-light));
   /* No transition on box-shadow/background here, on purpose: interpolating a 200px
      inset wash and a 48px blur across the full-width bar repainted every frame and

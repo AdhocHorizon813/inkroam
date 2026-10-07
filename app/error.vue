@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
+import NavDepthLight from '~/components/NavDepthLight.vue'
 import { usePageScrollable } from '~/composables/usePageScrollable'
 
 const props = defineProps<{ error: NuxtError }>()
@@ -32,6 +33,7 @@ useSeoMeta({
           <span class="brand-mark">纸</span>
           <span>纸上漫游</span>
         </a>
+        <NavDepthLight />
       </header>
       <DepthReceivers />
       <main class="standard-page error-page" aria-labelledby="error-title">

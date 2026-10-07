@@ -32,12 +32,13 @@ postcss.parse(compiled.code).walkRules(rule => {
 })
 const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm, '')
 const root = { dataset: { visual: 'modern', depth: 'off' }, clientWidth: 1000 }
-const element = initial => ({ box: initial, getBoundingClientRect() { const b = this.box; return { left: b.x, top: b.y, width: b.width, height: b.height } }, parentElement: { closest: () => null } })
+const element = initial => ({ reads: 0, box: initial, getBoundingClientRect() { this.reads++; const b = this.box; return { left: b.x, top: b.y, width: b.width, height: b.height } }, parentElement: { closest: () => null } })
 const nav = element({ x: 30, y: 18, width: 900, height: 54 })
 const card = element(box)
 const raf = new Map()
 const resizeListeners = new Set()
 let nextFrame = 0, mounted, unmounted, settingCallback, scrollCallback, routeCallback
+let scrollTop = 0, pageFinish, pageHookStopped = false, scrollReads = 0
 const observers = []
 class FakeResizeObserver {
   targets = []
@@ -49,11 +50,13 @@ const context = vm.createContext({
   visibleSurface, console,
   ref: value => ({ value }), shallowRef: value => ({ value }),
   useRoute: () => ({ path: '/' }), useId: () => 'test:1',
+  useNuxtApp: () => ({ hook: (name, fn) => { assert.equal(name, 'page:finish'); pageFinish = fn; return () => { pageHookStopped = true } } }),
+  pageScrollTop: () => { scrollReads++; return scrollTop },
   onMounted: fn => { mounted = fn }, onBeforeUnmount: fn => { unmounted = fn },
   watch: (_, fn) => { routeCallback = fn }, nextTick: () => Promise.resolve(),
   ResizeObserver: FakeResizeObserver,
   MutationObserver: class { constructor(fn) { settingCallback = fn } observe() {} disconnect() { settingCallback = null } },
-  document: { documentElement: root, querySelector: () => nav, querySelectorAll: () => [card] },
+  document: { documentElement: root, querySelector: selector => selector === '.site-header' ? nav : null, querySelectorAll: () => [card] },
   window: { innerHeight: 800, addEventListener: (_, fn) => resizeListeners.add(fn), removeEventListener: (_, fn) => resizeListeners.delete(fn) },
   getComputedStyle: () => ({ borderTopLeftRadius: '18px' }),
   requestAnimationFrame: fn => { const id = ++nextFrame; raf.set(id, fn); return id },
@@ -69,23 +72,65 @@ root.dataset.depth = 'soft'; settingCallback(); flush()
 assert.equal(root.dataset.depthReceivers, 'true')
 assert.equal(resizeListeners.size, 1)
 assert.equal(observers[0].targets.length, 2)
+assert.equal(vm.runInContext('viewport.value.height', context), 244, 'Limit masks and output to the navigation light band')
+const initialCardReads = card.reads
+scrollTop = 20
+const beforeScrollReads = scrollReads
 scrollCallback(); scrollCallback(); scrollCallback()
-assert.equal(raf.size, 1, 'Coalesce all scroll sources into one measurement')
-card.box = { ...box, y: -20000, height: 60000 }; flush()
+assert.equal(scrollReads, beforeScrollReads, 'Scroll callbacks must not synchronously read scroll/layout state')
+assert.equal(raf.size, 1, 'Coalesce all scroll sources into one update')
+flush()
+assert.equal(scrollReads, beforeScrollReads + 1, 'One scroll read per coalesced frame')
+assert.equal(vm.runInContext('surfaces.value[0].y', context), 70)
+assert.equal(card.reads, initialCardReads, 'Ordinary scroll must not read card layout')
+scrollCallback()
+const beforeNestedNavReads = nav.reads
+flush()
+assert.equal(nav.reads, beforeNestedNavReads, 'Nested scrollers skip geometry measurement inside the frame')
+scrollCallback(); settingCallback(); flush()
+assert.equal(nav.reads, beforeNestedNavReads + 1, 'Settings upgrade a queued scroll even when page position is unchanged')
+const refreshedCardReads = card.reads
+for (let i = 0; i < 100; i++) { scrollTop += 10; scrollCallback(); flush() }
+assert.equal(card.reads, refreshedCardReads, '100 scroll frames reuse receiver geometry')
+assert.equal(vm.runInContext('surfaces.value.length', context), 0)
+assert.equal(root.dataset.depthReceivers, 'true', 'Empty receiver band must not flash the old CSS projection')
+card.box = { ...box, y: -20000, height: 60000 }
+observers[0].callback([{ target: card }]); flush()
 assert.equal(vm.runInContext('surfaces.value[0].y', context), -96)
-nav.box = { ...nav.box, width: 0, height: 0 }; scrollCallback(); flush()
+assert.equal(card.reads, refreshedCardReads + 1, 'Content resize refreshes cached geometry')
+const beforeNavResize = card.reads
+const beforeSurfaces = vm.runInContext('surfaces.value', context)
+const beforeViewport = vm.runInContext('viewport.value', context)
+scrollTop += 1; scrollCallback()
+assert.equal(raf.size, 1)
+// Simulate scrolling back before the pending update is delivered.
+scrollTop -= 1
+nav.box.width = 700; observers[0].callback([{ target: nav }])
+assert.equal(raf.size, 0, 'Resize consumes the pending frame instead of adding a frame of projection latency')
+assert.equal(vm.runInContext('header.value.width', context), 700, 'Resize updates geometry before another animation frame')
+assert.equal(vm.runInContext('surfaces.value', context), beforeSurfaces, 'Width-only animation preserves receiver mask data identity')
+assert.equal(vm.runInContext('viewport.value', context), beforeViewport, 'Width-only animation preserves drawing viewport')
+assert.equal(card.reads, beforeNavResize, 'Navbar width transition does not remeasure normal-flow cards')
+assert.equal(vm.runInContext('header.value.width', context), 700)
+nav.box = { ...nav.box, width: 0, height: 0 }; settingCallback(); flush()
 assert.equal(root.dataset.depthReceivers, undefined, 'Hidden focus-mode navigation has no projected band')
 nav.box = { x: 30, y: 18, width: 900, height: 54 }
 await routeCallback(); flush()
 assert.equal(root.dataset.depthReceivers, 'true')
+card.box = { ...box, y: 120 }; pageFinish(); flush()
+assert.equal(vm.runInContext('surfaces.value[0].y', context), 120, 'Async page finish binds the new page geometry')
+root.clientWidth = 390; resizeListeners.forEach(fn => fn()); flush()
+assert.equal(vm.runInContext('viewport.value.height', context), 202, 'Mobile keeps its own far blur envelope')
 root.dataset.visual = 'classic'; settingCallback()
 assert.equal(root.dataset.depthReceivers, undefined)
+assert(source.includes('<svg v-if="enabled"'), 'Receiver gaps must not unmount the projection layer')
 assert.equal(scrollCallback, null)
 assert.equal(resizeListeners.size, 0)
 assert.equal(observers[0].targets.length, 0)
 root.dataset.visual = 'modern'; settingCallback()
 assert.equal(raf.size, 1)
 unmounted()
+assert.equal(pageHookStopped, true)
 assert.equal(raf.size, 0)
 assert.equal(scrollCallback, null)
 assert.equal(settingCallback, null)
