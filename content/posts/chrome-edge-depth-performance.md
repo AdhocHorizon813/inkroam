@@ -6,10 +6,12 @@ tags: [前端, 性能优化, 浏览器, 设计]
 readingTime: 14 分钟
 aiGenerated: true
 aiAssisted: false
-pinned: true
-featured: true
+pinned: false
+featured: false
 draft: false
 ---
+
+> 后续进展已整理为[层次感性能全程报告](/posts/inkroam-depth-performance-full-report)。本文保留2026年10月7日阶段的历史结论，不代表当前实现的最新测试。
 
 这是一篇由 AI 根据 Inkroam 的实际测试记录整理的技术报告。问题由博客作者反复体验、反馈，并提供浏览器信息和性能录制；本文的数据来自这些记录及随后进行的本机隔离实验，不是模拟跑分。
 
