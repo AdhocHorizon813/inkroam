@@ -124,6 +124,10 @@ assert(lightDelays.some(d => d.value === '440ms' && d.parent.parent.params === '
 /* A/B test B（tmp/deepseek-dark-navbar-scrolled-final-ab.md）：只降 Scrolled 的外部环境光（下方那道光），
    本体受光/顶部高光/几何不变；静止态仍是基准值，所以 scrolled 必须严格低于静止态。 */
 const scrolledBand = declarations.find(d => d.prop === '--depth-glass-light' && d.parent.selector.includes("data-scrolled='true'") && d.parent.selector.includes("[data-color-mode='dark']"))
+const scrolledBands = declarations.filter(d => d.prop === '--depth-glass-light' && d.parent.selector.includes("data-scrolled='true'"))
+assert(scrolledBands.length === 4, 'Both appearance modes and depth levels keep their scroll light overrides')
+assert(scrolledBands.every(d => d.parent.selector.endsWith(' :is(.site-header, .depth-receivers)')), 'Scroll light changes stay local to consumers, not inherited from the document root')
+assert(scrolledBands.map(d => d.value).join('|') === 'rgb(220 230 248 / .17)|rgb(220 230 248 / .26)|rgb(24 30 40 / .095)|rgb(24 30 40 / .13)', 'Localizing light tokens must not alter the four optical end values')
 assert(scrolledBand && darkBand && alphaOf(scrolledBand.value) < alphaOf(darkBand.value), 'Scrolled ambient stays below rest: the only knob that touches the outer light')
 assert(declarations.some(d => d.prop === '--depth-glass-band-y') && declarations.some(d => d.prop === '--depth-glass-band-spread'), 'The band geometry stays explicit so light mode keeps its narrow occlusion')
 const glow = declarations.filter(d => ['--depth-glass-top', '--depth-glass-glow-inner', '--depth-element-glow'].includes(d.prop))

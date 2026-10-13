@@ -113,16 +113,19 @@
    the top highlight (--depth-glass-top), the band geometry/blur, the overall scrolled opacity
    and everything in main.css stay untouched, so the bar's own brightness does not change.
    A = current shipped version: delete these four blocks and the band returns to rest values. */
-:root[data-visual='modern'][data-scrolled='true'][data-color-mode='dark']:is([data-depth='soft'], [data-depth='defined']) {
+/* Only the two light consumers inherit the scroll-dependent override. Keep the
+   root token stable so unrelated content does not inherit a changing value.
+   Optical values are unchanged; performance benefit still needs live validation. */
+:root[data-visual='modern'][data-scrolled='true'][data-color-mode='dark']:is([data-depth='soft'], [data-depth='defined']) :is(.site-header, .depth-receivers) {
   --depth-glass-light: rgb(220 230 248 / .17);
 }
-:root[data-visual='modern'][data-scrolled='true'][data-color-mode='dark'][data-depth='defined'] {
+:root[data-visual='modern'][data-scrolled='true'][data-color-mode='dark'][data-depth='defined'] :is(.site-header, .depth-receivers) {
   --depth-glass-light: rgb(220 230 248 / .26);
 }
-:root[data-visual='modern'][data-scrolled='true'][data-color-mode='light']:is([data-depth='soft'], [data-depth='defined']) {
+:root[data-visual='modern'][data-scrolled='true'][data-color-mode='light']:is([data-depth='soft'], [data-depth='defined']) :is(.site-header, .depth-receivers) {
   --depth-glass-light: rgb(24 30 40 / .095);
 }
-:root[data-visual='modern'][data-scrolled='true'][data-color-mode='light'][data-depth='defined'] {
+:root[data-visual='modern'][data-scrolled='true'][data-color-mode='light'][data-depth='defined'] :is(.site-header, .depth-receivers) {
   --depth-glass-light: rgb(24 30 40 / .13);
 }
 /* Dark mode may look faintly self-luminous (user 2026-10-05), which supersedes
