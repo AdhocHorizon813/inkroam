@@ -95,6 +95,42 @@ for (const saved of [null, {}, { depth: 'wrong' }, { depth: null }, { depth: 'so
   } finally { instance.stop() }
 }
 console.log('PASS: depth defaults, validation, persistence, independent presets and reset.')
+for (const mode of ['light', 'dark']) {
+  const instance = await mount({ defaultSettings: true, colorMode: mode })
+  try {
+    assert.equal(instance.state.depthTiming, 'sync')
+    instance.state.depthTiming = 'delayed'
+    instance.requestDefaultSettings(false)
+    instance.confirmDefaultSettings()
+    await nextTick()
+    const wallpaper = mode === 'dark' ? 'art' : 'dusk'
+    assert.equal(instance.state.background, wallpaper)
+    assert.equal(instance.state.backgroundPicked, true)
+    instance.state.colorMode = mode === 'dark' ? 'light' : 'dark'
+    await nextTick()
+    assert.equal(instance.root.dataset.background, wallpaper)
+    assert.equal(instance.root.dataset.depthTiming, 'delayed')
+    const restored = await mount(instance.stored())
+    try { assert.equal(restored.root.dataset.background, wallpaper) } finally { restored.stop() }
+    instance.state.colorMode = 'auto'
+    await instance.system(true)
+    await instance.system(false)
+    assert.equal(instance.root.dataset.background, wallpaper)
+    instance.requestDefaultSettings(true)
+    instance.confirmDefaultSettings()
+    await nextTick()
+    assert.equal(instance.state.background, 'auto')
+    assert.equal(instance.state.depthTiming, 'delayed')
+    instance.resetAppearance()
+    await nextTick()
+    assert.equal(instance.root.dataset.depthTiming, 'sync')
+  } finally { instance.stop() }
+}
+const invalidTiming = await mount({ depthTiming: 'invalid' })
+assert.equal(invalidTiming.state.depthTiming, 'sync')
+invalidTiming.stop()
+assert.match(panel, /:disabled="state.visual === 'classic' \|\| state.depth === 'off'"/)
+console.log('PASS: light timing preference and wallpaper freeze across manual/system/reload transitions.')
 const manual = await mount({ colorMode: 'dark', defaultSettings: false, navBlur: 31, contentBlur: 23, dropdownBlur: 17, backgroundBlur: 2, backgroundOverlay: 63, navMaterial: 'acrylic', background: 'custom', backgroundPicked: true, accent: '#c45b45', backgroundTint: false })
 try {
   const before = values(manual.state)

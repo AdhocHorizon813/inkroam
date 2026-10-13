@@ -19,6 +19,7 @@ interface AppearanceState {
   defaultSettings: boolean
   backgroundTint: boolean
   depth: 'off' | 'soft' | 'defined'
+  depthTiming: 'delayed' | 'sync'
   navMaterial: MaterialMode
   contentMaterial: MaterialMode
   codeMaterial: MaterialMode
@@ -135,6 +136,7 @@ const state = reactive<AppearanceState>({
   defaultSettings: true,
   backgroundTint: true,
   depth: 'off',
+  depthTiming: 'sync',
   colorMode: 'auto',
   /* 初值取 v5 时代的值：老访客缺的键就落在这里（观感与改动前一致），真·新访客会在 onMounted 里
      在偏好规范化时换成当前明暗的新默认。SSR 首帧的面板内容也按这套渲染，与
@@ -216,6 +218,7 @@ function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppea
   }
   if (typeof normalized.backgroundTint !== 'boolean') normalized.backgroundTint = true
   if (!['off', 'soft', 'defined'].includes(normalized.depth)) normalized.depth = 'off'
+  if (!['delayed', 'sync'].includes(normalized.depthTiming)) normalized.depthTiming = 'sync'
   if (!['liquid', 'acrylic', 'mica'].includes(normalized.codeMaterial)) normalized.codeMaterial = LEGACY_DEFAULTS.codeMaterial
   if (!Number.isFinite(normalized.codeBlur)) normalized.codeBlur = LEGACY_DEFAULTS.codeBlur
   normalized.codeBlur = Math.max(0, Math.min(48, normalized.codeBlur))
@@ -370,6 +373,7 @@ function applyAppearance() {
   root.style.setProperty('--modern-accent', state.accent)
   root.dataset.backgroundTint = state.backgroundTint ? 'on' : 'off'
   root.dataset.depth = state.depth
+  root.dataset.depthTiming = state.depthTiming
   root.style.setProperty('--background-overlay-opacity', String(state.backgroundOverlay / 100))
   /* 图的显示比例写成变量，而不是逐张改 svg：滑条一动由 CSS 的 calc 直接重算，
      页面上二十张图不用重画一遍（见 MermaidDiagram.vue 里 svg 的 width）。 */
@@ -412,6 +416,11 @@ function confirmDefaultSettings() {
   const enabled = pendingDefaultSettings.value
   closeDefaultSettingsConfirm()
   if (enabled === null || state.defaultSettings === enabled) return
+  // Freeze the visible wallpaper; mark art explicitly to avoid legacy auto migration.
+  if (!enabled) {
+    state.background = resolvedBackground.value
+    state.backgroundPicked = true
+  }
   state.defaultSettings = enabled
   if (enabled) commitManagedDefaults()
 }
@@ -499,6 +508,7 @@ function resetAppearance() {
     defaultSettings: true,
     backgroundTint: true,
     depth: 'off',
+    depthTiming: 'sync',
     ...appearanceDefaults(systemPrefersDark.value ? 'dark' : 'light'),
     background: 'auto',
     backgroundPicked: false,
@@ -580,6 +590,14 @@ function resetAppearance() {
             <button type="button" :aria-pressed="state.depth === 'off'" :class="{ active: state.depth === 'off' }" @click="state.depth = 'off'">关闭</button>
             <button type="button" :aria-pressed="state.depth === 'soft'" :class="{ active: state.depth === 'soft' }" @click="state.depth = 'soft'">轻柔</button>
             <button type="button" :aria-pressed="state.depth === 'defined'" :class="{ active: state.depth === 'defined' }" @click="state.depth = 'defined'">鲜明</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="setting-group" :disabled="state.visual === 'classic' || state.depth === 'off'">
+          <legend class="setting-label">光效时序</legend>
+          <div class="segmented-control segmented-control--two" :style="segmentStyle(state.depthTiming === 'sync' ? 0 : 1)">
+            <button type="button" :aria-pressed="state.depthTiming === 'sync'" :class="{ active: state.depthTiming === 'sync' }" @click="state.depthTiming = 'sync'">同步</button>
+            <button type="button" :aria-pressed="state.depthTiming === 'delayed'" :class="{ active: state.depthTiming === 'delayed' }" @click="state.depthTiming = 'delayed'">延迟</button>
           </div>
         </fieldset>
 

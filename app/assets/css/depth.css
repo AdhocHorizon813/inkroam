@@ -10,7 +10,7 @@
    work. Match main.css's desktop width/margin transition before fading light;
    narrow viewports have no width animation to wait for. */
 @media (min-width: 768px) {
-  :root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) {
+  :root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])[data-depth-timing='delayed'] {
     --depth-light-delay: 440ms;
   }
 }
