@@ -12,6 +12,8 @@
 
 ## 阅读功能
 
+- **数学竞赛（数学专业类）**：高等代数按一章一篇笔记整理为 [矩阵与行列式](content/notes/mathematics-competition/01-advanced-algebra-matrices-and-determinants.md)、[线性空间、线性方程组与二次型](content/notes/mathematics-competition/02-advanced-algebra-linear-spaces-and-quadratic-forms.md)、[多项式](content/notes/mathematics-competition/03-advanced-algebra-polynomials.md)。包含定义、推导、竞赛例题、易错点与自测解答；三组交互图分别展示矩阵面积变换、二次型主轴和重根合并。初始图与公式支持无 JavaScript 阅读，交互图无需额外依赖。检查运行 `node --experimental-strip-types scripts/check-competition-algebra.mjs`，静态生成后加 `--built`。
+
 - **数据结构讲义**：[导读与十七讲](content/notes/data-structures/00-study-guide.md)，共 18 篇，面向数学与应用数学背景，配严格定义、慢速推导、分散短程序和练习。正文共 42 个完整 C17 程序，包含 Bellman-Ford、BST/B/B+/AVL更新、堆式置换选择与任意路败者树文件归并、Huffman位流、邻接表生命周期和top-k；每个程序后展示实测输出。运行 `node scripts/check-study-code.mjs` 编译并核对输出（需 GCC）；修改示例后用 `--write-outputs` 更新结果。第二讲含四种遍历的逐步交互，Mermaid 图按需渲染。实现限制、验证与外部待验收项见 [教学内容记录](docs/data-structures-teaching.md)。
 
 - **随手翻一页**：归档里的随机阅读入口，从已发布文章与笔记中选择；当前标签页内优先不重复，保留正常链接操作，不上传阅读记录。
@@ -34,7 +36,7 @@
 
 课程笔记支持可选 `order` 序号与同课程上一篇/下一篇；话题筛选条件保存在网址中，可分享及后退恢复。未增加公开更新时间或修改历史。
 
-学习笔记放在 `content/notes/<英文课程目录>/<英文文件名>.md`，可复制 `content/notes/_note-template.md`。导航“笔记”进入课程目录与全部笔记时间线；首页“最近笔记”位于最近文章下方，笔记同时收录到归档、搜索和标签页。课程英文路径与中文名称映射见 `app/utils/courses.ts`，五门课程与发布示例见 [内容创作指南](docs/content-authoring.md#学习笔记)。
+学习笔记放在 `content/notes/<英文课程目录>/<英文文件名>.md`，可复制 `content/notes/_note-template.md`。导航“笔记”进入课程目录与全部笔记时间线；首页“最近笔记”位于最近文章下方，笔记同时收录到归档、搜索和标签页。课程英文路径与中文名称映射见 `app/utils/courses.ts`，课程注册与发布示例见 [内容创作指南](docs/content-authoring.md#学习笔记)。
 
 在 `content/posts/` 中新建一个 Markdown 文件，即可发布一篇新文章：
 

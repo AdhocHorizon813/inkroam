@@ -1,4 +1,9 @@
 export const tagSlugMap: Record<string, string> = {
+  '数学竞赛': 'mathematics-competition',
+  '高等代数': 'advanced-algebra',
+  '矩阵与行列式': 'matrices-and-determinants',
+  '线性空间与二次型': 'linear-spaces-and-quadratic-forms',
+  '多项式': 'polynomials',
   '算法与数据结构': 'algorithms-and-data-structures',
   'GPT-5.6 Sol': 'gpt-5-6-sol',
   'GPT-6  Astra': 'gpt-6-astra',

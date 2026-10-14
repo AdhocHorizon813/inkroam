@@ -32,6 +32,7 @@
 | 中文课程名 | 磁盘子目录 / 网页路径中的课程名 |
 | --- | --- |
 | 数据结构 | `data-structures` |
+| 数学竞赛（数学专业类） | `mathematics-competition` |
 | 数学物理方程 | `equations-of-mathematical-physics` |
 | 泛函分析 | `functional-analysis` |
 | 数理统计 | `mathematical-statistics` |
@@ -43,6 +44,8 @@
 `/notes` 显示课程入口与全部公开笔记的时间归档；课程页面只显示本课程笔记。全部归档包含文章与笔记，首页的最近文章和精选文章仍只包含文章，最近笔记单独按日期倒序展示，数量由外观面板的“最近笔记”独立控制。搜索与标签页包含两种内容。空课程也保留入口，草稿不进入公开列表。
 
 新增课程时，在 `app/utils/courses.ts` 添加英文 slug 与中英文名称，再创建同名磁盘目录。当前支持 `课程/笔记.md` 两级结构，不支持课程下继续嵌套目录；避免在 frontmatter 手动覆盖 `path`。
+
+数学竞赛（数学专业类）的高等代数目前按三章组织，一章一个 Markdown，`order` 为 1–3。目录为 `content/notes/mathematics-competition/`，章节依次为矩阵与行列式、线性空间与二次型、多项式。每章均含公式、推导、例题、自测解答与 `::algebra-explorer{mode="matrix|quadratic|polynomial"}` 交互图（实际使用时只填写其中一个 mode，以单独一行 `::` 结束）。图的初始 SVG 在静态生成时输出，不需要外部服务；数学计算在 `app/utils/algebra-explorer.ts`，组件在 `app/components/content/AlgebraExplorer.vue`。`node --experimental-strip-types scripts/check-competition-algebra.mjs` 检查三章元数据、公式语法与图形计算，加 `--built` 检查实际正文产物。新增内容仍须核验数学推导与真实浏览器排版，这些检查不代替人工审阅。
 
 构建后运行 `node --experimental-strip-types scripts/check-notes.mjs` 检查首页模块顺序、导航顺序、五个课程静态页面及中文标题。首次实现已用临时公开/草稿笔记验证课程隔离、正文公式、搜索索引与草稿过滤，测试内容不保留在发布目录。
 
