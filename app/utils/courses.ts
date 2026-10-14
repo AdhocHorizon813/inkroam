@@ -1,4 +1,5 @@
 export const courses = [
+  { slug: 'c2-matlab', name: 'C2 数学实验（MATLAB）', english: 'C2 Mathematical Experiments (MATLAB)' },
   { slug: 'data-structures', name: '数据结构', english: 'Data Structures' },
   { slug: 'mathematics-competition', name: '数学竞赛（数学专业类）', english: 'Mathematics Competition (Mathematics Majors)' },
   { slug: 'equations-of-mathematical-physics', name: '数学物理方程', english: 'Equations of Mathematical Physics' },

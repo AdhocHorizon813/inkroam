@@ -8,7 +8,7 @@ export default defineNuxtConfig({
       markdown: {
         highlight: {
           theme: { default: 'github-light', dark: 'github-dark' },
-          langs: ['c', 'cpp', 'python', 'js', 'jsx', 'json', 'ts', 'tsx', 'vue', 'css', 'html', 'bash', 'md', 'mdc', 'yaml'],
+          langs: ['c', 'cpp', 'python', 'matlab', 'js', 'jsx', 'json', 'ts', 'tsx', 'vue', 'css', 'html', 'bash', 'md', 'mdc', 'yaml'],
         },
         remarkPlugins: { 'remark-math': {} },
         rehypePlugins: { 'rehype-katex': {} },

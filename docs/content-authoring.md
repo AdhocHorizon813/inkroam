@@ -31,6 +31,7 @@
 
 | 中文课程名 | 磁盘子目录 / 网页路径中的课程名 |
 | --- | --- |
+| C2 数学实验（MATLAB） | `c2-matlab` |
 | 数据结构 | `data-structures` |
 | 数学竞赛（数学专业类） | `mathematics-competition` |
 | 数学物理方程 | `equations-of-mathematical-physics` |

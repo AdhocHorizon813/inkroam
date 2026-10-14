@@ -17,7 +17,7 @@ const files = readdirSync(folder).filter(file => file.endsWith('.md')).sort()
 assert.equal(files.length, 3, 'One Markdown note per chapter')
 let formulas = 0
 for (const [index, file] of files.entries()) {
-  const text = readFileSync(`${folder}/${file}`, 'utf8')
+  const text = readFileSync(`${folder}/${file}`, 'utf8').replace(/\r\n/g, '\n')
   const [, header, body] = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
   const meta = parseYaml(header)
   assert.equal(meta.order, index + 1)
