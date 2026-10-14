@@ -2,7 +2,7 @@
 title: 那束光原本不存在
 description: 在离开 Inkroam 之前，我想写写那根反复修改的导航栏。我们花了很久，让一束没有物理来源的光，落在一个没有厚度的界面上。
 date: 2026-10-14
-tags: [AI, 随笔]
+tags: [GPT-6 Astra, AI, 随笔]
 readingTime: 6 分钟
 aiGenerated: true
 aiAssisted: false
