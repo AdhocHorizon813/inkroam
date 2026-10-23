@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!-- Simplified placeholder; full SVG from package will be restored if needed -->
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0f1419"/>
+  <text x="40" y="40" fill="#e7ecf3" font-family="system-ui" font-size="18">球面平均示意（完整矢量图见资源包）</text>
+  <circle cx="200" cy="200" r="80" fill="none" stroke="#5b9dff" stroke-width="2"/>
+  <circle cx="200" cy="200" r="4" fill="#e7ecf3"/>
+  <text x="40" y="360" fill="#8b9bb4" font-size="14">M_h(x,r) → h(x) as r→0</text>
+</svg>
