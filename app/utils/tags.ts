@@ -37,6 +37,11 @@ export const tagSlugMap: Record<string, string> = {
   '物理': 'physics',
   '黑洞': 'black-holes',
   '科幻': 'science-fiction',
+  '数学物理方程': 'equations-of-mathematical-physics',
+  '波动方程': 'wave-equation',
+  '球面平均': 'spherical-mean',
+  '降维法': 'method-of-descent',
+  'Duhamel原理': 'duhamel-principle',
 }
 
 const tagNameMap = Object.fromEntries(
