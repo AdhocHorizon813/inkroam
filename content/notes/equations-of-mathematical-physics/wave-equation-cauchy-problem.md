@@ -1214,7 +1214,7 @@ $$
 
 ## 23. 配套可视化：三个可调实验
 
-[打开离线交互可视化](/inkroam/visualizations/notes/equations-of-mathematical-physics/wave-equation-cauchy-problem.html)。下载整套文件后，在浏览器中打开该 HTML；它不需要联网或外部 JavaScript 库。
+[打开离线交互可视化](/visualizations/notes/equations-of-mathematical-physics/wave-equation-cauchy-problem.html)。下载整套文件后，在浏览器中打开该 HTML；它不需要联网或外部 JavaScript 库。
 
 | 实验 | 可调参数 | 应观察到的现象 |
 | --- | --- | --- |
