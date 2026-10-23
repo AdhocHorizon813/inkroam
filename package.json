@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@nuxt/content": "3.16.0",
+    "html-to-image": "1.11.13",
     "katex": "^0.16.47",
     "mermaid": "11.17.2",
     "nuxt": "4.4.2",

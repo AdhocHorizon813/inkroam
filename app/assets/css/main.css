@@ -2673,13 +2673,24 @@ fieldset.setting-group > legend.setting-label {
 :root[data-visual='modern'][data-dropdown-material='liquid'] .dropdown-surface {
   border-color: rgba(255, 255, 255, .2);
   background: rgba(22, 27, 34, .24);
+  /* 下拉材质保留外投影，不再绘制上下 inset 伪高光。 */
+  /* 原高光版本（停用，保留备查）：
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 -1px 0 rgba(255, 255, 255, .04), 0 16px 44px rgba(0, 0, 0, .17);
+  */
+  box-shadow: 0 16px 44px rgba(0, 0, 0, .17);
 }
 :root[data-visual='modern'][data-color-mode='light'][data-dropdown-material='liquid'] .dropdown-surface {
   border-color: rgba(255, 255, 255, .62);
   background: rgba(255, 255, 255, .25);
+  /* 原浅色内高光版本（停用，保留备查）：
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72), 0 16px 40px rgba(31, 36, 43, .1);
+  */
+  box-shadow: 0 16px 40px rgba(31, 36, 43, .1);
 }
+/* 2026-10-23：停用液态玻璃下拉面 ::before 的145度渐变伪高光。
+   搜索菜单、日历和复用的工具面板均适用；底色、边框、模糊保持原值。
+   可选层次装饰仍由 depth.css 独立管理。 */
+/* 原渐变伪高光规则（停用，保留备查）：
 :root[data-visual='modern'][data-dropdown-material='liquid'] .dropdown-surface::before {
   content: '';
   position: absolute;
@@ -2688,6 +2699,7 @@ fieldset.setting-group > legend.setting-label {
   pointer-events: none;
   background: linear-gradient(145deg, rgba(255, 255, 255, .18), transparent 27%, transparent 72%, rgba(255, 255, 255, .05));
 }
+*/
 /* Independent material channels. */
 /* 这组只是「JS 挂载之前」的兜底值，所以必须与首帧的 data-color-mode 对齐：nuxt.config 的 htmlAttrs
    把首帧定成深色（服务端拿不到系统明暗），这里就取深色那一套出厂默认。挂载后由面板写内联变量覆盖，

@@ -112,6 +112,8 @@ watch(() => route.fullPath, async () => {
       <p class="article-deck">{{ post.description }}</p>
     </header>
 
+    <ArticleTools :key="post.path" :content="articleContent" :title="post.title" />
+
     <div class="article-grid">
       <aside class="article-aside">
         <span>相关话题</span>
