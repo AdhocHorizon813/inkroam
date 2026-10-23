@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">
+  <rect width="800" height="400" fill="#0f1419"/>
+  <text x="40" y="40" fill="#e7ecf3" font-family="system-ui" font-size="18">推迟势示意（完整矢量图见资源包）</text>
+  <path d="M100 350 L400 50 L700 350" fill="none" stroke="#5b9dff" stroke-width="2"/>
+  <text x="40" y="360" fill="#8b9bb4" font-size="14">τ = t − |y−x|/a</text>
+</svg>
