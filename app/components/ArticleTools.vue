@@ -3,6 +3,7 @@ import { articleMatches } from '~/utils/article-find'
 import { pageScrollTop, scrollPageTo } from '~/utils/page-scroll'
 import { animateArticleTool } from '~/utils/article-tool-motion'
 const props = defineProps<{ content: HTMLElement | null; title: string }>()
+const root = ref<HTMLElement | null>(null)
 const mode = ref<'find' | 'export' | null>(null)
 const query = ref('')
 const field = ref<HTMLInputElement | null>(null)
@@ -68,8 +69,14 @@ function leavePanel(element: Element, done: () => void) { panelMotion(element, d
 function beforeLeave(element: Element) { (element as HTMLElement).inert = true }
 function afterEnter() { if (mode.value === 'find') field.value?.focus({ preventScroll: true }) }
 function keydown(event: KeyboardEvent) { if (event.key === 'Escape' && mode.value) { event.preventDefault(); close() } }
+function outside(event: PointerEvent) {
+  if (mode.value && event.target instanceof Node && !root.value?.contains(event.target)) {
+    clearTimeout(timer); mode.value = null; clearHighlights()
+  }
+}
 onMounted(() => {
   document.addEventListener('keydown', keydown)
+  document.addEventListener('pointerdown', outside)
 })
 watch(() => props.content, content => {
   observer?.disconnect()
@@ -81,6 +88,7 @@ onBeforeUnmount(() => {
   disposed = true; clearTimeout(timer); observer?.disconnect(); clearHighlights()
   transitions.forEach(cancel => cancel()); transitions.clear()
   document.removeEventListener('keydown', keydown)
+  document.removeEventListener('pointerdown', outside)
   urls.forEach(url => URL.revokeObjectURL(url))
 })
 async function exportArticle(format: 'pdf' | 'png') {
@@ -121,10 +129,11 @@ async function exportArticle(format: 'pdf' | 'png') {
 </script>
 
 <template>
-  <div class="article-tools" @keydown.esc.stop.prevent="close">
+  <div ref="root" class="article-tools" @keydown.esc.stop.prevent="close">
     <div class="article-tools__actions">
       <button ref="trigger" type="button" :aria-expanded="mode === 'find'" aria-controls="article-find-panel" @click="toggle('find')">页内查找</button>
       <button type="button" :aria-expanded="mode === 'export'" aria-controls="article-export-panel" @click="toggle('export')">导出正文</button>
+      <CopyArticleLink class="copy-article-link--inline" />
     </div>
     <Transition :css="false" mode="out-in" @enter="enterPanel" @leave="leavePanel" @enter-cancelled="cancelPanel" @leave-cancelled="cancelPanel" @before-leave="beforeLeave" @after-enter="afterEnter">
       <div v-if="mode === 'find'" key="find" class="article-tools__reveal">
@@ -156,15 +165,15 @@ async function exportArticle(format: 'pdf' | 'png') {
 
 <style scoped>
 .article-tools { position: relative; z-index: 8; margin: 24px 0; font: 13px/1.6 var(--sans); color: var(--ink); }
-.article-tools__actions { display: flex; gap: 20px; }
+.article-tools__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
 button { position: relative; min-height: 36px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; font: inherit; color: inherit; cursor: pointer; }
 button:hover { color: var(--accent); }button:disabled { opacity: .45; cursor: default; }
 button { transition: color 220ms var(--ease-fluid), border-color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
 button:active:not(:disabled) { transform: translateY(1px); }
 .article-tools__actions button[aria-expanded='true'] { color: var(--accent); border-color: currentColor; }
-.article-tools__reveal { display: grid; grid-template-rows: 1fr; opacity: 1; }
+.article-tools__reveal { position: absolute; top: calc(100% + 10px); left: 0; z-index: 1; width: min(760px, 100%); }
 .article-tools__clip { min-height: 0; overflow: hidden; }
-.article-tools__panel { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 10px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+.article-tools__panel { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; max-height: min(480px, 60dvh); overflow-y: auto; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
 /* Material and blur come from main.css's shared dropdown-surface channel.
    The tools and their nested picker intentionally omit its decorative lighting.
    Entire selectors stay inside :global to avoid the scoped root-leak bug. */

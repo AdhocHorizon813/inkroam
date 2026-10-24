@@ -72,4 +72,13 @@ async function copyLink() {
 .copy-status { min-height: 1.8em; margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.8; }
 .copy-manual { display: block; max-width: 480px; margin: 8px auto 0; }
 .copy-manual input { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--ink); font: 16px/1.5 var(--sans); }
+/* The toolbar copy shares the action row; feedback and manual fallback wrap below it. */
+.copy-article-link--inline { display: contents; }
+.copy-article-link.copy-article-link--inline button.text-link { min-height: 36px; padding: 6px 0; border-color: var(--line); color: inherit; font: inherit; transition: color 220ms var(--ease-fluid), border-color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
+.copy-article-link.copy-article-link--inline button.text-link:hover { color: var(--accent); }
+.copy-article-link--inline .copy-status:empty { display: none; }
+.copy-article-link--inline .copy-status,
+.copy-article-link--inline .copy-manual { flex-basis: 100%; order: 1; margin: 0; }
+@media (max-width: 767.98px) { .copy-article-link.copy-article-link--inline button.text-link { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .copy-article-link.copy-article-link--inline button.text-link { transition-duration: .01ms; } }
 </style>
