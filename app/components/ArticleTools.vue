@@ -187,7 +187,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
    The extra data-depth selector outranks the shared depth rule in any load order. */
 :global(:root[data-visual='modern'][data-depth] .article-tools .dropdown-surface) { background-image: none; }
 .article-tools__panel--export { display: grid; grid-template-columns: minmax(0, 380px) repeat(3, max-content); align-items: end; }
-.article-tools__panel--export .article-tools__status { grid-column: 1 / -1; }
+.article-tools__panel--export .article-tools__status { grid-column: 1 / -1; contain: inline-size; }
 input,select { min-width: 0; max-width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); font: inherit; }
 input { flex: 1 1 210px; font-size: 16px; }select { flex: 1 1 180px; }option { background: var(--paper); color: var(--ink); }
 .article-tools__scope { flex: 0 1 380px; min-width: 0; width: 100%; }
