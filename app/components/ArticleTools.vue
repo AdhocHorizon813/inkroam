@@ -110,11 +110,13 @@ async function exportArticle(format: 'pdf' | 'png') {
       setTimeout(() => frame.remove(), 120000); cleanup = undefined
       status.value = '在打印窗口选择“另存为 PDF”。'
     } else {
+      const pixelRatio = 2
       const height = Math.ceil(content.getBoundingClientRect().height)
-      if (height > 14000) throw new Error('正文过长，请选择一个小节导出，或使用 PDF。')
+      // html-to-image scales canvases above 16384px down; keep the full 2x resolution.
+      if (height * pixelRatio > 16000) throw new Error('正文过长，高清 PNG 请按小节导出，或使用 PDF。')
       status.value = '正在生成 PNG…'
       const { toBlob } = await import('html-to-image')
-      const blob = await toBlob(content, { pixelRatio: 1, backgroundColor: '#ffffff', preferredFontFormat: 'woff2' })
+      const blob = await toBlob(content, { pixelRatio, backgroundColor: '#ffffff', preferredFontFormat: 'woff2' })
       if (!blob) throw new Error('图片生成失败，请改用 PDF。')
       if (disposed) return
       const url = URL.createObjectURL(blob); urls.add(url)
@@ -148,7 +150,7 @@ async function exportArticle(format: 'pdf' | 'png') {
       </div>
       </div>
       </div>
-      <div v-else-if="mode === 'export'" key="export" class="article-tools__reveal">
+      <div v-else-if="mode === 'export'" key="export" class="article-tools__reveal article-tools__reveal--export">
       <div class="article-tools__clip">
       <div id="article-export-panel" class="article-tools__panel article-tools__panel--export dropdown-surface" :inert="mode !== 'export'">
         <SearchFilterSelect class="article-tools__scope" label="导出范围" :model-value="String(sectionIndex)" :options="[{value:'-1', label:'整篇正文'}, ...sections.map((section,index) => ({value:String(index),label:section.title}))]" :enabled="mode === 'export'" :disabled="busy" @update:model-value="sectionIndex = Number($event)" />
@@ -172,7 +174,8 @@ button { transition: color 220ms var(--ease-fluid), border-color 220ms var(--eas
 button:active:not(:disabled) { transform: translateY(1px); }
 .article-tools__actions button[aria-expanded='true'] { color: var(--accent); border-color: currentColor; }
 .article-tools__reveal { position: absolute; top: calc(100% + 10px); left: 0; z-index: 1; width: min(760px, 100%); display: grid; grid-template-rows: 1fr; }
-.article-tools__clip { min-height: 0; overflow: hidden; border-radius: 12px; }
+.article-tools__reveal--export { width: max-content; max-width: 100%; }
+.article-tools__clip { min-width: 0; min-height: 0; overflow: hidden; border-radius: 12px; }
 .article-tools__panel { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; max-height: min(480px, 60dvh); overflow-y: auto; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
 /* Material and blur come from main.css's shared dropdown-surface channel.
    The tools and their nested picker intentionally omit its decorative lighting.
@@ -183,13 +186,15 @@ button:active:not(:disabled) { transform: translateY(1px); }
    Override that layer for every depth/material mode, not just liquid's ::before.
    The extra data-depth selector outranks the shared depth rule in any load order. */
 :global(:root[data-visual='modern'][data-depth] .article-tools .dropdown-surface) { background-image: none; }
-.article-tools__panel--export { align-items: flex-end; }
+.article-tools__panel--export { display: grid; grid-template-columns: minmax(0, 380px) repeat(3, max-content); align-items: end; }
+.article-tools__panel--export .article-tools__status { grid-column: 1 / -1; }
 input,select { min-width: 0; max-width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); font: inherit; }
 input { flex: 1 1 210px; font-size: 16px; }select { flex: 1 1 180px; }option { background: var(--paper); color: var(--ink); }
 .article-tools__scope { flex: 0 1 380px; min-width: 0; width: 100%; }
 .article-tools__count { color: var(--muted); font-variant-numeric: tabular-nums; }.article-tools__status { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; }
 :is(button,input,select):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media(max-width:767.98px) { .article-tools__panel { gap: 10px; }button { min-height:44px; } }
+@media(max-width:599.98px) { .article-tools__panel--export { display: flex; }.article-tools__scope { flex-basis: 100%; } }
 @media(prefers-reduced-motion:reduce) { button { transition-duration:.01ms; } }
 </style>
 
