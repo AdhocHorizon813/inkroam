@@ -155,7 +155,7 @@ async function exportArticle(format: 'pdf' | 'png') {
 </template>
 
 <style scoped>
-.article-tools { position: sticky; top: 78px; z-index: 8; margin: 24px 0; font: 13px/1.6 var(--sans); color: var(--ink); }
+.article-tools { position: relative; z-index: 8; margin: 24px 0; font: 13px/1.6 var(--sans); color: var(--ink); }
 .article-tools__actions { display: flex; gap: 20px; }
 button { position: relative; min-height: 36px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; font: inherit; color: inherit; cursor: pointer; }
 button:hover { color: var(--accent); }button:disabled { opacity: .45; cursor: default; }
@@ -180,7 +180,7 @@ input { flex: 1 1 210px; font-size: 16px; }select { flex: 1 1 180px; }option { b
 .article-tools__scope { flex: 0 1 380px; min-width: 0; width: 100%; }
 .article-tools__count { color: var(--muted); font-variant-numeric: tabular-nums; }.article-tools__status { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; }
 :is(button,input,select):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-@media(max-width:767.98px) { .article-tools { top: 68px; }.article-tools__panel { gap: 10px; }button { min-height:44px; } }
+@media(max-width:767.98px) { .article-tools__panel { gap: 10px; }button { min-height:44px; } }
 @media(prefers-reduced-motion:reduce) { button { transition-duration:.01ms; } }
 </style>
 
