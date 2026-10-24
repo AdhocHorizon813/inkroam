@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { passageUrl, selectedPassage, type PassageSelection } from '~/utils/passage-link'
+const props = defineProps<{ feedback?: boolean }>()
+const copied = ref(false)
 const status = ref('')
 const manualLink = ref('')
 const busy = ref(false)
 const linkField = ref<HTMLInputElement | null>(null)
 const selection = ref<PassageSelection | null>(null)
 let captured: PassageSelection | null = null
+let resetTimer: ReturnType<typeof setTimeout> | undefined
+let disposed = false
 
 function syncSelection() {
   selection.value = selectedPassage(document.querySelector('.article-content'), window.getSelection())
@@ -18,10 +22,14 @@ onMounted(() => {
   document.addEventListener('selectionchange', syncSelection)
   syncSelection()
 })
-onBeforeUnmount(() => document.removeEventListener('selectionchange', syncSelection))
+onBeforeUnmount(() => {
+  disposed = true; clearTimeout(resetTimer)
+  document.removeEventListener('selectionchange', syncSelection)
+})
 
 async function copyLink() {
   if (busy.value) return
+  clearTimeout(resetTimer)
   busy.value = true
   status.value = ''
   manualLink.value = ''
@@ -30,8 +38,15 @@ async function copyLink() {
   const url = passageUrl(window.location.href, chosen)
   try {
     await navigator.clipboard.writeText(url)
+    if (disposed) return
     status.value = chosen?.passage ? '选段链接已复制。' : chosen?.heading ? '已复制所在章节链接。' : '链接已复制。'
+    if (props.feedback) {
+      copied.value = true
+      resetTimer = setTimeout(() => { copied.value = false }, 2400)
+    }
   } catch {
+    if (disposed) return
+    copied.value = false
     manualLink.value = url
     status.value = '未能自动复制，请选择下方链接手动复制。'
     await nextTick()
@@ -45,8 +60,13 @@ async function copyLink() {
 
 <template>
   <div class="copy-article-link">
-    <button class="text-link" type="button" :disabled="busy" @pointerdown="captureSelection" @pointercancel="captured = null" @pointerleave="captured = null" @click="copyLink">{{ selection ? '复制选段链接' : '复制本文链接' }}</button>
-    <div class="copy-status" role="status" aria-live="polite">{{ status }}</div>
+    <button class="text-link" type="button" :disabled="busy" @pointerdown="captureSelection" @pointercancel="captured = null" @pointerleave="captured = null" @click="copyLink">
+      <span v-if="feedback" class="copy-label" aria-live="polite">
+        <Transition name="code-label"><span :key="copied ? 'done' : selection ? 'selection' : 'article'">{{ copied ? '已复制' : selection ? '复制选段链接' : '复制本文链接' }}</span></Transition>
+      </span>
+      <template v-else>{{ selection ? '复制选段链接' : '复制本文链接' }}</template>
+    </button>
+    <div v-if="!feedback || manualLink" class="copy-status" role="status" aria-live="polite">{{ status }}</div>
     <label v-if="manualLink" class="copy-manual">
       <span class="visually-hidden">本文链接，可手动复制</span>
       <input ref="linkField" :value="manualLink" type="text" readonly @focus="linkField?.select()">
@@ -72,6 +92,10 @@ async function copyLink() {
 .copy-status { min-height: 1.8em; margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.8; }
 .copy-manual { display: block; max-width: 480px; margin: 8px auto 0; }
 .copy-manual input { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--ink); font: 16px/1.5 var(--sans); }
+.copy-article-link button.text-link .copy-label { display: inline-grid; justify-items: center; width: 6em; overflow: hidden; vertical-align: bottom; }
+.copy-article-link button.text-link .copy-label,
+.copy-article-link button.text-link .copy-label > span { margin: 0; color: inherit; }
+.copy-label > span { grid-area: 1 / 1; }
 /* The toolbar copy shares the action row; feedback and manual fallback wrap below it. */
 .copy-article-link--inline { display: contents; }
 .copy-article-link.copy-article-link--inline button.text-link { min-height: 36px; padding: 6px 0; border-color: var(--line); color: inherit; font: inherit; transition: color 220ms var(--ease-fluid), border-color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }

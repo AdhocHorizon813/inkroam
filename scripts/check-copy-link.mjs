@@ -7,7 +7,7 @@ import { passageUrl, selectedPassage } from '../app/utils/passage-link.ts'
 const source = readFileSync('app/components/CopyArticleLink.vue', 'utf8')
 const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
 const compiled = ts.transpile(script.replace(/import[^\n]+\n/, ''), { target: ts.ScriptTarget.ES2022 })
-const hooks = { onMounted() {}, onBeforeUnmount() {}, passageUrl, selectedPassage }
+const hooks = { onMounted() {}, onBeforeUnmount() {}, defineProps: () => ({ feedback: false }), clearTimeout, setTimeout, passageUrl, selectedPassage }
 async function test(href, clipboard, expected, failed = false) {
   let focused = false
   let selected = false
@@ -97,3 +97,36 @@ assert.equal(selected.status.value, '已复制所在章节链接。')
 cleanup(); assert.equal(listeners.size, 0)
 assert.match(source, /@pointerdown="captureSelection"/)
 console.log('PASS: contextual copy, pointer selection capture, one-shot snapshot, section fallback and listener cleanup.')
+
+// Only the toolbar opts into the code button's timed inline feedback.
+let resetId = 0, toolbarCleanup, copyFailure = false
+const resets = new Map()
+const toolbarContext = vm.createContext({
+  ...hooks, URL, ref: value => ({ value }), nextTick: async () => {},
+  defineProps: () => ({ feedback: true }),
+  setTimeout: (callback, delay) => { assert.equal(delay, 2400); resets.set(++resetId, callback); return resetId },
+  clearTimeout: id => resets.delete(id),
+  onBeforeUnmount: callback => { toolbarCleanup = callback },
+  document: { removeEventListener() {} },
+  window: { location: { href: 'https://example.com/inkroam/posts/a' } },
+  navigator: { clipboard: { writeText: async () => { if (copyFailure) throw new Error('Permission denied') } } },
+})
+vm.runInContext(`${compiled}\nglobalThis.state = { copyLink, copied, manualLink };`, toolbarContext)
+const toolbar = toolbarContext.state
+await toolbar.copyLink()
+assert.equal(toolbar.copied.value, true)
+assert.equal(resets.size, 1)
+await toolbar.copyLink()
+assert.equal(resets.size, 1, 'Repeated copy restarts one reset timer')
+resets.get(resetId)(); resets.delete(resetId)
+assert.equal(toolbar.copied.value, false, 'Toolbar label returns after the code button timeout')
+copyFailure = true
+await toolbar.copyLink()
+assert.equal(toolbar.copied.value, false)
+assert.equal(toolbar.manualLink.value, 'https://example.com/inkroam/posts/a')
+assert.equal(resets.size, 0, 'Failure retains manual fallback instead of a success timer')
+copyFailure = false
+await toolbar.copyLink(); toolbarCleanup()
+assert.equal(resets.size, 0, 'Unmount clears pending feedback')
+assert.match(source, /<Transition name="code-label">/)
+console.log('PASS: toolbar-only copied label, 2400ms reset, repeated copy, failure fallback and timer teardown.')
