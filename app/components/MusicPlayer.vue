@@ -714,7 +714,7 @@ function onPlaying() {
       </div>
     </section>
     <span ref="labelMeasure" class="music-measure" aria-hidden="true">{{ dockTitle }}</span>
-    <div class="music-pill music-surface" :inert="expanded" :aria-hidden="expanded" :style="{ width: `${labelWidth + 64 + (hasPlayed ? 40 : 0)}px`, '--music-label-width': `${labelWidth}px` }">
+    <div class="music-pill music-surface" :inert="expanded" :aria-hidden="expanded" :style="{ width: `${labelWidth + (hasPlayed ? 104 : 84)}px`, '--music-label-width': `${labelWidth}px` }">
       <button ref="trigger" class="music-trigger" type="button" :aria-expanded="open" aria-controls="music-panel" @click="open ? close() : open = true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2" /><ellipse cx="6" cy="18" rx="3" ry="2" /><ellipse cx="17" cy="16" rx="3" ry="2" /></svg><span class="music-name"><Transition name="music-name"><span :key="dockTitle">{{ dockTitle }}</span></Transition></span></button>
       <Transition name="music-control"><button v-if="hasPlayed" class="music-quick-play" type="button" :disabled="!tracks.length" :aria-busy="loading" :aria-label="loading ? '取消加载音乐' : showPause ? '暂停音乐' : '播放音乐'" @click="togglePlay"><Transition name="music-icon" mode="out-in"><svg :key="showPause ? 'pause' : 'play'" viewBox="0 0 24 24" aria-hidden="true"><path v-if="showPause" d="M8 6v12M16 6v12" /><path v-else d="m8 4 12 8-12 8Z" /></svg></Transition></button></Transition>
     </div>
