@@ -31,6 +31,23 @@ const main = readFileSync('app/assets/css/main.css', 'utf8')
 assert.match(main, /\.dropdown-surface\s*\{[^}]*backdrop-filter:\s*blur\(var\(--dropdown-blur\)\)/)
 assert.match(descriptor.template.content, /:css="false"/)
 assert.match(descriptor.template.content, /@leave="leavePanel"/)
+// The tool row paints one sliding block (the navbar recipe) instead of giving
+// every button its own background: hovering an inactive tool only brightens its
+// text, and switching moves/resizes the block on the settle curve.
+const styleText = descriptor.styles.map(style => style.content).join('\n')
+assert.match(descriptor.template.content, /class="article-tools__indicator"/, 'The row owns one sliding indicator')
+assert.match(descriptor.template.content, /'is-ready': indicator\.ready && mode !== null/, 'The block stays hidden until it is measured and active')
+assert.match(styleText, /\.article-tools__indicator \{[^}]*background: var\(--line\)/, 'The block keeps the existing visual weight')
+assert.match(styleText, /\.article-tools__indicator \{[^}]*border-radius: 11px/, 'The block radius stays concentric: the row radius 12px minus its 1px border')
+assert.match(styleText, /\.article-tools__indicator\.is-sliding \{[^}]*transition: width 380ms var\(--ease-settle\), transform 380ms var\(--ease-settle\)/, 'The block moves with the navbar settle curve')
+assert.ok(!/\.article-tools__indicator \{[^}]*transition: [^;]*transform/.test(styleText), 'The first placement must not animate its own geometry')
+assert.match(descriptor.template.content, /'is-sliding': indicator\.sliding/, 'Sliding unlocks only after the first painted placement')
+assert.match(styleText, /\.article-action\[aria-expanded='true'\] \{ color: var\(--accent\); \}/, 'The active tool changes text colour only')
+assert.match(styleText, /\.article-action:hover:not\(\[aria-expanded='true'\]\) \{ color: var\(--ink\); \}/, 'Hovering an inactive tool must not paint a block')
+assert.ok(!/\.article-action:hover[^{]*\{[^}]*background/.test(styleText), 'No hover background on tool buttons')
+assert.match(descriptor.scriptSetup.content, /new ResizeObserver\(\(\) => positionIndicator\(\)\)/, 'The block re-measures when the row resizes')
+assert.match(descriptor.scriptSetup.content, /indicator\.x = active\.offsetLeft/, 'Geometry comes from integer layout offsets, not fractional rects')
+assert.match(main, /\[data-color-mode='light'\] \.article-tools__actions \.article-tools__indicator[\s\S]{0,300}?color-mix\(in srgb, var\(--accent\) 12%, transparent\)/, 'Light mode keeps the selected block legible')
 let keyframes, options, finish, completions = 0
 const element = {
   ownerDocument: { defaultView: {

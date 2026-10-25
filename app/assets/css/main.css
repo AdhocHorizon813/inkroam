@@ -3626,3 +3626,12 @@ fieldset.setting-group > legend.setting-label {
   .brand > span:last-child { display: none; }
 }
 
+/* Selected article tool: ArticleTools paints one sliding block with --line, which
+   reads as a washed-out white slab on a light card. Light themes tint that block
+   with the accent and give it a hairline; dark keeps its original weight. */
+:root[data-color-mode='light'] .article-tools__actions .article-tools__indicator,
+:root[data-visual='classic'][data-theme='light'] .article-tools__actions .article-tools__indicator {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+

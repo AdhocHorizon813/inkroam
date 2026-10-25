@@ -62,7 +62,33 @@ function close() {
 }
 const trigger = ref<HTMLButtonElement | null>(null)
 const exportTrigger = ref<HTMLButtonElement | null>(null)
+// One sliding block, the same recipe as .nav-highlight: the row paints a single
+// absolutely positioned span, so an inactive tool only brightens its text on
+// hover and switching between the tools moves and resizes that block.
+const actions = ref<HTMLElement | null>(null)
+const indicator = reactive({ x: 0, width: 0, height: 0, ready: false, sliding: false })
+let actionsResize: ResizeObserver | undefined
+function currentTrigger() {
+  return mode.value === 'find' ? trigger.value : mode.value === 'export' ? exportTrigger.value : null
+}
+async function positionIndicator() {
+  await nextTick()
+  const bar = actions.value, active = currentTrigger()
+  if (!bar || !active) return
+  // Integer layout offsets, not getBoundingClientRect: rects are fractional while
+  // absolutely positioned children sit on the padding box, so a fractional x left
+  // a 1px anti-aliasing seam along the block's left edge.
+  indicator.x = active.offsetLeft
+  indicator.width = active.offsetWidth
+  indicator.height = active.offsetHeight
+  indicator.ready = true
+  // The first placement must not animate from 0px/left edge: enable the slide
+  // only after that frame has been painted, so later switches glide.
+  if (!indicator.sliding) requestAnimationFrame(() => requestAnimationFrame(() => { indicator.sliding = true }))
+}
+watch(mode, positionIndicator)
 const transitions = new Map<Element, () => void>()
+
 function cancelPanel(element: Element) { transitions.get(element)?.(); transitions.delete(element) }
 function panelMotion(element: Element, done: () => void, entering: boolean) {
   cancelPanel(element)
@@ -83,6 +109,11 @@ function outside(event: PointerEvent) {
 onMounted(() => {
   document.addEventListener('keydown', keydown)
   document.addEventListener('pointerdown', outside)
+  positionIndicator()
+  actionsResize = new ResizeObserver(() => positionIndicator())
+  if (actions.value) actionsResize.observe(actions.value)
+  for (const element of [trigger.value, exportTrigger.value]) if (element) actionsResize.observe(element)
+  window.addEventListener('resize', positionIndicator, { passive: true })
 })
 watch(() => props.content, content => {
   observer?.disconnect()
@@ -95,6 +126,8 @@ onBeforeUnmount(() => {
   transitions.forEach(cancel => cancel()); transitions.clear()
   document.removeEventListener('keydown', keydown)
   document.removeEventListener('pointerdown', outside)
+  actionsResize?.disconnect()
+  window.removeEventListener('resize', positionIndicator)
   urls.forEach(url => URL.revokeObjectURL(url))
 })
 async function exportArticle(format: 'pdf' | 'png') {
@@ -138,7 +171,9 @@ async function exportArticle(format: 'pdf' | 'png') {
 
 <template>
   <div ref="root" class="article-tools" :class="{ 'article-tools--open': mode !== null }" @keydown.esc.stop.prevent="close">
-    <div class="article-tools__actions" :class="{ 'dropdown-surface': mode !== null }" role="group" aria-label="正文工具">
+    <div ref="actions" class="article-tools__actions" :class="{ 'dropdown-surface': mode !== null }" role="group" aria-label="正文工具">
+      <span class="article-tools__indicator" :class="{ 'is-ready': indicator.ready && mode !== null, 'is-sliding': indicator.sliding }" :style="{ '--article-indicator-x': `${indicator.x}px`, '--article-indicator-width': `${indicator.width}px`, '--article-indicator-height': `${indicator.height}px` }" aria-hidden="true" />
+
       <button ref="trigger" class="article-action" type="button" :aria-expanded="mode === 'find'" aria-controls="article-find-panel" @click="toggle('find')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4 4" /></svg><span>页内查找</span></button>
       <button ref="exportTrigger" class="article-action" type="button" :aria-expanded="mode === 'export'" aria-controls="article-export-panel" @click="toggle('export')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg><span>导出正文</span></button>
       <CopyArticleLink feedback class="copy-article-link--inline" />
@@ -208,14 +243,22 @@ input { flex: 1 1 210px; font-size: 16px; }select { flex: 1 1 180px; }option { b
 </style>
 
 <style>
-/* Shared by the two local buttons and CopyArticleLink, scoped to this row. */
-.article-tools__actions .article-action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: inherit; white-space: nowrap; text-decoration: none; transition: background-color 220ms var(--ease-fluid), color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
+/* Shared by the two local buttons and CopyArticleLink, scoped to this row.
+   The row paints ONE sliding block (the .nav-highlight recipe) instead of giving
+   every button its own background: hovering an inactive tool only brightens its
+   text, and switching between the two tools moves/resizes the block on the same
+   settle curve as the navbar. */
+.article-tools__actions { position: relative; }
+.article-tools__actions .article-action { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: inherit; white-space: nowrap; text-decoration: none; transition: color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
 .article-tools__actions .article-action svg { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.article-tools__actions .article-action[aria-expanded='true'] { color: var(--accent); background: var(--line); }
+.article-tools__actions .article-tools__indicator { position: absolute; top: 50%; left: 0; z-index: 0; width: var(--article-indicator-width, 0px); height: var(--article-indicator-height, 40px); border-radius: 11px; background: var(--line); opacity: 0; transform: translate3d(var(--article-indicator-x, 0px), -50%, 0); transition: opacity 180ms var(--ease-fluid); pointer-events: none; }
+.article-tools__actions .article-tools__indicator.is-sliding { transition: width 380ms var(--ease-settle), transform 380ms var(--ease-settle), opacity 180ms var(--ease-fluid); will-change: width, transform; }
+.article-tools__actions .article-tools__indicator.is-ready { opacity: 1; }
+.article-tools__actions .article-action[aria-expanded='true'] { color: var(--accent); }
 .article-tools__actions .article-action:active:not(:disabled) { transform: translateY(1px); }
-@media(hover:hover) and (pointer:fine) { .article-tools__actions .article-action:hover { color: var(--ink); background: var(--line); } }
+@media(hover:hover) and (pointer:fine) { .article-tools__actions .article-action:hover:not([aria-expanded='true']) { color: var(--ink); } }
 @media(max-width:767.98px) { .article-tools__actions .article-action { min-height: 44px; padding-inline: 8px; gap: 5px; } }
-@media(prefers-reduced-motion:reduce) { .article-tools__actions .article-action { transition-duration: .01ms; } }
+@media(prefers-reduced-motion:reduce) { .article-tools__actions .article-action, .article-tools__actions .article-tools__indicator { transition-duration: .01ms; } }
 ::highlight(inkroam-find) { background: #e9c55a80; color: inherit; }
 ::highlight(inkroam-find-current) { background: #efb44c; color: #1d211c; }
 </style>
