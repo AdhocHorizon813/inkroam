@@ -822,6 +822,13 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 .music-panel.is-expanded .music-title { font-size: clamp(24px, 3vw, 36px); }
 .music-panel.is-expanded .music-subtitle { font-size: 13px; }
 .music-panel.is-expanded .music-controls { padding-top: 8px; }
+/* Fullscreen only: put the seek bar and time labels above transport controls. */
+.music-panel.is-expanded .music-controls { display: flex; flex-direction: column; }
+.music-panel.is-expanded .music-progress { order: 1; }
+.music-panel.is-expanded .music-times { order: 2; }
+.music-panel.is-expanded .music-transport { order: 3; }
+.music-panel.is-expanded .music-library-actions { order: 4; }
+.music-panel.is-expanded .music-tracks { order: 5; }
 .music-panel.is-expanded .music-transport { margin-top: 0; gap: 22px; }
 .music-panel.is-expanded .music-play { width: 60px; height: 60px; }
 .music-panel.is-expanded .music-tracks { max-height: 42dvh; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
