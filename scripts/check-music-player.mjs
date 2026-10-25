@@ -122,6 +122,15 @@ assert.match(descriptor.scriptSetup.content, /await hydrateLocalTags\(\)|void hy
 assert.match(descriptor.template.content, /class="music-grip"[\s\S]{0,140}gripDown\(position, \$event\)/, 'A grip starts pointer dragging so touch can reorder too')
 assert.match(descriptor.scriptSetup.content, /moveTrack\(from, to - from\)/, 'Pointer drag reuses the persisted reorder path')
 assert.match(readFileSync('app/utils/local-music.ts', 'utf8'), /export async function updateLocalMusic/, 'The library exposes a tag write API')
+{
+  // Latin-1 mojibake of UTF-8 bytes, and GBK bytes declared as ISO-8859-1.
+  const { repairTagText } = await import('../app/utils/music-tags.ts')
+  assert.equal(repairTagText('\u00e6\u00b5\u008b\u00e8\u00af\u0095'), '\u6d4b\u8bd5', 'UTF-8 read as Latin-1 is repaired')
+  assert.equal(repairTagText('\u00d3\u00ea\u00b4\u00b0\u00d1\u00dd\u00cb\u00e3'), '\u96e8\u7a97\u6f14\u7b97', 'GBK read as Latin-1 is repaired')
+  assert.equal(repairTagText('\u6d4b\u8bd5'), '\u6d4b\u8bd5', 'Correct Unicode is untouched')
+  assert.equal(repairTagText('Rain on the Margin'), 'Rain on the Margin', 'ASCII is untouched')
+  assert.equal(repairTagText(''), undefined, 'Empty tags stay empty')
+}
 assert.match(descriptor.template.content, /:inert="!open"/)
 assert.match(descriptor.template.content, /v-if="hasPlayed" class="music-quick-play"/)
 for (const style of descriptor.styles) {
