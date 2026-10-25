@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { passageUrl, selectedPassage, type PassageSelection } from '~/utils/passage-link'
+import { copyTextOnGesture } from '~/utils/clipboard'
 const props = defineProps<{ feedback?: boolean }>()
 const copied = ref(false)
 const status = ref('')
@@ -37,7 +38,7 @@ async function copyLink() {
   captured = null
   const url = passageUrl(window.location.href, chosen)
   try {
-    await navigator.clipboard.writeText(url)
+    await copyTextOnGesture(url)
     if (disposed) return
     status.value = chosen?.passage ? '选段链接已复制。' : chosen?.heading ? '已复制所在章节链接。' : '链接已复制。'
     if (props.feedback) {
@@ -60,7 +61,8 @@ async function copyLink() {
 
 <template>
   <div class="copy-article-link">
-    <button class="text-link" type="button" :disabled="busy" @pointerdown="captureSelection" @pointercancel="captured = null" @pointerleave="captured = null" @click="copyLink">
+    <button :class="feedback ? 'article-action' : 'text-link'" type="button" :disabled="busy" @pointerdown="captureSelection" @pointercancel="captured = null" @pointerleave="captured = null" @click="copyLink">
+      <span v-if="feedback" class="copy-icon" aria-hidden="true"><Transition name="code-label"><svg :key="copied ? 'done' : 'link'" viewBox="0 0 24 24"><path v-if="copied" d="m5 12 4 4L19 6" /><path v-else d="m10 13 4-4m-6 6-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 3 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" /></svg></Transition></span>
       <span v-if="feedback" class="copy-label" aria-live="polite">
         <Transition name="code-label"><span :key="copied ? 'done' : selection ? 'selection' : 'article'">{{ copied ? '已复制' : selection ? '复制选段链接' : '复制本文链接' }}</span></Transition>
       </span>
@@ -84,25 +86,24 @@ async function copyLink() {
    （2026-10-02 浏览器实测）；改用 padding 定位：padding-top 维持文字原位，padding-bottom
    决定线距（与同页 .text-link 一致：classic 5px，modern 主题自带的 padding 生效时为 8px）。
    盒子不再有 44px，触控高度由 ::after 撑出，避免顺带改掉下方的间距。 */
-.copy-article-link button { position: relative; margin-top: 0; padding: 14px 6px 5px; background: none; border: 0; border-bottom: 1px solid var(--ink); color: var(--ink); cursor: pointer; font: inherit; font-size: 13px; }
-.copy-article-link button::after { content: ''; position: absolute; left: -8px; right: -8px; top: 50%; height: 44px; transform: translateY(-50%); }
+.copy-article-link button { position: relative; cursor: pointer; }
+.copy-article-link button.text-link { margin-top: 0; padding: 14px 6px 5px; background: none; border: 0; border-bottom: 1px solid var(--ink); color: var(--ink); font: inherit; font-size: 13px; }
+.copy-article-link button.text-link::after { content: ''; position: absolute; left: -8px; right: -8px; top: 50%; height: 44px; transform: translateY(-50%); }
 .copy-article-link button:disabled { cursor: wait; }
 .copy-article-link button:focus-visible,
 .copy-manual input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .copy-status { min-height: 1.8em; margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.8; }
 .copy-manual { display: block; max-width: 480px; margin: 8px auto 0; }
 .copy-manual input { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--ink); font: 16px/1.5 var(--sans); }
-.copy-article-link button.text-link .copy-label { display: inline-grid; justify-items: center; width: 6em; overflow: hidden; vertical-align: bottom; }
-.copy-article-link button.text-link .copy-label,
-.copy-article-link button.text-link .copy-label > span { margin: 0; color: inherit; }
+.copy-article-link .copy-label { display: inline-grid; justify-items: center; width: 6em; overflow: hidden; vertical-align: bottom; }
+.copy-article-link .copy-label,
+.copy-article-link .copy-label > span { margin: 0; color: inherit; }
 .copy-label > span { grid-area: 1 / 1; }
+.copy-icon { display: inline-grid; width: 15px; height: 15px; overflow: hidden; }
+.copy-icon svg { grid-area: 1 / 1; }
 /* The toolbar copy shares the action row; feedback and manual fallback wrap below it. */
 .copy-article-link--inline { display: contents; }
-.copy-article-link.copy-article-link--inline button.text-link { min-height: 36px; padding: 6px 0; border-color: var(--line); color: inherit; font: inherit; transition: color 220ms var(--ease-fluid), border-color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
-.copy-article-link.copy-article-link--inline button.text-link:hover { color: var(--accent); }
 .copy-article-link--inline .copy-status:empty { display: none; }
 .copy-article-link--inline .copy-status,
 .copy-article-link--inline .copy-manual { flex-basis: 100%; order: 1; margin: 0; }
-@media (max-width: 767.98px) { .copy-article-link.copy-article-link--inline button.text-link { min-height: 44px; } }
-@media (prefers-reduced-motion: reduce) { .copy-article-link.copy-article-link--inline button.text-link { transition-duration: .01ms; } }
 </style>

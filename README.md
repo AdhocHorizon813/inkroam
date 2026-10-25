@@ -12,6 +12,8 @@
 
 ## 阅读功能
 
+- **阅读音乐**：左下角可播放 Paper Hours 三首 lofi，支持切歌、进度、音量和循环，站内切页继续播放。默认不自动播放；初始不设置音频地址，打开面板也不加载音乐，点击播放才请求当前曲目。见 [音乐播放器](docs/music-player.md)。
+
 - **正文工具**：文章与笔记标题下可做独立页内查找，并导出整篇或指定小节的 PDF / PNG 阅读版。PDF 使用浏览器另存为 PDF，PNG 工具按需加载；超长内容建议按小节或用 PDF。实现边界与待验收项见 [正文工具](docs/article-tools.md)。
 
 - **数学竞赛（数学专业类）**：高等代数按一章一篇笔记整理为 [矩阵与行列式](content/notes/mathematics-competition/01-advanced-algebra-matrices-and-determinants.md)、[线性空间、线性方程组与二次型](content/notes/mathematics-competition/02-advanced-algebra-linear-spaces-and-quadratic-forms.md)、[多项式](content/notes/mathematics-competition/03-advanced-algebra-polynomials.md)。包含定义、推导、竞赛例题、易错点与自测解答；三组交互图分别展示矩阵面积变换、二次型主轴和重根合并。初始图与公式支持无 JavaScript 阅读，交互图无需额外依赖。检查运行 `node --experimental-strip-types scripts/check-competition-algebra.mjs`，静态生成后加 `--built`。

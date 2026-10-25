@@ -6,7 +6,9 @@ import { passageUrl, selectedPassage } from '../app/utils/passage-link.ts'
 
 const source = readFileSync('app/components/CopyArticleLink.vue', 'utf8')
 const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-const compiled = ts.transpile(script.replace(/import[^\n]+\n/, ''), { target: ts.ScriptTarget.ES2022 })
+// The component's selection/status contract is independent of the platform
+// clipboard adapter; its actual sync/API/timeout paths are tested separately.
+const compiled = ts.transpile('function copyTextOnGesture(text) { return navigator.clipboard.writeText(text) }\n' + script.replace(/^import .*$/gm, ''), { target: ts.ScriptTarget.ES2022 })
 const hooks = { onMounted() {}, onBeforeUnmount() {}, defineProps: () => ({ feedback: false }), clearTimeout, setTimeout, passageUrl, selectedPassage }
 async function test(href, clipboard, expected, failed = false) {
   let focused = false
@@ -130,3 +132,38 @@ await toolbar.copyLink(); toolbarCleanup()
 assert.equal(resets.size, 0, 'Unmount clears pending feedback')
 assert.match(source, /<Transition name="code-label">/)
 console.log('PASS: toolbar-only copied label, 2400ms reset, repeated copy, failure fallback and timer teardown.')
+
+// Exercise the real platform adapter, including a native Promise that never
+// settles (observed while browser automation was attached).
+const adapter = ts.transpile(readFileSync('app/utils/clipboard.ts', 'utf8').replace(/export /g, ''), { target: ts.ScriptTarget.ES2022 })
+async function adapterCase(write, syncResult, expire = false) {
+  const timers = new Map(), actions = []
+  let field, commandValue
+  const savedRange = { cloneRange() { return this } }
+  const selection = { rangeCount: 1, getRangeAt: () => savedRange, removeAllRanges: () => actions.push('clear'), addRange: range => { assert.equal(range, savedRange); actions.push('restore') } }
+  const sandbox = vm.createContext({ navigator: { clipboard: write ? { writeText: write } : undefined },
+    document: {
+      activeElement: { focus: () => actions.push('focus restored') }, getSelection: () => selection,
+      createElement: () => (field = { style: {}, setAttribute() {}, focus() {}, select: () => actions.push('selected'), remove: () => actions.push('removed') }),
+      body: { append() {} }, execCommand: command => { assert.equal(command, 'copy'); assert(actions.includes('selected')); commandValue = field.value; return syncResult },
+    },
+    setTimeout: (callback, delay) => { assert.equal(delay, 3500); timers.set(1, callback); return 1 }, clearTimeout: id => timers.delete(id),
+  })
+  vm.runInContext(`${adapter}\nglobalThis.copy = copyTextOnGesture`, sandbox)
+  const operation = sandbox.copy('https://example.com/inkroam/posts/a#part')
+  if (expire) timers.get(1)()
+  let error
+  try { await operation } catch (caught) { error = caught }
+  assert.equal(timers.size, 0)
+  if (commandValue) {
+    assert.equal(commandValue, 'https://example.com/inkroam/posts/a#part')
+    assert.deepEqual(actions.slice(-4), ['removed', 'focus restored', 'clear', 'restore'])
+  }
+  return { error, commandValue }
+}
+assert.equal((await adapterCase(async () => {}, false)).commandValue, undefined, 'Normal successful API never invokes legacy command')
+assert.equal((await adapterCase(async () => { throw new Error('denied') }, true)).error, undefined)
+assert.equal((await adapterCase(undefined, true)).error, undefined)
+assert.equal((await adapterCase(() => new Promise(() => {}), true, true)).error, undefined, 'Pending API can recover via synchronous copy')
+assert((await adapterCase(() => new Promise(() => {}), false, true)).error, 'Denied fallback reaches the component manual field instead of hanging')
+console.log('PASS: real clipboard adapter success, rejection, absent API, pending timeout, synchronous fallback, selection restoration and timer cleanup.')

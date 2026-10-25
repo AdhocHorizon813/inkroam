@@ -596,7 +596,10 @@ button { font: inherit; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 44px;
+  /* Matches the music dock pill: a 40px control plus two 1px borders = 42px.
+     The two dock controls must read as one row, so this no longer picks its own
+     touch-target size. Phone value is 46px (44px control), see the mobile block. */
+  min-height: 42px;
   padding: 0 15px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -742,7 +745,7 @@ button { font: inherit; }
   :root[data-visual='modern'] .story-row:hover { padding-left: 16px; }
   :root[data-visual='modern'] .manifesto { margin: 12px 0; border-radius: 28px; }
   .appearance-dock { right: 12px; bottom: 12px; }
-  .appearance-trigger { min-height: 42px; }
+  .appearance-trigger { min-height: 46px; }
   .appearance-panel { bottom: 52px; max-height: calc(100vh - 76px); padding: 17px; border-radius: 24px; }
   .appearance-panel { max-height: calc(100dvh - 76px); }
 }
@@ -1083,7 +1086,8 @@ button { font: inherit; }
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-.appearance-panel {
+.appearance-panel,
+:root[data-visual='classic'] .music-surface {
   border-color: rgba(255, 255, 255, .09);
   background: #181d24;
   box-shadow: 0 20px 56px rgba(0, 0, 0, .28);
@@ -1814,6 +1818,7 @@ button { font: inherit; }
 /* Navigation and utility controls now use their own material channel. */
 :root[data-visual='modern'][data-nav-material='mica'] .site-header,
 :root[data-visual='modern'][data-nav-material='mica'] .appearance-trigger,
+:root[data-visual='modern'][data-nav-material='mica'] .music-surface,
 :root[data-visual='modern'][data-nav-material='mica'] .appearance-panel {
   border-color: rgba(255, 255, 255, .09);
   background: rgba(23, 27, 33, .42);
@@ -1823,6 +1828,7 @@ button { font: inherit; }
 }
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='mica'] .site-header,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='mica'] .appearance-trigger,
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='mica'] .music-surface,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='mica'] .appearance-panel {
   border-color: rgba(25, 29, 34, .09);
   background: rgba(244, 243, 239, .48);
@@ -1837,6 +1843,7 @@ button { font: inherit; }
 
 :root[data-visual='modern'][data-nav-material='acrylic'] .site-header,
 :root[data-visual='modern'][data-nav-material='acrylic'] .appearance-trigger,
+:root[data-visual='modern'][data-nav-material='acrylic'] .music-surface,
 :root[data-visual='modern'][data-nav-material='acrylic'] .appearance-panel {
   border-color: rgba(255, 255, 255, .12);
   background: rgba(18, 22, 28, .42);
@@ -1846,6 +1853,7 @@ button { font: inherit; }
 }
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='acrylic'] .site-header,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='acrylic'] .appearance-trigger,
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='acrylic'] .music-surface,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='acrylic'] .appearance-panel {
   border-color: rgba(31, 36, 43, .11);
   background: rgba(248, 247, 243, .48);
@@ -1857,6 +1865,7 @@ button { font: inherit; }
 
 :root[data-visual='modern'][data-nav-material='liquid'] .site-header,
 :root[data-visual='modern'][data-nav-material='liquid'] .appearance-trigger,
+:root[data-visual='modern'][data-nav-material='liquid'] .music-surface,
 :root[data-visual='modern'][data-nav-material='liquid'] .appearance-panel {
   border-color: rgba(255, 255, 255, .2);
   background: rgba(22, 27, 34, .24);
@@ -1869,6 +1878,7 @@ button { font: inherit; }
 }
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='liquid'] .site-header,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='liquid'] .appearance-trigger,
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='liquid'] .music-surface,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='liquid'] .appearance-panel {
   border-color: rgba(255, 255, 255, .62);
   background: rgba(255, 255, 255, .25);
@@ -2461,7 +2471,7 @@ fieldset.setting-group > legend.setting-label {
   :root[data-visual='modern'] .article-end { margin-top: 52px; padding-top: 30px; }
   :root[data-visual='modern'] .site-footer { padding: 20px 0 28px; font-size: 9px; }
 
-  .appearance-trigger { min-width: 78px; height: 34px; padding-inline: 11px; font-size: 10px; }
+  .appearance-trigger { min-width: 78px; height: 42px; padding-inline: 11px; font-size: 10px; }
   .appearance-panel { width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 82px); }
   .appearance-panel { max-height: calc(100dvh - 82px); }
   .appearance-panel__scroll { padding: 15px; scroll-padding-block: 15px; }
@@ -2718,6 +2728,7 @@ fieldset.setting-group > legend.setting-label {
 
 :root[data-visual='modern'][data-nav-material] .site-header,
 :root[data-visual='modern'][data-nav-material] .appearance-trigger,
+:root[data-visual='modern'][data-nav-material] .music-surface,
 :root[data-visual='modern'][data-nav-material] .appearance-panel {
   backdrop-filter: blur(var(--nav-blur)) saturate(135%);
   -webkit-backdrop-filter: blur(var(--nav-blur)) saturate(135%);
@@ -2943,8 +2954,8 @@ fieldset.setting-group > legend.setting-label {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 36px;
-    height: 36px;
+    min-height: 42px;
+    height: 42px;
     gap: 7px;
     padding-block: 0;
     line-height: 1;
@@ -2971,7 +2982,8 @@ fieldset.setting-group > legend.setting-label {
 }
 
 /* The retained paper theme follows its own light palette inside the shared panel. */
-:root[data-visual='classic'][data-theme='light'] .appearance-panel {
+:root[data-visual='classic'][data-theme='light'] .appearance-panel,
+:root[data-visual='classic'][data-theme='light'] .music-surface {
   border-color: color-mix(in srgb, var(--ink) 14%, transparent);
   background: color-mix(in srgb, var(--paper) 94%, white);
   color: var(--ink);

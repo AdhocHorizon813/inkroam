@@ -40,7 +40,9 @@ function move(delta: number) {
   paint()
   const range = ranges[current.value]!
   const rect = range.getBoundingClientRect()
-  scrollPageTo(pageScrollTop() + rect.top - Math.max(180, innerHeight * .32), window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth')
+  const panel = root.value?.querySelector<HTMLElement>('.article-tools__panel')
+  const controlsBottom = 78 + (root.value?.offsetHeight || 0) + 10 + (panel?.offsetHeight || 0) + 24
+  scrollPageTo(pageScrollTop() + rect.top - Math.max(controlsBottom, innerHeight * .32), window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth')
   const horizontal = range.startContainer.parentElement?.closest<HTMLElement>('pre, .katex-display, .article-table')
   if (horizontal) horizontal.scrollTo({ left: horizontal.scrollLeft + rect.left - horizontal.getBoundingClientRect().left - 24, behavior: 'auto' })
 }
@@ -54,8 +56,12 @@ async function toggle(next: 'find' | 'export') {
     sections.value = articleSections(props.content)
   }
 }
-function close() { clearTimeout(timer); mode.value = null; clearHighlights(); trigger.value?.focus({ preventScroll: true }) }
+function close() {
+  const activeTrigger = mode.value === 'export' ? exportTrigger.value : trigger.value
+  clearTimeout(timer); mode.value = null; clearHighlights(); activeTrigger?.focus({ preventScroll: true })
+}
 const trigger = ref<HTMLButtonElement | null>(null)
+const exportTrigger = ref<HTMLButtonElement | null>(null)
 const transitions = new Map<Element, () => void>()
 function cancelPanel(element: Element) { transitions.get(element)?.(); transitions.delete(element) }
 function panelMotion(element: Element, done: () => void, entering: boolean) {
@@ -131,10 +137,10 @@ async function exportArticle(format: 'pdf' | 'png') {
 </script>
 
 <template>
-  <div ref="root" class="article-tools" @keydown.esc.stop.prevent="close">
-    <div class="article-tools__actions">
-      <button ref="trigger" type="button" :aria-expanded="mode === 'find'" aria-controls="article-find-panel" @click="toggle('find')">页内查找</button>
-      <button type="button" :aria-expanded="mode === 'export'" aria-controls="article-export-panel" @click="toggle('export')">导出正文</button>
+  <div ref="root" class="article-tools" :class="{ 'article-tools--open': mode !== null }" @keydown.esc.stop.prevent="close">
+    <div class="article-tools__actions" :class="{ 'dropdown-surface': mode !== null }" role="group" aria-label="正文工具">
+      <button ref="trigger" class="article-action" type="button" :aria-expanded="mode === 'find'" aria-controls="article-find-panel" @click="toggle('find')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4 4" /></svg><span>页内查找</span></button>
+      <button ref="exportTrigger" class="article-action" type="button" :aria-expanded="mode === 'export'" aria-controls="article-export-panel" @click="toggle('export')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg><span>导出正文</span></button>
       <CopyArticleLink feedback class="copy-article-link--inline" />
     </div>
     <Transition :css="false" mode="out-in" @enter="enterPanel" @leave="leavePanel" @enter-cancelled="cancelPanel" @leave-cancelled="cancelPanel" @before-leave="beforeLeave" @after-enter="afterEnter">
@@ -167,12 +173,15 @@ async function exportArticle(format: 'pdf' | 'png') {
 
 <style scoped>
 .article-tools { position: relative; z-index: 8; margin: 24px 0; font: 13px/1.6 var(--sans); color: var(--ink); }
-.article-tools__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.article-tools__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; width: fit-content; max-width: 100%; border: 1px solid transparent; border-radius: 12px; }
+/* Keep controls reachable after jumping down a long article, including switching
+   from find to export. Closed tools retain their normal place in the article. */
+.article-tools--open { position: sticky; top: 78px; z-index: 24; }
+.article-tools--open .article-tools__actions { border-color: var(--line); background: var(--paper); }
 button { position: relative; min-height: 36px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; font: inherit; color: inherit; cursor: pointer; }
 button:hover { color: var(--accent); }button:disabled { opacity: .45; cursor: default; }
 button { transition: color 220ms var(--ease-fluid), border-color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
 button:active:not(:disabled) { transform: translateY(1px); }
-.article-tools__actions button[aria-expanded='true'] { color: var(--accent); border-color: currentColor; }
 .article-tools__reveal { position: absolute; top: calc(100% + 10px); left: 0; z-index: 1; width: min(760px, 100%); display: grid; grid-template-rows: 1fr; }
 .article-tools__reveal--export { width: max-content; max-width: 100%; }
 .article-tools__clip { min-width: 0; min-height: 0; overflow: hidden; border-radius: 12px; }
@@ -199,6 +208,14 @@ input { flex: 1 1 210px; font-size: 16px; }select { flex: 1 1 180px; }option { b
 </style>
 
 <style>
+/* Shared by the two local buttons and CopyArticleLink, scoped to this row. */
+.article-tools__actions .article-action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: inherit; white-space: nowrap; text-decoration: none; transition: background-color 220ms var(--ease-fluid), color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
+.article-tools__actions .article-action svg { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.article-tools__actions .article-action[aria-expanded='true'] { color: var(--accent); background: var(--line); }
+.article-tools__actions .article-action:active:not(:disabled) { transform: translateY(1px); }
+@media(hover:hover) and (pointer:fine) { .article-tools__actions .article-action:hover { color: var(--ink); background: var(--line); } }
+@media(max-width:767.98px) { .article-tools__actions .article-action { min-height: 44px; padding-inline: 8px; gap: 5px; } }
+@media(prefers-reduced-motion:reduce) { .article-tools__actions .article-action { transition-duration: .01ms; } }
 ::highlight(inkroam-find) { background: #e9c55a80; color: inherit; }
 ::highlight(inkroam-find-current) { background: #efb44c; color: #1d211c; }
 </style>

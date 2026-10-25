@@ -192,4 +192,5 @@ useHead(() => ({
     <PageScrollbar />
   </div>
   <AppearancePanel />
+  <MusicPlayer />
 </template>
