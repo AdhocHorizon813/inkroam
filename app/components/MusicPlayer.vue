@@ -829,6 +829,7 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 .music-panel.is-expanded .music-transport { order: 3; }
 .music-panel.is-expanded .music-library-actions { order: 4; }
 .music-panel.is-expanded .music-tracks { order: 5; }
+.music-panel.is-expanded .music-volume { order: 6; }
 .music-panel.is-expanded .music-transport { margin-top: 0; gap: 22px; }
 .music-panel.is-expanded .music-play { width: 60px; height: 60px; }
 .music-panel.is-expanded .music-tracks { max-height: 42dvh; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
