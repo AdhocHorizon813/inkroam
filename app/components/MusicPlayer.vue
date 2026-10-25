@@ -129,6 +129,7 @@ watch([open, () => current.value.id, () => tracks.value.length], () => {
   void refreshCover()
   // Read local lengths while the panel is open; every track is guarded by its own
   // duration, so a probe runs at most once per file per session.
+  void hydrateLocalTags()
   for (const track of tracks.value) void probeDuration(track)
 })
 // Content changes (track switch, management actions, status line) alter the natural
@@ -256,8 +257,86 @@ async function applyTags(track: Track, file: File) {
     if (tags.duration) target.duration = tags.duration
     const credit = [tags.artist, tags.album].filter(Boolean).join(' · ')
     if (credit) target.english = credit
+    // Persist what was parsed so a reload does not fall back to the filename.
+    try {
+      const { updateLocalMusic } = await import('~/utils/local-music')
+      const patch: Parameters<typeof updateLocalMusic>[1] = {}
+      if (tags.title) patch.title = tags.title
+      if (tags.artist) patch.artist = tags.artist
+      if (tags.album) patch.album = tags.album
+      if (tags.duration) patch.duration = tags.duration
+      if (Object.keys(patch).length) await updateLocalMusic(track.id, patch)
+    } catch { /* In-memory tags still apply for this session. */ }
+    // Embedded artwork goes through the same resize/store pipeline as a chosen cover.
+    if (tags.cover) {
+      try {
+        const prepared = await prepareMusicCover(new File([tags.cover], 'cover', { type: tags.cover.type || 'image/jpeg' }))
+        await saveMusicCover(track.id, prepared)
+        if (!disposed && current.value.id === track.id) await refreshCover()
+      } catch { /* Keep the built-in artwork when the picture cannot be stored. */ }
+    }
     if (current.value.id === target.id && tags.duration) { actualDuration.value = tags.duration; syncTime() }
   } catch { /* Keep the filename-derived title when tags are unreadable. */ }
+}
+// Management mode only: dragging a row calls the same moveTrack path the arrow
+// buttons use, so ordering, selection and persistence stay in one place.
+const dragIndex = ref(-1), dropIndex = ref(-1)
+function dragStart(position: number, event: DragEvent) {
+  if (!managing.value) return
+  dragIndex.value = position; dropIndex.value = position
+  event.dataTransfer?.setData('text/plain', String(position))
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+}
+function dragOver(position: number) {
+  if (!managing.value || dragIndex.value < 0) return
+  if (dropIndex.value !== position) dropIndex.value = position
+}
+function dropAt(position: number) {
+  const from = dragIndex.value
+  dragIndex.value = -1; dropIndex.value = -1
+  if (!managing.value || from < 0 || from === position) return
+  moveTrack(from, position - from)
+}
+function dragEnd() { dragIndex.value = -1; dropIndex.value = -1 }
+// Persisted tags are hydrated once per session: the library merge only knows the file
+// name, so stored title/artist/album/duration are applied to matching rows here.
+let tagsHydrated = false
+async function hydrateLocalTags() {
+  if (tagsHydrated) return
+  tagsHydrated = true
+  try {
+    const { listLocalMusic } = await import('~/utils/local-music')
+    for (const local of await listLocalMusic()) {
+      const target = tracks.value.find(item => item.id === local.id)
+      if (!target) continue
+      if (local.title) target.title = local.title
+      if (local.duration) target.duration = local.duration
+      const credit = [local.artist, local.album].filter(Boolean).join(' · ')
+      if (credit) target.english = credit
+      if (current.value.id === target.id && local.duration) { actualDuration.value = local.duration; syncTime() }
+    }
+  } catch { /* Storage may be blocked; rows keep their imported titles. */ }
+}
+// Pointer drag works on touch: the grip captures the pointer, rows are hit-tested by
+// their boxes, and releasing applies the same moveTrack(from, delta) path as desktop DnD.
+function gripDown(position: number, event: PointerEvent) {
+  if (!managing.value || event.button !== 0) return
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+  dragIndex.value = position; dropIndex.value = position
+}
+function gripMove(event: PointerEvent) {
+  if (dragIndex.value < 0) return
+  const rows = (event.currentTarget as HTMLElement).closest('ol')?.children
+  if (!rows) return
+  for (let index = 0; index < rows.length; index += 1) {
+    const box = (rows[index] as HTMLElement).getBoundingClientRect()
+    if (event.clientY >= box.top && event.clientY <= box.bottom) { dropIndex.value = index; return }
+  }
+}
+function gripUp() {
+  const from = dragIndex.value, to = dropIndex.value
+  dragIndex.value = -1; dropIndex.value = -1
+  if (from >= 0 && to >= 0 && from !== to) moveTrack(from, to - from)
 }
 function chooseCover() { coverTarget = current.value.id; coverInput.value?.click() }
 async function importCover(event: Event) {
@@ -617,7 +696,8 @@ function onPlaying() {
             <input ref="fileInput" class="music-file" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm" multiple aria-label="导入本地音乐" @change="importFiles">
             <input ref="coverInput" class="music-file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="选择当前歌曲封面" @change="importCover">
             <ol id="music-track-list" class="music-tracks" aria-label="曲目列表">
-              <li v-for="(track, position) in tracks" :key="track.id">
+              <li v-for="(track, position) in tracks" :key="track.id" :draggable="managing" :class="{ 'is-dragging': dragIndex === position, 'is-drop-target': dropIndex === position && dragIndex >= 0 && dragIndex !== position }" @dragstart="dragStart(position, $event)" @dragover.prevent="dragOver(position)" @drop.prevent="dropAt(position)" @dragend="dragEnd">
+                <span v-if="managing" class="music-grip" aria-hidden="true" @pointerdown.prevent="gripDown(position, $event)" @pointermove="gripMove($event)" @pointerup="gripUp" @pointercancel="gripUp">⠿</span>
                 <button class="music-track" type="button" :aria-current="position === index ? 'true' : undefined" @click="selectTrack(position)"><span class="music-number">{{ String(position + 1).padStart(2,'0') }}</span><span class="music-track-title">{{ track.title }}</span><span class="music-duration">{{ track.duration ? musicTime(track.duration) : '本地' }}</span></button>
                 <div v-if="managing" class="music-track-actions">
                   <button type="button" :disabled="position === 0 || importing" :aria-label="`上移 ${track.title}`" @click="moveTrack(position, -1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6" /></svg></button>
@@ -705,7 +785,14 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 .music-range::-moz-range-progress { height: 3px; border-radius: 99px; background: var(--accent); }
 .music-range::-moz-range-thumb { width: 11px; height: 11px; border: 0; border-radius: 50%; background: var(--ink); }
 .music-range:disabled { opacity: .4; cursor: default; }.music-times { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-.music-tracks { padding: 0; margin: 0 0 18px; list-style: none; border-top: 1px solid var(--line); }.music-tracks li { border-bottom: 1px solid var(--line); }.music-track { width: 100%; justify-content: flex-start; padding: 10px 0; text-align: left; }.music-number { flex: 0 0 24px; color: var(--muted); font-size: 10px; }.music-track-title { min-width: 0; overflow-wrap: anywhere; }.music-duration { margin-left: auto; flex: none; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.music-tracks { padding: 0; margin: 0 0 18px; list-style: none; border-top: 1px solid var(--line); }
+.music-tracks li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 4px; border-bottom: 1px solid var(--line); }
+.music-tracks li > .music-track { grid-column: 2; }
+.music-tracks li > .music-track-actions { grid-column: 1 / -1; }
+.music-grip { grid-column: 1; grid-row: 1; display: inline-flex; align-items: center; justify-content: center; min-width: 26px; min-height: 44px; color: var(--muted); font-size: 13px; line-height: 1; cursor: grab; touch-action: none; user-select: none; }
+.music-tracks li[draggable='true'] { cursor: grab; }
+.music-tracks li.is-dragging { opacity: .45; }
+.music-tracks li.is-drop-target { box-shadow: inset 0 2px 0 var(--accent); }.music-track { width: 100%; justify-content: flex-start; padding: 10px 0; text-align: left; }.music-number { flex: 0 0 24px; color: var(--muted); font-size: 10px; }.music-track-title { min-width: 0; overflow-wrap: anywhere; }.music-duration { margin-left: auto; flex: none; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); }
 .music-library-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin: 18px 0 4px; color: var(--muted); font-size: 11px; }
 .music-library-label { display: inline-flex; align-items: baseline; gap: 7px; white-space: nowrap; }
 .music-library-label > span { font-size: 10px; font-variant-numeric: tabular-nums; }

@@ -4,6 +4,10 @@ export interface LocalMusicTrack {
   filename: string
   size: number
   added: number
+  // Parsed from the file once, on import. Optional so older records stay valid.
+  duration?: number
+  artist?: string
+  album?: string
 }
 
 // Metadata and audio bytes live separately: listing the library never reads
@@ -74,6 +78,15 @@ export const saveMusicCover = (id: string, file: Blob | null) => change(tx => {
   if (file) tx.objectStore('covers').put(file, id)
   else tx.objectStore('covers').delete(id)
 })
+
+/** Merge parsed tags into one record; storage failures stay non-fatal. */
+export async function updateLocalMusic(id: string, patch: Partial<Omit<LocalMusicTrack, 'id'>>) {
+  try {
+    const current = await read<LocalMusicTrack | undefined>('tracks', id)
+    if (!current) return
+    await change(tx => { tx.objectStore('tracks').put({ ...current, ...patch, id }) })
+  } catch { /* Tags remain session-scoped when the write is rejected. */ }
+}
 
 /** Decode only the explicitly chosen image and store a bounded thumbnail. */
 export async function prepareMusicCover(file: File): Promise<Blob> {
