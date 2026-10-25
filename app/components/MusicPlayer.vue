@@ -242,6 +242,23 @@ async function probeDuration(track: Track) {
   } catch { /* An undecodable file keeps the percentage fallback. */ }
   finally { probing.delete(track.id); if (url) URL.revokeObjectURL(url) }
 }
+// Embedded tags (title/artist/album/length) are read once per imported file. The
+// parser is loaded on demand inside readMusicTags, so the page pays nothing until an
+// import actually happens; an unreadable file keeps its filename-derived title.
+async function applyTags(track: Track, file: File) {
+  try {
+    const { readMusicTags } = await import('~/utils/music-tags')
+    const tags = await readMusicTags(file)
+    if (disposed) return
+    const target = tracks.value.find(item => item.id === track.id)
+    if (!target) return
+    if (tags.title) target.title = tags.title
+    if (tags.duration) target.duration = tags.duration
+    const credit = [tags.artist, tags.album].filter(Boolean).join(' · ')
+    if (credit) target.english = credit
+    if (current.value.id === target.id && tags.duration) { actualDuration.value = tags.duration; syncTime() }
+  } catch { /* Keep the filename-derived title when tags are unreadable. */ }
+}
 function chooseCover() { coverTarget = current.value.id; coverInput.value?.click() }
 async function importCover(event: Event) {
   const field = event.target as HTMLInputElement, file = field.files?.[0], id = coverTarget
@@ -392,6 +409,7 @@ async function importFiles(event: Event) {
       const track = await addLocalMusic(file)
       if (disposed) break
       tracks.value.push({ id: track.id, title: track.title, english: '', mood: '本地音乐', duration: 0, local: true })
+  void applyTags({ id: track.id, title: track.title, english: '', mood: '本地音乐', duration: 0, local: true }, file)
       saveOrder()
     }
     if (rejected) message.value = `${rejected} 个空文件或不支持的文件未导入。`
