@@ -809,7 +809,7 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 /* .music-surface uses the independent music material/blur channel in main.css. */
 .music-dock.is-expanded, .music-dock.is-morphing { z-index: 200; }
 .music-panel.is-open.is-morphing { transition: none; }
-.music-repeat.is-active { color: var(--accent); }
+.music-repeat.is-active { color: inherit; }
 .music-dock.is-expanded .music-pill { visibility: hidden; }
 .music-panel.is-expanded { position: fixed; inset: 0; width: 100%; height: auto; max-height: none; border: 0; border-radius: 0; clip-path: none; transform: none; }
 /* The material top highlight and drop shadow are removed in main.css (root-level
