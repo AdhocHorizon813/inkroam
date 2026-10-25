@@ -745,7 +745,8 @@ button { font: inherit; }
   :root[data-visual='modern'] .story-row:hover { padding-left: 16px; }
   :root[data-visual='modern'] .manifesto { margin: 12px 0; border-radius: 28px; }
   .appearance-dock { right: 12px; bottom: 12px; }
-  .appearance-trigger { min-height: 46px; }
+  /* Match MusicPlayer's mobile label without shrinking the touch target. */
+  .appearance-trigger { min-height: 46px; font: 13px/1.6 var(--sans); }
   .appearance-panel { bottom: 52px; max-height: calc(100vh - 76px); padding: 17px; border-radius: 24px; }
   .appearance-panel { max-height: calc(100dvh - 76px); }
 }
@@ -1818,7 +1819,7 @@ button { font: inherit; }
 /* Navigation and utility controls now use their own material channel. */
 :root[data-visual='modern'][data-nav-material='mica'] .site-header,
 :root[data-visual='modern'][data-nav-material='mica'] .appearance-trigger,
-:root[data-visual='modern'][data-nav-material='mica'] .music-surface,
+:root[data-visual='modern'][data-music-material='mica'] .music-surface,
 :root[data-visual='modern'][data-nav-material='mica'] .appearance-panel {
   border-color: rgba(255, 255, 255, .09);
   background: rgba(23, 27, 33, .42);
@@ -1828,7 +1829,7 @@ button { font: inherit; }
 }
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='mica'] .site-header,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='mica'] .appearance-trigger,
-:root[data-visual='modern'][data-color-mode='light'][data-nav-material='mica'] .music-surface,
+:root[data-visual='modern'][data-color-mode='light'][data-music-material='mica'] .music-surface,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='mica'] .appearance-panel {
   border-color: rgba(25, 29, 34, .09);
   background: rgba(244, 243, 239, .48);
@@ -1843,7 +1844,7 @@ button { font: inherit; }
 
 :root[data-visual='modern'][data-nav-material='acrylic'] .site-header,
 :root[data-visual='modern'][data-nav-material='acrylic'] .appearance-trigger,
-:root[data-visual='modern'][data-nav-material='acrylic'] .music-surface,
+:root[data-visual='modern'][data-music-material='acrylic'] .music-surface,
 :root[data-visual='modern'][data-nav-material='acrylic'] .appearance-panel {
   border-color: rgba(255, 255, 255, .12);
   background: rgba(18, 22, 28, .42);
@@ -1853,7 +1854,7 @@ button { font: inherit; }
 }
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='acrylic'] .site-header,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='acrylic'] .appearance-trigger,
-:root[data-visual='modern'][data-color-mode='light'][data-nav-material='acrylic'] .music-surface,
+:root[data-visual='modern'][data-color-mode='light'][data-music-material='acrylic'] .music-surface,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='acrylic'] .appearance-panel {
   border-color: rgba(31, 36, 43, .11);
   background: rgba(248, 247, 243, .48);
@@ -1865,7 +1866,7 @@ button { font: inherit; }
 
 :root[data-visual='modern'][data-nav-material='liquid'] .site-header,
 :root[data-visual='modern'][data-nav-material='liquid'] .appearance-trigger,
-:root[data-visual='modern'][data-nav-material='liquid'] .music-surface,
+:root[data-visual='modern'][data-music-material='liquid'] .music-surface,
 :root[data-visual='modern'][data-nav-material='liquid'] .appearance-panel {
   border-color: rgba(255, 255, 255, .2);
   background: rgba(22, 27, 34, .24);
@@ -1878,7 +1879,7 @@ button { font: inherit; }
 }
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='liquid'] .site-header,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='liquid'] .appearance-trigger,
-:root[data-visual='modern'][data-color-mode='light'][data-nav-material='liquid'] .music-surface,
+:root[data-visual='modern'][data-color-mode='light'][data-music-material='liquid'] .music-surface,
 :root[data-visual='modern'][data-color-mode='light'][data-nav-material='liquid'] .appearance-panel {
   border-color: rgba(255, 255, 255, .62);
   background: rgba(255, 255, 255, .25);
@@ -2716,6 +2717,7 @@ fieldset.setting-group > legend.setting-label {
    跟用户实际用的是哪一套无关；写成浅色那套会让深色首帧先跳一次模糊。 */
 :root {
   --nav-blur: 12px;
+  --music-blur: 12px;
   --content-blur: 10px;
   /* 下拉框/浮层自己的模糊：它既不是顶栏材质（导航模糊），也不是页面面层
      （内容模糊是面层的模糊，浮层就嵌在面层里，跟着它调等于没调）。 */
@@ -2728,10 +2730,15 @@ fieldset.setting-group > legend.setting-label {
 
 :root[data-visual='modern'][data-nav-material] .site-header,
 :root[data-visual='modern'][data-nav-material] .appearance-trigger,
-:root[data-visual='modern'][data-nav-material] .music-surface,
 :root[data-visual='modern'][data-nav-material] .appearance-panel {
   backdrop-filter: blur(var(--nav-blur)) saturate(135%);
   -webkit-backdrop-filter: blur(var(--nav-blur)) saturate(135%);
+}
+
+/* Same material recipes, independent music blur for the dock and both player sizes. */
+:root[data-visual='modern'][data-music-material] .music-surface {
+  backdrop-filter: blur(var(--music-blur)) saturate(135%);
+  -webkit-backdrop-filter: blur(var(--music-blur)) saturate(135%);
 }
 
 :root[data-visual='modern'][data-material] .hero,
@@ -3624,6 +3631,13 @@ fieldset.setting-group > legend.setting-label {
    its "纸上漫游首页" label — which is what the modern theme already does on phones. */
 @media (max-width: 400px) {
   .brand > span:last-child { display: none; }
+}
+
+/* Fullscreen music: the material recipes paint a 1px top highlight and a drop shadow,
+   so a viewport-filling surface still looked like a window. Remove both when expanded. */
+:root[data-visual][data-music-material] .music-surface.music-panel.is-expanded {
+  box-shadow: none;
+  border-color: transparent;
 }
 
 /* Selected article tool: ArticleTools paints one sliding block with --line, which

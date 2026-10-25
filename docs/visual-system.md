@@ -27,6 +27,7 @@
 | `data-theme` | `dark` / `light` | 与 `data-color-mode` 同步，供 classic 变量使用 |
 | `data-material` | `liquid` / `acrylic` / `mica` | 内容卡片的材质 |
 | `data-nav-material` | 同上 | 顶栏材质（可与内容材质不同） |
+| `data-music-material` | 同上 | 音乐入口、小面板与全屏音乐的独立材质，不随导航设置联动 |
 | `data-dropdown-material` | 同上 | 筛选菜单与日历的独立材质，默认随明暗（浅色液态玻璃 / 深色云母） |
 | `data-background-material` | 同上 | 背景材质 |
 | `data-background` | `flat` / `theme` / `aurora` / `art` / `dusk` / `custom` | 背景氛围（面板里的「跟随」由 JS 解析成具体值后再写入） |
@@ -37,6 +38,8 @@
 `color-scheme` 只跟 `data-color-mode` 走，不跟 `data-visual` 走，避免现代幻境浅色模式被强制使用深色原生控件。高级搜索日期已使用站内日历与 `currentColor` SVG，不再依赖浏览器日期图标或原生日历弹层；现代模式复用下拉浮层材质及 `--dropdown-blur`，纸媒模式保持不透明纸面。见 [ui-components.md](ui-components.md)。
 
 ## 颜色
+
+音乐播放器另使用 `--music-blur`（0–48px）。音乐材质/模糊由显示面板独立控制：默认浅色液态玻璃/14px、深色云母/12px，受默认设置开关管理。旧手动偏好只在首次迁移时复制导航值，之后分别保存；材料配方保持一致，控制通道分离。
 
 ### classic
 

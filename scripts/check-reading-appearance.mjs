@@ -302,13 +302,13 @@ assert(template.indexOf('视觉风格') < template.indexOf('默认设置'), 'The
 assert(template.indexOf('默认设置') < template.indexOf('外观模式'), 'The switch sits above the appearance mode')
 assert.equal(
   [...template.matchAll(/<fieldset class="setting-group" :disabled="managedDisabled">/g)].length,
-  6,
-  'Five material groups and the canvas follow the switch',
+  7,
+  'Six material groups and the canvas follow the switch',
 )
 assert.equal(
   [...template.matchAll(/<div class="setting-group" :aria-disabled="managedDisabled">/g)].length,
-  7,
-  'The six sliders and the overlay follow the switch',
+  8,
+  'The seven sliders and the overlay follow the switch',
 )
 /* 「图表尺寸」是视觉上复用同一套滑条、但语义上独立的阅读项：它管的是图在正文里的显示比例，
    材质与模糊跟它没关系，所以既不挂 managedDisabled，也不进上面那两句计数。 */

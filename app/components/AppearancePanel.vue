@@ -15,12 +15,13 @@ type PdfFallbackMode = 'card' | 'reader'
 interface AppearanceState {
   visual: VisualMode
   colorMode: ColorMode
-  /* 「默认设置」开关：受管项（四组材质、四条模糊、遮罩透明度、背景氛围、图表尺寸）是否跟随明暗自动取值。 */
+  /* 「默认设置」开关：受管材质/模糊（含音乐）、遮罩、背景与图表尺寸是否跟随明暗自动取值。 */
   defaultSettings: boolean
   backgroundTint: boolean
   depth: 'off' | 'soft' | 'defined'
   depthTiming: 'delayed' | 'sync'
   navMaterial: MaterialMode
+  musicMaterial: MaterialMode
   contentMaterial: MaterialMode
   codeMaterial: MaterialMode
   dropdownMaterial: MaterialMode
@@ -29,6 +30,7 @@ interface AppearanceState {
   /* 用户是否显式点过背景氛围。老存储没有这个字段，因此「没选过」是可判定的。 */
   backgroundPicked?: boolean
   navBlur: number
+  musicBlur: number
   contentBlur: number
   codeBlur: number
   dropdownBlur: number
@@ -51,12 +53,14 @@ interface AppearanceState {
    两套都保留 40% 遮罩，图（mermaid）的显示比例两套都是 75%。 */
 type AppearanceDefaults = Pick<
   AppearanceState,
-  'navMaterial' | 'contentMaterial' | 'codeMaterial' | 'dropdownMaterial' | 'backgroundMaterial'
-  | 'navBlur' | 'contentBlur' | 'codeBlur' | 'dropdownBlur' | 'backgroundBlur' | 'backgroundOverlay'
+  'navMaterial' | 'musicMaterial' | 'contentMaterial' | 'codeMaterial' | 'dropdownMaterial' | 'backgroundMaterial'
+  | 'navBlur' | 'musicBlur' | 'contentBlur' | 'codeBlur' | 'dropdownBlur' | 'backgroundBlur' | 'backgroundOverlay'
   | 'diagramScale'
 >
 
 const LIGHT_DEFAULTS: AppearanceDefaults = {
+  musicMaterial: 'liquid',
+  musicBlur: 14,
   codeMaterial: 'liquid',
   codeBlur: 5,
   navMaterial: 'liquid',
@@ -74,6 +78,8 @@ const LIGHT_DEFAULTS: AppearanceDefaults = {
 /* v5 时代的出厂值（云母 + 12 / 10 / 12 / 4、遮罩 40%）：它是 state 的初值，也是老访客缺键时的兜底。
    老访客「从没设置过」的项因此保持改动前的观感，新默认不会被偷偷塞给他。 */
 const LEGACY_DEFAULTS: AppearanceDefaults = {
+  musicMaterial: 'mica',
+  musicBlur: 12,
   codeMaterial: 'mica',
   codeBlur: 10,
   navMaterial: 'mica',
@@ -91,6 +97,8 @@ const LEGACY_DEFAULTS: AppearanceDefaults = {
 
 /* 深色那一套沿用 v5 的值（所以与 LEGACY_DEFAULTS 同值）：只有浅色是新定的那套。 */
 const DARK_DEFAULTS: AppearanceDefaults = {
+  musicMaterial: 'mica',
+  musicBlur: 12,
   codeMaterial: 'mica',
   codeBlur: 10,
   navMaterial: 'mica',
@@ -206,6 +214,9 @@ function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppea
   if (stored) {
     // Old visitors retain legacy defaults for missing keys; only explicit true opts in.
     Object.assign(normalized, stored)
+    // The old player borrowed nav settings. Copy them once, then keep channels independent.
+    if (stored.musicMaterial === undefined) normalized.musicMaterial = normalized.navMaterial
+    if (stored.musicBlur === undefined) normalized.musicBlur = normalized.navBlur
     normalized.defaultSettings = stored.defaultSettings === true
   } else {
     normalized.defaultSettings = true
@@ -219,6 +230,9 @@ function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppea
   if (typeof normalized.backgroundTint !== 'boolean') normalized.backgroundTint = true
   if (!['off', 'soft', 'defined'].includes(normalized.depth)) normalized.depth = 'off'
   if (!['delayed', 'sync'].includes(normalized.depthTiming)) normalized.depthTiming = 'sync'
+  if (!['liquid', 'acrylic', 'mica'].includes(normalized.musicMaterial)) normalized.musicMaterial = LEGACY_DEFAULTS.musicMaterial
+  if (!Number.isFinite(normalized.musicBlur)) normalized.musicBlur = LEGACY_DEFAULTS.musicBlur
+  normalized.musicBlur = Math.max(0, Math.min(48, normalized.musicBlur))
   if (!['liquid', 'acrylic', 'mica'].includes(normalized.codeMaterial)) normalized.codeMaterial = LEGACY_DEFAULTS.codeMaterial
   if (!Number.isFinite(normalized.codeBlur)) normalized.codeBlur = LEGACY_DEFAULTS.codeBlur
   normalized.codeBlur = Math.max(0, Math.min(48, normalized.codeBlur))
@@ -244,7 +258,7 @@ function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppea
   return normalized
 }
 
-/* 受管项 = 四组材质 + 四条模糊 + 遮罩透明度 + 背景氛围 + 图表尺寸：跟随明暗、由「默认设置」开关统一管。
+/* 受管项 = 六组材质/模糊 + 遮罩透明度 + 背景氛围 + 图表尺寸：跟随明暗、由「默认设置」开关统一管。
    启用时把它们收回到厂值（画布同时回到「跟随」），禁用时一律不碰。 */
 function commitManagedDefaults() {
   Object.assign(state, appearanceDefaults(resolvedMode.value))
@@ -293,7 +307,7 @@ watch(() => state.colorMode, () => {
   if (state.defaultSettings) commitManagedDefaults()
 })
 
-const DISCRETE_FIELDS = ['visual', 'colorMode', 'defaultSettings', 'backgroundTint', 'depth', 'navMaterial', 'contentMaterial', 'codeMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
+const DISCRETE_FIELDS = ['visual', 'colorMode', 'defaultSettings', 'backgroundTint', 'depth', 'navMaterial', 'musicMaterial', 'contentMaterial', 'codeMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
 
 watch(state, (_state, from) => {
   /* 背景氛围比的是解析后的画布：follow 状态下切明暗会换图，而点当前已生效的那一项不该触发空转场。 */
@@ -358,6 +372,7 @@ function applyAppearance() {
   root.dataset.colorMode = mode
   root.dataset.theme = mode
   root.dataset.navMaterial = state.navMaterial
+  root.dataset.musicMaterial = state.musicMaterial
   root.dataset.material = state.contentMaterial
   root.dataset.codeMaterial = state.codeMaterial
   root.dataset.dropdownMaterial = state.dropdownMaterial
@@ -365,6 +380,7 @@ function applyAppearance() {
   /* 写解析后的画布：CSS 只认 flat / theme / aurora / art / dusk / custom。 */
   root.dataset.background = resolvedBackground.value
   root.style.setProperty('--nav-blur', `${state.navBlur}px`)
+  root.style.setProperty('--music-blur', `${state.musicBlur}px`)
   root.style.setProperty('--content-blur', `${state.contentBlur}px`)
   root.style.setProperty('--code-blur', `${state.codeBlur}px`)
   root.style.setProperty('--dropdown-blur', `${state.dropdownBlur}px`)
@@ -672,6 +688,19 @@ function resetAppearance() {
             :style="{ '--range-progress': `${state.navBlur / 48 * 100}%` }"
             :disabled="managedDisabled"
           >
+          <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
+        </div>
+
+        <fieldset class="setting-group" :disabled="managedDisabled">
+          <legend class="setting-label">音乐材质</legend>
+          <div class="segmented-control" :style="segmentStyle(state.musicMaterial === 'liquid' ? 0 : state.musicMaterial === 'acrylic' ? 1 : 2)">
+            <button v-for="material in (['liquid', 'acrylic', 'mica'] as const)" :key="material" type="button" :aria-pressed="state.musicMaterial === material" :class="{ active: state.musicMaterial === material }" @click="state.musicMaterial = material">{{ { liquid: '液态玻璃', acrylic: '亚克力', mica: '云母' }[material] }}</button>
+          </div>
+        </fieldset>
+
+        <div class="setting-group" :aria-disabled="managedDisabled">
+          <div class="range-heading"><label class="setting-label" for="music-blur">音乐模糊</label><output for="music-blur">{{ state.musicBlur }} px</output></div>
+          <input id="music-blur" v-model.number="state.musicBlur" type="range" min="0" max="48" step="1" :style="{ '--range-progress': `${state.musicBlur / 48 * 100}%` }" :disabled="managedDisabled">
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import MusicArtwork from '~/components/MusicArtwork.vue'
 import { musicTracks, musicTime, musicPreferences, loadMusicForPlay, MUSIC_STORAGE_KEY } from '~/utils/music'
-import { listLocalMusic, localMusicFile, addLocalMusic, deleteLocalMusic } from '~/utils/local-music'
+import { listLocalMusic, localMusicFile, addLocalMusic, deleteLocalMusic, localMusicCover, saveMusicCover, prepareMusicCover } from '~/utils/local-music'
 type Track = { id: string; title: string; english: string; mood: string; duration: number; local?: boolean }
 const tracks = ref<Track[]>(musicTracks.map(track => ({ ...track })))
 const managing = ref(false), importing = ref(false), libraryReady = ref(false)
@@ -11,27 +12,61 @@ const config = useRuntimeConfig()
 const audio = ref<HTMLAudioElement | null>(null)
 const trigger = ref<HTMLButtonElement | null>(null)
 const open = ref(false), playing = ref(false), loading = ref(false)
-const hasOpened = ref(false), pendingSeek = ref<number | null>(null)
+const pendingSeek = ref<number | null>(null)
 const hasPlayed = ref(false)
+// Continuity is an intent, not evidence that the first play request succeeded.
+const continuing = ref(false)
+const showPause = computed(() => playing.value || continuing.value)
+const expanded = ref(false)
+const morphing = ref(false)
+let morphSequence = 0
+let morphAnimations: Animation[] = []
+const viewScroll = { compact: 0, expanded: 0 }
+const panel = ref<HTMLElement | null>(null), body = ref<HTMLElement | null>(null)
+const fullscreenButton = ref<HTMLButtonElement | null>(null)
+const panelHeight = ref<number | null>(null)
+// True while the panel height is tweened: the scroller freezes so a transient
+// overflow cannot flash a scrollbar, steal width, reflow the text and re-measure.
+const resizing = ref(false)
+let bodyObserver: ResizeObserver | undefined
+let heightAnimation: Animation | undefined
+let heightTarget = 0
+const progressInput = ref<HTMLInputElement | null>(null)
+const progressVisual = ref<HTMLElement | null>(null)
+let progressFrame = 0, scrubbing = false
+const coverInput = ref<HTMLInputElement | null>(null), coverSrc = ref(''), coverBusy = ref(false)
+let coverRequest = 0, coverTarget = ''
+let restoreModal: (() => void) | undefined
 const labelMeasure = ref<HTMLElement | null>(null), labelWidth = ref(26)
 let labelObserver: ResizeObserver | undefined
 const index = ref(0), volume = ref(.35), repeat = ref(false)
+const shuffle = ref(false)
+const playHistory: string[] = []
+const playbackModeLabel = computed(() => repeat.value ? '单曲循环' : shuffle.value ? '随机播放' : '顺序播放')
 const elapsed = ref(0), actualDuration = ref(0), loaded = ref(false)
 const message = ref('')
 const current = computed<Track>(() => tracks.value[index.value] || { id: '', title: '选择一首音乐', english: '', mood: '', duration: 0 })
 const dockTitle = computed(() => hasPlayed.value && current.value.id ? current.value.title : '音乐')
 const knownDuration = computed(() => actualDuration.value || current.value.duration)
 const duration = computed(() => knownDuration.value || 100)
-const progress = computed(() => `${Math.min(100, Math.max(0, elapsed.value / duration.value * 100))}%`)
+// Progress is a 0..1 fraction: the rail scales and translates with it (subpixel),
+// while the transparent native range only carries pointer, keyboard, focus and aria.
+function progressFraction(time: number) {
+  const total = duration.value
+  if (!Number.isFinite(total) || total <= 0) return Math.min(1, Math.max(0, time / 100))
+  return Math.min(1, Math.max(0, time / total))
+}
+const progressRatio = computed(() => progressFraction(elapsed.value))
 let request = 0, disposed = false
 
 function save() {
-  try { localStorage.setItem(MUSIC_STORAGE_KEY, JSON.stringify({ track: current.value.id, volume: volume.value, repeat: repeat.value })) } catch { /* Playback remains usable. */ }
+  try { localStorage.setItem(MUSIC_STORAGE_KEY, JSON.stringify({ track: current.value.id, volume: volume.value, repeat: repeat.value, shuffle: shuffle.value })) } catch { /* Playback remains usable. */ }
 }
 onMounted(() => {
   try {
     const saved = musicPreferences(localStorage.getItem(MUSIC_STORAGE_KEY))
     index.value = saved.index; volume.value = saved.volume; repeat.value = saved.repeat
+    shuffle.value = saved.shuffle
   } catch { /* Storage can be blocked. */ }
   if (audio.value) audio.value.volume = volume.value
   if (labelMeasure.value) {
@@ -42,18 +77,288 @@ onMounted(() => {
   }
   document.addEventListener('pointerdown', outside)
   document.addEventListener('keydown', keydown)
+  document.addEventListener('visibilitychange', scheduleProgress)
+  document.addEventListener('pointerup', finishScrub)
+  document.addEventListener('pointercancel', finishScrub)
+  window.addEventListener('resize', resizePanel)
+  if (body.value) {
+    bodyObserver = new ResizeObserver(resizePanel)
+    bodyObserver.observe(body.value)
+  }
   void restoreLibrary()
 })
 onBeforeUnmount(() => {
   disposed = true; request++
+  morphSequence++
+  morphAnimations.forEach(animation => animation.cancel())
   audio.value?.pause()
   audio.value?.removeAttribute('src')
   labelObserver?.disconnect()
+  bodyObserver?.disconnect()
+  heightAnimation?.cancel()
+  cancelAnimationFrame(progressFrame)
+  coverRequest++
+  if (coverSrc.value) URL.revokeObjectURL(coverSrc.value)
+  restoreModal?.()
   if (objectUrl) URL.revokeObjectURL(objectUrl)
   document.removeEventListener('pointerdown', outside)
   document.removeEventListener('keydown', keydown)
+  document.removeEventListener('visibilitychange', scheduleProgress)
+  document.removeEventListener('pointerup', finishScrub)
+  document.removeEventListener('pointercancel', finishScrub)
+  window.removeEventListener('resize', resizePanel)
 })
 const dock = ref<HTMLElement | null>(null)
+watch([open, playing], scheduleProgress)
+watch([elapsed, duration], () => {
+  if (!playing.value || scrubbing || !progressFrame) paintProgress(elapsed.value)
+}, { flush: 'post' })
+// Opening must not reuse the height measured for the previous state of the library:
+// measure once and place it before the first paint, with no tween.
+watch(open, async value => {
+  if (!value) return
+  await nextTick()
+  if (disposed || expanded.value || !panel.value || !body.value) return
+  const target = quantizeHeight(compactHeight())
+  heightTarget = target
+  panelHeight.value = target
+  resizing.value = false
+})
+watch([open, () => current.value.id, () => tracks.value.length], () => {
+  if (!open.value) return
+  void refreshCover()
+  // Read local lengths while the panel is open; every track is guarded by its own
+  // duration, so a probe runs at most once per file per session.
+  for (const track of tracks.value) void probeDuration(track)
+})
+// Content changes (track switch, management actions, status line) alter the natural
+// height. Post-flush watchers run after the DOM update but before paint, so the panel
+// resizes in the same frame; waiting for ResizeObserver would paint one overflowing
+// frame first (scrollbar appears, steals width, text reflows, scrollbar disappears).
+watch([() => current.value.id, managing, () => tracks.length, message], () => resizePanel(), { flush: 'post' })
+
+// Only the range's visual position is sampled per frame. Vue text/list rendering
+// stays on timeupdate, and hidden/closed/paused players have no animation loop.
+function paintProgress(time: number) {
+  const bounded = Math.min(duration.value, Math.max(0, time))
+  // Native range thumbs can snap to whole pixels even with fractional values.
+  // The transparent native input retains pointer/keyboard semantics; this rail
+  // draws a subpixel thumb with transforms, not a stepped left/value position.
+  progressVisual.value?.style.setProperty('--music-progress', String(progressFraction(bounded)))
+  if (progressInput.value && !scrubbing) progressInput.value.value = String(bounded)
+}
+function scheduleProgress() {
+  cancelAnimationFrame(progressFrame)
+  progressFrame = 0
+  if (disposed || !open.value || !playing.value || document.hidden || scrubbing || !audio.value || audio.value.paused || audio.value.readyState < 3) return
+  if (pendingSeek.value === null) paintProgress(audio.value.currentTime)
+  progressFrame = requestAnimationFrame(scheduleProgress)
+}
+function finishScrub() { scrubbing = false; scheduleProgress() }
+function startScrub() { scrubbing = true; cancelAnimationFrame(progressFrame) }
+function onPause() {
+  // A queued pause from the old source must not undo a new playing event.
+  if (!audio.value?.paused) return
+  playing.value = false
+  cancelAnimationFrame(progressFrame)
+}
+function onWaiting() { loading.value = !audio.value?.paused; cancelAnimationFrame(progressFrame) }
+
+function compactHeight() {
+  if (!panel.value || !body.value) return 0
+  const style = getComputedStyle(panel.value)
+  const border = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0)
+  const natural = body.value.getBoundingClientRect().height + border
+  const limit = parseFloat(style.maxHeight)
+  return Number.isFinite(limit) ? Math.min(natural, limit) : natural
+}
+// Layout rounds heights to whole device pixels; animating to a fractional target left
+// a sub-pixel settle at the end that reads as a small jump.
+function quantizeHeight(value: number) {
+  const dpr = typeof devicePixelRatio === 'number' && devicePixelRatio > 0 ? devicePixelRatio : 1
+  return Math.round(value * dpr) / dpr
+}
+function resizePanel() {
+  if (disposed || expanded.value || morphing.value || !panel.value || !body.value) return
+  const target = quantizeHeight(compactHeight())
+  if (Math.abs(target - heightTarget) < 1 && panelHeight.value !== null) return
+  const surface = panel.value
+  // Read the currently displayed height before replacing an in-flight resize.
+  const from = surface.getBoundingClientRect().height
+  const initialized = panelHeight.value !== null
+  heightAnimation?.cancel(); heightAnimation = undefined
+  heightTarget = target
+  panelHeight.value = target
+  // Clamping the target FIRST avoids max-height swallowing most of a transition.
+  if (!initialized || !open.value || Math.abs(from - target) < 1 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { resizing.value = false; return }
+  resizing.value = true
+  const animation = surface.animate([{ height: `${from}px` }, { height: `${target}px` }], {
+    duration: 420,
+    easing: getComputedStyle(surface).getPropertyValue('--ease-settle').trim() || 'cubic-bezier(.2,.82,.22,1)',
+    fill: 'both',
+  })
+  heightAnimation = animation
+  void animation.finished.then(() => {
+    if (heightAnimation !== animation) return
+    animation.cancel(); heightAnimation = undefined; resizing.value = false
+  }, () => { if (heightAnimation === animation) { heightAnimation = undefined; resizing.value = false } })
+}
+
+async function refreshCover() {
+  const token = ++coverRequest, id = current.value.id
+  if (coverSrc.value) URL.revokeObjectURL(coverSrc.value)
+  coverSrc.value = ''
+  if (!id) return
+  try {
+    const file = await localMusicCover(id)
+    if (disposed || token !== coverRequest || id !== current.value.id || !file) return
+    coverSrc.value = URL.createObjectURL(file)
+  } catch { /* Cover storage is optional; the original vector remains available. */ }
+}
+// Local files come out of IndexedDB without a duration, and the playback element only
+// gets a src on a real play gesture (preload=none), so nothing knew the length before
+// playing. A throwaway metadata-only probe reads it from the stored blob: no network,
+// and the playable element still never loads before the user presses play.
+const probing = new Set<string>()
+async function probeDuration(track: Track) {
+  if (!track.local || track.duration || probing.has(track.id)) return
+  probing.add(track.id)
+  let url = ''
+  try {
+    const file = await localMusicFile(track.id)
+    if (!file || disposed) return
+    url = URL.createObjectURL(file)
+    const probe = new Audio()
+    probe.preload = 'metadata'
+    const duration = await new Promise<number>((resolve, reject) => {
+      probe.addEventListener('loadedmetadata', () => resolve(probe.duration), { once: true })
+      probe.addEventListener('error', () => reject(new Error('metadata')), { once: true })
+      probe.src = url
+    })
+    if (disposed || !Number.isFinite(duration) || duration <= 0) return
+    const target = tracks.value.find(item => item.id === track.id)
+    if (target) target.duration = duration
+    if (current.value.id === track.id) { actualDuration.value = duration; syncTime() }
+  } catch { /* An undecodable file keeps the percentage fallback. */ }
+  finally { probing.delete(track.id); if (url) URL.revokeObjectURL(url) }
+}
+function chooseCover() { coverTarget = current.value.id; coverInput.value?.click() }
+async function importCover(event: Event) {
+  const field = event.target as HTMLInputElement, file = field.files?.[0], id = coverTarget
+  field.value = ''
+  if (!file || !id || coverBusy.value) return
+  coverBusy.value = true
+  try {
+    const cover = await prepareMusicCover(file)
+    if (disposed || !tracks.value.some(track => track.id === id)) return
+    await saveMusicCover(id, cover)
+    if (!disposed && current.value.id === id) await refreshCover()
+  } catch (error) { message.value = error instanceof Error ? error.message : '无法保存封面。' }
+  finally { coverBusy.value = false }
+}
+async function resetCover() {
+  const id = current.value.id
+  if (!id || coverBusy.value) return
+  coverBusy.value = true
+  try {
+    await saveMusicCover(id, null)
+    if (!disposed && current.value.id === id) await refreshCover()
+  } catch { message.value = '无法恢复默认封面。' }
+  finally { coverBusy.value = false }
+}
+
+// A viewport-filling player, independent of the site's browser fullscreen mode.
+// Keep the same DOM/audio; restore only the document state this view changed.
+async function setExpanded(value: boolean, animate = true) {
+  if (expanded.value === value) return
+  const sequence = ++morphSequence
+  const surface = panel.value
+  const scroller = surface?.querySelector<HTMLElement>('.music-scroll')
+  if (scroller && !morphing.value) viewScroll[expanded.value ? 'expanded' : 'compact'] = scroller.scrollTop
+  // Measure the visible intermediate frame before cancelling a reversal.
+  const from = surface?.getBoundingClientRect()
+  const radius = surface ? getComputedStyle(surface).borderRadius : '0px'
+  const oldBorder = surface ? parseFloat(getComputedStyle(surface).borderTopWidth) || 0 : 0
+  const pieces = Array.from(surface?.querySelectorAll<HTMLElement>('[data-music-morph]') || [])
+  const oldRects = pieces.map(element => element.getBoundingClientRect())
+  heightAnimation?.cancel(); heightAnimation = undefined; resizing.value = false
+  morphAnimations.forEach(animation => animation.cancel())
+  morphAnimations = []
+  morphing.value = true
+  expanded.value = value
+  restoreModal?.(); restoreModal = undefined
+  if (value && dock.value) {
+    const inertElements: Array<[HTMLElement, boolean]> = []
+    let node: HTMLElement | null = dock.value
+    while (node?.parentElement) {
+      for (const sibling of Array.from(node.parentElement.children)) {
+        if (sibling !== node && sibling instanceof HTMLElement && !['SCRIPT', 'STYLE', 'LINK'].includes(sibling.tagName)) {
+          inertElements.push([sibling, sibling.inert]); sibling.inert = true
+        }
+      }
+      if (node.parentElement === document.body) break
+      node = node.parentElement
+    }
+    const root = document.documentElement
+    const overflow = root.style.overflow, padding = root.style.paddingRight
+    const gutter = Math.max(0, window.innerWidth - root.clientWidth)
+    const previousPadding = parseFloat(getComputedStyle(root).paddingRight) || 0
+    root.style.overflow = 'hidden'
+    if (gutter) root.style.paddingRight = `${previousPadding + gutter}px`
+    restoreModal = () => {
+      for (const [element, wasInert] of inertElements) element.inert = wasInert
+      root.style.overflow = overflow; root.style.paddingRight = padding
+    }
+  }
+  await nextTick()
+  if (disposed || sequence !== morphSequence) return
+  if (!value && body.value) {
+    heightTarget = compactHeight()
+    panelHeight.value = heightTarget
+    await nextTick()
+  }
+  if (disposed || sequence !== morphSequence) return
+  if (scroller) scroller.scrollTop = viewScroll[value ? 'expanded' : 'compact']
+  const to = surface?.getBoundingClientRect()
+  if (animate && surface && from?.width && from.height && to?.width && to.height && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const timing = { duration: value ? 520 : 380, easing: getComputedStyle(surface).getPropertyValue('--ease-settle').trim() || 'cubic-bezier(.2,.82,.22,1)', fill: 'both' as const }
+    const newRadius = getComputedStyle(surface).borderRadius
+    const newBorder = surface.clientTop
+    // Animate actual bounds, never scale text. Interpolating parent scale and an
+    // inverse child scale independently only cancels at endpoints, not in between.
+    // Temporarily take the four content groups out of flow; each keeps a real
+    // pixel width and moves within the same resizing surface without distortion.
+    const destinations = pieces.map(element => element.getBoundingClientRect())
+    if (scroller) {
+      scroller.scrollTop = 0
+      morphAnimations.push(scroller.animate([{ overflow: 'hidden' }, { overflow: 'hidden' }], timing))
+    }
+    const fixedBounds = { position: 'fixed', right: 'auto', bottom: 'auto', maxWidth: 'none', maxHeight: 'none', transform: 'none', clipPath: 'none' }
+    morphAnimations.push(surface.animate([
+      { ...fixedBounds, left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, borderRadius: radius, borderWidth: `${oldBorder}px` },
+      { ...fixedBounds, left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, borderRadius: newRadius, borderWidth: `${newBorder}px` },
+    ], timing))
+    pieces.forEach((element, position) => {
+      const a = oldRects[position]!, b = destinations[position]!
+      if (!a.width || !a.height || !b.width || !b.height) return
+      const independent = { position: 'absolute', margin: '0px', maxWidth: 'none', transform: 'none' }
+      // Only artwork has a fixed animated height; text and controls wrap normally.
+      const cover = element.classList.contains('music-cover-stack')
+      morphAnimations.push(element.animate([
+        { ...independent, left: `${a.left - from.left - oldBorder}px`, top: `${a.top - from.top - oldBorder}px`, width: `${a.width}px`, ...(cover ? { height: `${a.height}px` } : {}) },
+        { ...independent, left: `${b.left - to.left - newBorder}px`, top: `${b.top - to.top - newBorder}px`, width: `${b.width}px`, ...(cover ? { height: `${b.height}px` } : {}) },
+      ], timing))
+    })
+    await Promise.allSettled(morphAnimations.map(animation => animation.finished))
+    if (disposed || sequence !== morphSequence) return
+    morphAnimations.forEach(animation => animation.cancel())
+    morphAnimations = []
+    if (scroller) scroller.scrollTop = viewScroll[value ? 'expanded' : 'compact']
+  }
+  morphing.value = false
+  if (!value) resizePanel()
+  if (open.value) fullscreenButton.value?.focus({ preventScroll: true })
+}
 async function restoreLibrary() {
   try {
     const local = await listLocalMusic()
@@ -64,7 +369,7 @@ async function restoreLibrary() {
     const ids = Array.isArray(order) ? [...new Set(order.filter((id): id is string => typeof id === 'string'))] : all.map(track => track.id)
     // A local file saved before a failed preference write must remain discoverable.
     for (const track of all) if (track.local && !ids.includes(track.id)) ids.push(track.id)
-    const active = audio.value?.hasAttribute('src') ? current.value.id : selected
+    const active = audio.value?.hasAttribute('src') || loading.value || pendingSeek.value !== null ? current.value.id : selected
     tracks.value = ids.map(id => all.find(track => track.id === id)).filter((track): track is Track => !!track)
     index.value = Math.max(0, tracks.value.findIndex(track => track.id === active))
   } catch { message.value = '本地音乐库不可用，内置音乐仍可播放。' }
@@ -103,7 +408,7 @@ function moveTrack(position: number, direction: number) {
   saveOrder()
 }
 async function removeTrack(id: string) {
-  if (importing.value) return
+  if (importing.value || coverBusy.value) return
   const track = tracks.value.find(track => track.id === id)
   if (!track) return
   importing.value = true
@@ -126,9 +431,27 @@ function clearResource() {
   if (audio.value?.hasAttribute('src')) { audio.value.removeAttribute('src'); audio.value.load() }
   if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null }
 }
-function close(restore = false) { open.value = false; if (restore) trigger.value?.focus({ preventScroll: true }) }
-function outside(event: PointerEvent) { if (open.value && event.target instanceof Node && !dock.value?.contains(event.target)) close() }
-function keydown(event: KeyboardEvent) { if (open.value && event.key === 'Escape') { event.preventDefault(); close(true) } }
+async function close(restore = false) {
+  morphSequence++; morphAnimations.forEach(animation => animation.cancel()); morphAnimations = []; morphing.value = false
+  if (expanded.value) { await setExpanded(false); if (disposed || !open.value) return }
+  open.value = false
+  if (restore) void nextTick(() => trigger.value?.focus({ preventScroll: true }))
+}
+function outside(event: PointerEvent) { if (!expanded.value && open.value && event.target instanceof Node && !dock.value?.contains(event.target)) close() }
+function keydown(event: KeyboardEvent) {
+  if (!open.value) return
+  if (event.key === 'Escape') {
+    event.preventDefault(); event.stopImmediatePropagation()
+    if (expanded.value) setExpanded(false)
+    else close(true)
+  }
+  if (expanded.value && event.key === 'Tab') {
+    const items = Array.from(panel.value?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)') || []).filter(item => item.getClientRects().length)
+    const first = items[0], last = items.at(-1)
+    if (event.shiftKey && (document.activeElement === first || !panel.value?.contains(document.activeElement))) { event.preventDefault(); last?.focus() }
+    else if (!event.shiftKey && (document.activeElement === last || !panel.value?.contains(document.activeElement))) { event.preventDefault(); first?.focus() }
+  }
+}
 
 async function play() {
   const element = audio.value
@@ -149,16 +472,47 @@ async function play() {
     element.volume = volume.value
     await element.play()
   } catch {
-    if (token === request && !disposed) { message.value = '暂时无法播放，请重试。'; loading.value = false }
+    if (token === request && !disposed) { message.value = '暂时无法播放，请重试。'; loading.value = false; continuing.value = false; playing.value = false }
   }
 }
-function pause() { request++; audio.value?.pause(); playing.value = false; loading.value = false }
+function pause() { request++; audio.value?.pause(); playing.value = false; loading.value = false; continuing.value = false; cancelAnimationFrame(progressFrame) }
 function togglePlay() { if (playing.value || loading.value) pause(); else void play() }
-function selectTrack(next: number, continuePlaying = playing.value || loading.value) {
+function cyclePlaybackMode() {
+  if (repeat.value) { repeat.value = false; shuffle.value = true }
+  else if (shuffle.value) shuffle.value = false
+  else repeat.value = true
+  playHistory.length = 0
+  save()
+}
+function nextTrack(continuePlaying = showPause.value || loading.value) {
+  const count = tracks.value.length
+  if (!count) return
+  // Uniform choice from all other tracks; no eager fetch of the chosen source.
+  const next = shuffle.value && count > 1 ? (index.value + 1 + Math.floor(Math.random() * (count - 1))) % count : index.value + 1
+  selectTrack(next, continuePlaying)
+}
+function previousTrack() {
+  if (shuffle.value) {
+    while (playHistory.length) {
+      const id = playHistory.pop()
+      const previous = tracks.value.findIndex(track => track.id === id)
+      if (previous !== -1 && previous !== index.value) { selectTrack(previous, showPause.value || loading.value, false); return }
+    }
+  }
+  selectTrack(index.value - 1, showPause.value || loading.value, false)
+}
+function selectTrack(next: number, continuePlaying = showPause.value || loading.value, remember = true) {
   if (!tracks.value.length) return
-  if (next === index.value) return // Selecting the current row must not restart it.
+  const target = (next + tracks.value.length) % tracks.value.length
+  if (target === index.value) return // Selecting the current row must not restart it.
+  if (shuffle.value && remember) {
+    playHistory.push(current.value.id)
+    if (playHistory.length > 100) playHistory.shift()
+  }
+  continuing.value = continuePlaying && showPause.value
+  cancelAnimationFrame(progressFrame)
   request++; audio.value?.pause(); playing.value = false
-  index.value = (next + tracks.value.length) % tracks.value.length
+  index.value = target
   elapsed.value = 0; pendingSeek.value = null; actualDuration.value = 0; loaded.value = false; loading.value = false; message.value = ''
   // Remove the old resource; choosing a track while paused does not fetch it.
   clearResource()
@@ -166,9 +520,10 @@ function selectTrack(next: number, continuePlaying = playing.value || loading.va
   if (continuePlaying) void play()
 }
 function ended() {
+  continuing.value = playing.value || hasPlayed.value
   playing.value = false
   if (repeat.value || tracks.value.length === 1) { if (audio.value) audio.value.currentTime = 0; void play() }
-  else selectTrack(index.value + 1, true)
+  else nextTrack(true)
 }
 function syncTime() {
   if (!audio.value) return
@@ -196,57 +551,74 @@ function changeVolume(event: Event) {
   if (audio.value) audio.value.volume = volume.value
   save()
 }
-function failed() { loading.value = false; playing.value = false; message.value = '音频未能加载，请重试。' }
+function failed() { if (!audio.value?.error) return; loading.value = false; playing.value = false; continuing.value = false; cancelAnimationFrame(progressFrame); message.value = '音频未能加载，请重试。' }
 function onPlaying() {
   if (!audio.value || audio.value.paused) return
-  playing.value = true; loading.value = false; hasPlayed.value = true
+  playing.value = true; continuing.value = false; loading.value = false; hasPlayed.value = true
+  scheduleProgress()
 }
 </script>
 
 <template>
-  <div ref="dock" class="music-dock">
+  <div ref="dock" class="music-dock" :class="{ 'is-expanded': expanded, 'is-morphing': morphing }">
     <!-- No src/source/autoplay: initial HTML and hydration cannot request music. -->
-    <audio ref="audio" preload="none" @playing="onPlaying" @pause="playing = false" @waiting="loading = !audio?.paused" @loadedmetadata="metadata" @timeupdate="syncTime" @ended="ended" @error="failed" />
+    <audio ref="audio" preload="none" @playing="onPlaying" @pause="onPause" @waiting="onWaiting" @loadedmetadata="metadata" @timeupdate="syncTime" @ended="ended" @error="failed" />
     <!-- Like AppearancePanel: a persistent surface clips from its trigger.
          Animate the material itself, not a height-collapsing backdrop ancestor. -->
-    <section id="music-panel" class="music-panel music-surface" :class="{ 'is-open': open }" :aria-hidden="!open" :inert="!open" aria-label="音乐播放器">
+    <section id="music-panel" ref="panel" class="music-panel music-surface" :class="{ 'is-open': open, 'is-expanded': expanded, 'is-morphing': morphing, 'is-resizing': resizing }" :style="{ height: expanded ? undefined : panelHeight === null ? undefined : `${panelHeight}px` }" :role="expanded ? 'dialog' : undefined" :aria-modal="expanded ? true : undefined" :aria-hidden="!open" :inert="!open" aria-label="音乐播放器">
       <div class="music-scroll">
-            <header><span class="music-kicker">{{ current.local ? 'MY MUSIC' : 'PAPER HOURS · VOL. 1' }}</span><button type="button" aria-label="关闭音乐面板" @click="close(true)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></header>
-            <h2 class="music-title">{{ current.title }}</h2>
-            <p class="music-subtitle"><template v-if="current.english">{{ current.english }}<br></template>{{ current.mood }}</p>
+        <div ref="body" class="music-body">
+            <header data-music-morph><span class="music-kicker">{{ current.local ? 'MY MUSIC' : 'PAPER HOURS · VOL. 1' }}</span><div class="music-header-actions"><button ref="fullscreenButton" type="button" :aria-label="expanded ? '退出全屏音乐' : '全屏音乐'" :aria-pressed="expanded" @click="setExpanded(!expanded)"><svg viewBox="0 0 24 24" aria-hidden="true"><path v-if="expanded" d="M4 9h5V4m6 0v5h5M4 15h5v5m6 0v-5h5" /><path v-else d="M9 4H4v5m11-5h5v5M4 15v5h5m6 0h5v-5" /></svg></button><button type="button" aria-label="关闭音乐面板" @click="close(true)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div></header>
+          <div class="music-content">
+            <div class="music-now">
+              <div class="music-cover-stack" data-music-morph><Transition name="music-cover"><MusicArtwork :key="current.id + coverSrc" :track-id="current.id" :src="coverSrc" /></Transition></div>
+              <div class="music-info-stack" data-music-morph aria-live="polite" aria-atomic="true"><Transition name="music-info"><div :key="current.id" class="music-info"><h2 class="music-title">{{ current.title }}</h2><p class="music-subtitle"><template v-if="current.english">{{ current.english }}<br></template>{{ current.mood }}</p></div></Transition></div>
+              <div v-if="managing && current.id" class="music-cover-actions" data-music-morph><button type="button" :disabled="coverBusy" @click="chooseCover">{{ coverBusy ? '保存封面…' : '更换封面' }}</button><button v-if="coverSrc" type="button" :disabled="coverBusy" @click="resetCover">恢复默认</button></div>
+            </div>
+            <div class="music-controls" data-music-morph>
             <p v-if="message" class="music-status" role="status">{{ message }}</p>
             <div class="music-transport">
-              <button type="button" aria-label="上一首" :disabled="!tracks.length" @click="selectTrack(index - 1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14m14-14L8 12l11 7Z" /></svg></button>
-              <button class="music-play" type="button" :disabled="!tracks.length" :aria-label="loading ? '取消加载' : playing ? '暂停' : '播放'" :aria-busy="loading" @click="togglePlay"><Transition name="music-icon" mode="out-in"><svg :key="playing ? 'pause' : 'play'" viewBox="0 0 24 24" aria-hidden="true"><path v-if="playing" d="M8 5v14M16 5v14" /><path v-else d="m8 4 12 8-12 8Z" /></svg></Transition></button>
-              <button type="button" aria-label="下一首" :disabled="!tracks.length" @click="selectTrack(index + 1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5v14M5 5l11 7-11 7Z" /></svg></button>
-              <button class="music-repeat" type="button" :aria-pressed="repeat" :title="repeat ? '单曲循环' : '列表循环'" :aria-label="repeat ? '单曲循环，点击切换列表循环' : '列表循环，点击切换单曲循环'" @click="repeat = !repeat; save()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 4 4-4 4M4 11V9a2 2 0 0 1 2-2h14M8 21l-4-4 4-4m12 0v2a2 2 0 0 1-2 2H4" /><path v-if="repeat" d="m11 11 1-1v5" /></svg></button>
+              <button type="button" aria-label="上一首" :disabled="!tracks.length" @click="previousTrack"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14m14-14L8 12l11 7Z" /></svg></button>
+              <button class="music-play" type="button" :disabled="!tracks.length" :aria-label="loading ? '取消加载' : showPause ? '暂停' : '播放'" :aria-busy="loading" @click="togglePlay"><Transition name="music-icon" mode="out-in"><svg :key="showPause ? 'pause' : 'play'" viewBox="0 0 24 24" aria-hidden="true"><path v-if="showPause" d="M8 5v14M16 5v14" /><path v-else d="m8 4 12 8-12 8Z" /></svg></Transition></button>
+              <button type="button" aria-label="下一首" :disabled="!tracks.length" @click="nextTrack()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5v14M5 5l11 7-11 7Z" /></svg></button>
+              <button class="music-repeat" :class="{ 'is-active': repeat || shuffle }" type="button" :title="playbackModeLabel" :aria-label="`${playbackModeLabel}，点击切换${repeat ? '随机播放' : shuffle ? '顺序播放' : '单曲循环'}`" @click="cyclePlaybackMode"><Transition name="music-icon" mode="out-in"><svg :key="playbackModeLabel" viewBox="0 0 24 24" aria-hidden="true"><path v-if="shuffle" d="M3 6h2c5 0 9 12 14 12h2m-4-4 4 4-4 4M3 18h2c2 0 4-3 6-6s5-6 8-6h2m-4-4 4 4-4 4" /><template v-else><path d="m16 3 4 4-4 4M4 11V9a2 2 0 0 1 2-2h14M8 21l-4-4 4-4m12 0v2a2 2 0 0 1-2 2H4" /><path v-if="repeat" d="m11 11 1-1v5" /></template></svg></Transition></button>
             </div>
             <label class="visually-hidden" for="music-progress">播放进度</label>
-            <input id="music-progress" class="music-range" :style="{ '--range-progress': progress }" type="range" min="0" :max="duration" step="0.1" :value="elapsed" :aria-valuetext="knownDuration ? `${musicTime(elapsed)}，共 ${musicTime(duration)}` : `预选 ${Math.round(elapsed)}%`" @input="seek">
+            <!-- Subpixel rail: the native range keeps focus, pointer, keyboard, aria and
+                 dragging but is transparent; the visible track, fill and ball are painted
+                 with transforms so the thumb cannot snap to whole pixels each frame. -->
+            <div ref="progressVisual" class="music-progress" :style="{ '--music-progress': progressRatio }">
+              <span class="music-progress__track" aria-hidden="true"><span class="music-progress__fill"></span><span class="music-progress__ball-layer"><span class="music-progress__ball"></span></span></span>
+              <input id="music-progress" ref="progressInput" class="music-progress__input" type="range" min="0" :max="duration" step="0.01" :value="elapsed" :disabled="!tracks.length" :aria-valuetext="knownDuration ? `${musicTime(elapsed)}，共 ${musicTime(duration)}` : `预选 ${Math.round(elapsed)}%`" @pointerdown="startScrub" @keydown="startScrub" @keyup="finishScrub" @blur="finishScrub" @input="seek">
+            </div>
             <div class="music-times"><span>{{ knownDuration ? musicTime(elapsed) : `${Math.round(elapsed)}%` }}</span><span>{{ knownDuration ? musicTime(duration) : '—:—' }}</span></div>
             <div class="music-library-actions">
-              <button type="button" :disabled="importing || !libraryReady" @click="fileInput?.click()">{{ importing ? '正在处理…' : '导入音乐' }}</button>
-              <button type="button" :aria-expanded="managing" @click="managing = !managing">{{ managing ? '完成' : '管理列表' }}</button>
+              <span class="music-library-label">播放列表<span>{{ tracks.length }}</span></span>
+              <div class="music-library-buttons"><button type="button" :disabled="importing || !libraryReady" @click="fileInput?.click()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{{ importing ? '处理中…' : '导入音乐' }}</button><button type="button" :aria-expanded="managing" aria-controls="music-track-list" @click="managing = !managing">{{ managing ? '完成' : '管理列表' }}</button></div>
             </div>
             <input ref="fileInput" class="music-file" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm" multiple aria-label="导入本地音乐" @change="importFiles">
-            <ol class="music-tracks" aria-label="曲目列表">
+            <input ref="coverInput" class="music-file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="选择当前歌曲封面" @change="importCover">
+            <ol id="music-track-list" class="music-tracks" aria-label="曲目列表">
               <li v-for="(track, position) in tracks" :key="track.id">
                 <button class="music-track" type="button" :aria-current="position === index ? 'true' : undefined" @click="selectTrack(position)"><span class="music-number">{{ String(position + 1).padStart(2,'0') }}</span><span class="music-track-title">{{ track.title }}</span><span class="music-duration">{{ track.duration ? musicTime(track.duration) : '本地' }}</span></button>
                 <div v-if="managing" class="music-track-actions">
                   <button type="button" :disabled="position === 0 || importing" :aria-label="`上移 ${track.title}`" @click="moveTrack(position, -1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6" /></svg></button>
                   <button type="button" :disabled="position === tracks.length - 1 || importing" :aria-label="`下移 ${track.title}`" @click="moveTrack(position, 1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button>
-                  <button type="button" :disabled="importing" :aria-label="`从列表移除 ${track.title}`" @click="removeTrack(track.id)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>
+                  <button type="button" :disabled="importing || coverBusy" :aria-label="`从列表移除 ${track.title}`" @click="removeTrack(track.id)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>
                 </div>
               </li>
             </ol>
             <button v-if="managing" class="music-restore" type="button" :disabled="importing" @click="restoreBuiltins">恢复内置曲目</button>
             <label class="music-volume" for="music-volume"><span>音量</span><input id="music-volume" class="music-range" :style="{ '--range-progress': `${volume * 100}%` }" type="range" min="0" max="1" step="0.01" :value="volume" :aria-valuetext="`${Math.round(volume * 100)}%`" @input="changeVolume"><output for="music-volume">{{ Math.round(volume * 100) }}%</output></label>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
     <span ref="labelMeasure" class="music-measure" aria-hidden="true">{{ dockTitle }}</span>
-    <div class="music-pill music-surface" :style="{ width: `${labelWidth + 64 + (hasPlayed ? 40 : 0)}px`, '--music-label-width': `${labelWidth}px` }">
-      <button ref="trigger" class="music-trigger" type="button" :aria-expanded="open" aria-controls="music-panel" @click="open = !open; hasOpened = true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2" /><ellipse cx="6" cy="18" rx="3" ry="2" /><ellipse cx="17" cy="16" rx="3" ry="2" /></svg><span class="music-name"><Transition name="music-name"><span :key="dockTitle">{{ dockTitle }}</span></Transition></span></button>
-      <Transition name="music-control"><button v-if="hasPlayed" class="music-quick-play" type="button" :disabled="!tracks.length" :aria-busy="loading" :aria-label="loading ? '取消加载音乐' : playing ? '暂停音乐' : '播放音乐'" @click="togglePlay"><Transition name="music-icon" mode="out-in"><svg :key="playing ? 'pause' : 'play'" viewBox="0 0 24 24" aria-hidden="true"><path v-if="playing" d="M8 6v12M16 6v12" /><path v-else d="m8 4 12 8-12 8Z" /></svg></Transition></button></Transition>
+    <div class="music-pill music-surface" :inert="expanded" :aria-hidden="expanded" :style="{ width: `${labelWidth + 64 + (hasPlayed ? 40 : 0)}px`, '--music-label-width': `${labelWidth}px` }">
+      <button ref="trigger" class="music-trigger" type="button" :aria-expanded="open" aria-controls="music-panel" @click="open ? close() : open = true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2" /><ellipse cx="6" cy="18" rx="3" ry="2" /><ellipse cx="17" cy="16" rx="3" ry="2" /></svg><span class="music-name"><Transition name="music-name"><span :key="dockTitle">{{ dockTitle }}</span></Transition></span></button>
+      <Transition name="music-control"><button v-if="hasPlayed" class="music-quick-play" type="button" :disabled="!tracks.length" :aria-busy="loading" :aria-label="loading ? '取消加载音乐' : showPause ? '暂停音乐' : '播放音乐'" @click="togglePlay"><Transition name="music-icon" mode="out-in"><svg :key="showPause ? 'pause' : 'play'" viewBox="0 0 24 24" aria-hidden="true"><path v-if="showPause" d="M8 6v12M16 6v12" /><path v-else d="m8 4 12 8-12 8Z" /></svg></Transition></button></Transition>
     </div>
   </div>
 </template>
@@ -266,13 +638,48 @@ button { display: inline-flex; align-items: center; justify-content: center; gap
 button:active { transform: scale(.97); }button[aria-pressed='true'],button[aria-current] { color: var(--accent); }
 button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .music-quick-play { border-left: 1px solid var(--line); min-width: 40px; flex: 0 0 40px; }
-.music-panel { position: absolute; bottom: calc(100% + 10px); left: 0; width: min(330px, calc(100vw - 32px)); max-height: calc(100dvh - 110px); overflow: hidden; border: 1px solid var(--line); border-radius: var(--nav-radius, 12px); background: var(--paper); visibility: hidden; pointer-events: none; transform: translate3d(0, 50px, 0); transform-origin: bottom left; clip-path: inset(calc(100% - 44px) calc(100% - 100px) 0 0 round var(--nav-radius, 12px)); transition: transform 160ms var(--ease-exit), clip-path 160ms var(--ease-exit), visibility 0s step-end 160ms; }
+.music-panel { position: absolute; bottom: calc(100% + 10px); left: 0; width: min(350px, calc(100vw - 32px)); max-height: calc(100dvh - 110px); overflow: hidden; border: 1px solid var(--line); border-radius: var(--nav-radius, 12px); background: var(--paper); visibility: hidden; pointer-events: none; transform: translate3d(0, 50px, 0); transform-origin: bottom left; clip-path: inset(calc(100% - 44px) calc(100% - 100px) 0 0 round var(--nav-radius, 12px)); transition: transform 160ms var(--ease-exit), clip-path 160ms var(--ease-exit), visibility 0s step-end 160ms; }
 .music-panel.is-open { visibility: visible; pointer-events: auto; transform: translate3d(0,0,0); clip-path: inset(0 round var(--nav-radius, 12px)); transition: transform 240ms var(--ease-panel), clip-path 240ms var(--ease-panel), visibility 0s step-start; }
-.music-scroll { max-height: inherit; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 20px; }
+.music-scroll { height: 100%; max-height: inherit; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; scrollbar-gutter: stable; }
+/* A height tween must never show a transient scrollbar: it would steal width, reflow
+   the text and change the very height being measured. */
+.music-panel.is-resizing .music-scroll { overflow-y: hidden; }
+.music-body { padding: 16px 20px 20px; }
+/* An explicit formatting root keeps the transport's 22px top margin inside the
+   controls box. Without it the margin collapses through the parent in normal flow
+   but not under the absolutely positioned morph, so the collapse end sat 22px low
+   and snapped back when the animation finished. */
+.music-content, .music-controls { min-width: 0; display: flow-root; }
+.music-now { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 14px; margin-top: 16px; }
+.music-cover-stack { position: relative; aspect-ratio: 1; border-radius: 8px; }
+.music-cover-stack > * { position: absolute; inset: 0; }
+.music-info-stack { position: relative; min-width: 0; }
+.music-info { width: 100%; }
+/* Leaving copy is taken out of flow so the new text defines one height target. */
+.music-info-leave-active { position: absolute; inset: 0; }
+.music-info-enter-active { transition: opacity 320ms var(--ease-fluid), transform 420ms var(--ease-settle); }
+.music-info-leave-active { transition: opacity 130ms var(--ease-exit), transform 160ms var(--ease-exit); }
+.music-info-enter-from { opacity: 0; transform: translateY(7px); }
+.music-info-leave-to { opacity: 0; transform: translateY(-5px); }
+.music-cover-enter-active { transition: opacity 420ms var(--ease-fluid); }
+.music-cover-leave-active { transition: opacity 180ms var(--ease-exit); }
+.music-cover-enter-from, .music-cover-leave-to { opacity: 0; }
+.music-cover-actions { display: flex; gap: 12px; flex-wrap: wrap; grid-column: 1 / -1; color: var(--muted); font-size: 11px; }
+.music-cover-actions button { padding-inline: 0; }
 header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }header button { flex: none; padding: 0; }
+.music-header-actions { display: flex; gap: 2px; }
 .music-kicker { font-size: 9px; letter-spacing: .17em; color: var(--muted); }
-.music-title { margin: 14px 0 4px; font: 550 23px/1.4 var(--sans); letter-spacing: -.025em; }.music-subtitle { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.music-title { margin: 0 0 4px; font: 550 21px/1.4 var(--sans); letter-spacing: -.025em; overflow-wrap: anywhere; }.music-subtitle { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
 .music-transport { position: relative; display: flex; justify-content: center; align-items: center; gap: 10px; margin: 22px 0 10px; padding-inline: 40px; }.music-play { border: 1px solid var(--line); border-radius: 50%; flex: none; width: 48px; height: 48px; background: var(--line); }.music-repeat { position: absolute; right: 0; }
+/* Progress rail: fill scales from the left, the ball rides a full-width layer so a
+   fractional position lands between pixels. The native range above them is
+   transparent but still owns dragging, keyboard, focus ring and aria. */
+.music-progress { position: relative; display: flex; align-items: center; height: 24px; margin: 0; }
+.music-progress__track { position: relative; display: block; width: 100%; height: 3px; border-radius: 99px; background: var(--line); }
+.music-progress__fill { position: absolute; inset: 0; border-radius: inherit; background: var(--accent); transform: scaleX(var(--music-progress, 0)); transform-origin: left center; }
+.music-progress__ball-layer { position: absolute; inset: 0; transform: translate3d(calc(var(--music-progress, 0) * 100%), 0, 0); will-change: transform; }
+.music-progress__ball { position: absolute; top: 50%; left: 0; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; background: var(--ink); transform: translateY(-50%); }
+.music-progress__input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
 .music-range { display: block; width: 100%; height: 24px; margin: 0; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
 .music-range::-webkit-slider-runnable-track { height: 3px; border-radius: 99px; background: linear-gradient(to right, var(--accent) 0 var(--range-progress, 0%), var(--line) var(--range-progress, 0%) 100%); }
 .music-range::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 11px; height: 11px; margin-top: -4px; border-radius: 50%; background: var(--ink); }
@@ -281,7 +688,12 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 .music-range::-moz-range-thumb { width: 11px; height: 11px; border: 0; border-radius: 50%; background: var(--ink); }
 .music-range:disabled { opacity: .4; cursor: default; }.music-times { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .music-tracks { padding: 0; margin: 0 0 18px; list-style: none; border-top: 1px solid var(--line); }.music-tracks li { border-bottom: 1px solid var(--line); }.music-track { width: 100%; justify-content: flex-start; padding: 10px 0; text-align: left; }.music-number { flex: 0 0 24px; color: var(--muted); font-size: 10px; }.music-track-title { min-width: 0; overflow-wrap: anywhere; }.music-duration { margin-left: auto; flex: none; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); }
-.music-library-actions { display: flex; justify-content: space-between; margin-top: 12px; color: var(--muted); font-size: 12px; }
+.music-library-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin: 18px 0 4px; color: var(--muted); font-size: 11px; }
+.music-library-label { display: inline-flex; align-items: baseline; gap: 7px; white-space: nowrap; }
+.music-library-label > span { font-size: 10px; font-variant-numeric: tabular-nums; }
+.music-library-buttons { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.music-library-buttons button { padding-inline: 0; gap: 3px; white-space: nowrap; }
+.music-library-buttons svg { width: 14px; height: 14px; }
 .music-file { display: none; }.music-track-actions { display: flex; justify-content: flex-end; padding-bottom: 4px; gap: 4px; }.music-restore { margin: -8px 0 12px; font-size: 12px; color: var(--muted); }button:disabled { cursor: default; opacity: .4; }
 .music-volume { display: flex; gap: 12px; align-items: center; color: var(--muted); font-size: 11px; }.music-volume input { flex: 1; min-width: 0; }.music-volume output { min-width: 30px; text-align: right; }
 .music-status { margin: 14px 0 0; min-height: 1.6em; font-size: 11px; color: var(--muted); }
@@ -289,9 +701,36 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 .music-icon-leave-active { transition: opacity 100ms var(--ease-exit), transform 100ms var(--ease-exit); }
 .music-icon-enter-from, .music-icon-leave-to { opacity: 0; transform: scale(.8); }
 :is(button,input):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-/* .music-surface shares AppearancePanel's material rules in main.css. */
+/* .music-surface uses the independent music material/blur channel in main.css. */
+.music-dock.is-expanded, .music-dock.is-morphing { z-index: 200; }
+.music-panel.is-open.is-morphing { transition: none; }
+.music-repeat.is-active { color: var(--accent); }
+.music-dock.is-expanded .music-pill { visibility: hidden; }
+.music-panel.is-expanded { position: fixed; inset: 0; width: 100%; height: auto; max-height: none; border: 0; border-radius: 0; clip-path: none; transform: none; }
+/* The material top highlight and drop shadow are removed in main.css (root-level
+   selectors are not allowed in this component). */
+.music-panel.is-expanded .music-scroll { max-height: 100%; }
+.music-panel.is-expanded .music-body { max-width: 1140px; margin-inline: auto; padding: max(24px, env(safe-area-inset-top)) max(32px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(32px, env(safe-area-inset-left)); }
+.music-panel.is-expanded .music-content { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 100px); align-items: start; padding-top: clamp(24px, 6vh, 64px); }
+.music-panel.is-expanded .music-now { grid-template-columns: minmax(0, 1fr); gap: 24px; margin: 0; }
+.music-panel.is-expanded .music-cover-stack { width: min(100%, 44dvh); justify-self: center; border-radius: 14px; }
+.music-panel.is-expanded .music-title { font-size: clamp(24px, 3vw, 36px); }
+.music-panel.is-expanded .music-subtitle { font-size: 13px; }
+.music-panel.is-expanded .music-controls { padding-top: 8px; }
+.music-panel.is-expanded .music-transport { margin-top: 0; gap: 22px; }
+.music-panel.is-expanded .music-play { width: 60px; height: 60px; }
+.music-panel.is-expanded .music-tracks { max-height: 42dvh; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 @media(hover:hover) and (pointer:fine) { button:hover { color: var(--accent); } }
-@media(max-width:767.98px) { .music-dock { left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); }button { min-height: 44px; } }
-@media(prefers-reduced-motion:reduce) { button, .music-icon-enter-active, .music-icon-leave-active, .music-name, .music-pill, .music-name-enter-active, .music-name-leave-active, .music-control-enter-active, .music-control-leave-active { transition-duration: .01ms; }.music-panel, .music-panel.is-open { transition: none; } }
+@media(max-width:767.98px) {
+  .music-dock { left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); }button { min-height: 44px; }
+  .music-panel.is-expanded .music-body { padding-inline: max(24px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right)); }
+  .music-panel.is-expanded .music-content { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 16px; }
+  .music-panel.is-expanded .music-now { gap: 20px; }
+  .music-panel.is-expanded .music-cover-stack { width: min(72vw, 32dvh, 320px); }
+  .music-panel.is-expanded .music-info { text-align: center; }
+  .music-panel.is-expanded .music-cover-actions { justify-content: center; }
+  .music-panel.is-expanded .music-tracks { max-height: none; }
+}
+@media(prefers-reduced-motion:reduce) { button, .music-icon-enter-active, .music-icon-leave-active, .music-name, .music-pill, .music-name-enter-active, .music-name-leave-active, .music-control-enter-active, .music-control-leave-active, .music-info-enter-active, .music-info-leave-active, .music-cover-enter-active, .music-cover-leave-active { transition-duration: .01ms; }.music-panel, .music-panel.is-open { transition: none; } }
 @media print { .music-dock { display: none; } }
 </style>

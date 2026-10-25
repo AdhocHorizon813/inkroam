@@ -10,12 +10,13 @@ export function musicTime(value: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 export function musicPreferences(raw: string | null) {
-  let saved: { track?: unknown; volume?: unknown; repeat?: unknown } = {}
+  let saved: { track?: unknown; volume?: unknown; repeat?: unknown; shuffle?: unknown } = {}
   try { saved = JSON.parse(raw || '{}') || {} } catch { /* Use quiet defaults. */ }
   return {
     index: Math.max(0, musicTracks.findIndex(track => track.id === saved.track)),
     volume: typeof saved.volume === 'number' && Number.isFinite(saved.volume) ? Math.max(0, Math.min(1, saved.volume)) : .35,
     repeat: saved.repeat === true,
+    shuffle: saved.repeat !== true && saved.shuffle === true,
   }
 }
 
