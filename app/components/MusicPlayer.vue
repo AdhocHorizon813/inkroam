@@ -135,7 +135,7 @@ watch([open, () => current.value.id, () => tracks.value.length], () => {
 // height. Post-flush watchers run after the DOM update but before paint, so the panel
 // resizes in the same frame; waiting for ResizeObserver would paint one overflowing
 // frame first (scrollbar appears, steals width, text reflows, scrollbar disappears).
-watch([() => current.value.id, managing, () => tracks.length, message], () => resizePanel(), { flush: 'post' })
+watch([() => current.value.id, managing, () => tracks.value.length, message], () => resizePanel(), { flush: 'post' })
 
 // Only the range's visual position is sampled per frame. Vue text/list rendering
 // stays on timeupdate, and hidden/closed/paused players have no animation loop.

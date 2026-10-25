@@ -103,7 +103,7 @@ assert.match(styleText, /\.music-progress__ball-layer \{[^}]*translate3d\(calc\(
 assert.match(styleText, /\.music-progress__input \{[^}]*opacity: 0/, 'The native range stays transparent while keeping pointer, keyboard and aria')
 assert.match(styleText, /\.music-controls \{[^}]*display: flow-root/, 'Controls establish a formatting root so the 22px transport margin cannot collapse away')
 assert.match(descriptor.template.content, /'is-resizing': resizing/, 'The scroller freezes while the panel height tweens')
-assert.match(descriptor.scriptSetup.content, /watch\(\[\(\) => current\.value\.id, managing, \(\) => tracks\.length, message\], \(\) => resizePanel\(\), \{ flush: 'post' \}\)/, 'Content changes resize before paint, so no frame shows a scrollbar')
+assert.match(descriptor.scriptSetup.content, /watch\(\[\(\) => current\.value\.id, managing, \(\) => tracks\.value\.length, message\], \(\) => resizePanel\(\), \{ flush: 'post' \}\)/, 'Content changes resize before paint, so no frame shows a scrollbar')
 assert.match(styleText, /\.music-scroll \{[^}]*scrollbar-gutter: stable/, 'The gutter is reserved so a scrollbar can never reflow the text')
 assert.match(styleText, /\.music-panel\.is-resizing \.music-scroll \{[^}]*overflow-y: hidden/, 'Transient overflow is clipped during the height tween')
 assert.match(descriptor.scriptSetup.content, /probe\.preload = 'metadata'/, 'Local lengths are probed with metadata only')
