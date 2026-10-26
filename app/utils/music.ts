@@ -1,7 +1,10 @@
 export const musicTracks = [
-  { id: '01_rain_on_the_margin', title: '雨窗演算', english: 'Rain on the Margin', mood: '雨天 · 电钢琴', duration: 129.316 },
-  { id: '02_lamplight_and_paper', title: '纸页微光', english: 'Lamplight & Paper', mood: '暖灯 · 木质拨弦', duration: 140.143 },
-  { id: '03_a_lemma_after_midnight', title: '凌晨的引理', english: 'A Lemma After Midnight', mood: '深夜 · 毛毡钢琴', duration: 148.455 },
+  { id: '01_rain_on_the_margin', title: '雨窗演算', english: 'Rain on the Margin', mood: '雨天 · 电钢琴', duration: 129.316, volume: 1, file: 'lofi-vol01/01_rain_on_the_margin.v2.mp3' },
+  { id: '02_lamplight_and_paper', title: '纸页微光', english: 'Lamplight & Paper', mood: '暖灯 · 木质拨弦', duration: 140.143, volume: 1, file: 'lofi-vol01/02_lamplight_and_paper.v2.mp3' },
+  { id: '03_a_lemma_after_midnight', title: '凌晨的引理', english: 'A Lemma After Midnight', mood: '深夜 · 毛毡钢琴', duration: 148.455, volume: 1, file: 'lofi-vol01/03_a_lemma_after_midnight.v2.mp3' },
+  { id: '01_a_blank_afternoon', title: '午后的空白', english: 'A Blank Afternoon', mood: '柔和钢琴 · 简单的晴天旋律', duration: 157.579, volume: 2, file: 'lofi-vol02/01_a_blank_afternoon.r2.mp3' },
+  { id: '02_along_the_river', title: '沿河慢行', english: 'Along the River', mood: '温暖电钢琴 · 稳定律动', duration: 150, volume: 2, file: 'lofi-vol02/02_along_the_river.r2.mp3' },
+  { id: '03_a_light_left_on', title: '灯还留着', english: 'A Light Left On', mood: '三拍钢琴 · 安静的短句', duration: 145.355, volume: 2, file: 'lofi-vol02/03_a_light_left_on.r2.mp3' },
 ] as const
 
 export const MUSIC_STORAGE_KEY = 'inkroam-music-v1'
@@ -24,8 +27,9 @@ export function musicPreferences(raw: string | null) {
  * Never call on mount/open/track selection: preload=none alone is not the gate.
  */
 export function loadMusicForPlay(audio: HTMLAudioElement, id: string, baseURL: string) {
-  if (!musicTracks.some(track => track.id === id)) throw new Error('未知曲目')
-  const path = `${baseURL.replace(/\/$/, '')}/audio/lofi-vol01/${id}.v2.mp3`
+  const track = musicTracks.find(track => track.id === id)
+  if (!track) throw new Error('未知曲目')
+  const path = `${baseURL.replace(/\/$/, '')}/audio/${track.file}`
   if (audio.getAttribute('src') !== path) {
     audio.setAttribute('src', path)
     audio.load()

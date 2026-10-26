@@ -2,11 +2,12 @@
 import MusicArtwork from '~/components/MusicArtwork.vue'
 import { musicTracks, musicTime, musicPreferences, loadMusicForPlay, MUSIC_STORAGE_KEY } from '~/utils/music'
 import { listLocalMusic, localMusicFile, addLocalMusic, deleteLocalMusic, localMusicCover, saveMusicCover, prepareMusicCover } from '~/utils/local-music'
-type Track = { id: string; title: string; english: string; mood: string; duration: number; local?: boolean }
+type Track = { id: string; title: string; english: string; mood: string; duration: number; local?: boolean; volume?: number }
 const tracks = ref<Track[]>(musicTracks.map(track => ({ ...track })))
 const managing = ref(false), importing = ref(false), libraryReady = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const orderKey = 'inkroam-music-order-v1'
+const vol2MigrationKey = 'inkroam-music-vol2-added'
 let objectUrl: string | null = null
 const config = useRuntimeConfig()
 const audio = ref<HTMLAudioElement | null>(null)
@@ -465,6 +466,15 @@ async function restoreLibrary() {
     const ids = Array.isArray(order) ? [...new Set(order.filter((id): id is string => typeof id === 'string'))] : all.map(track => track.id)
     // A local file saved before a failed preference write must remain discoverable.
     for (const track of all) if (track.local && !ids.includes(track.id)) ids.push(track.id)
+    // Introduce the new album once; keep old hidden tracks and user ordering.
+    // Persist the order before the marker so an interrupted write is retryable.
+    try {
+      if (localStorage.getItem(vol2MigrationKey) !== '1') {
+        for (const track of musicTracks) if (track.volume === 2 && !ids.includes(track.id)) ids.push(track.id)
+        localStorage.setItem(orderKey, JSON.stringify(ids))
+        localStorage.setItem(vol2MigrationKey, '1')
+      }
+    } catch { /* Storage may be unavailable; the session still has the new album. */ }
     const active = audio.value?.hasAttribute('src') || loading.value || pendingSeek.value !== null ? current.value.id : selected
     tracks.value = ids.map(id => all.find(track => track.id === id)).filter((track): track is Track => !!track)
     index.value = Math.max(0, tracks.value.findIndex(track => track.id === active))
@@ -665,7 +675,7 @@ function onPlaying() {
     <section id="music-panel" ref="panel" class="music-panel music-surface" :class="{ 'is-open': open, 'is-expanded': expanded, 'is-morphing': morphing, 'is-resizing': resizing }" :style="{ height: expanded ? undefined : panelHeight === null ? undefined : `${panelHeight}px` }" :role="expanded ? 'dialog' : undefined" :aria-modal="expanded ? true : undefined" :aria-hidden="!open" :inert="!open" aria-label="音乐播放器">
       <div class="music-scroll">
         <div ref="body" class="music-body">
-            <header data-music-morph><span class="music-kicker">{{ current.local ? 'MY MUSIC' : 'PAPER HOURS · VOL. 1' }}</span><div class="music-header-actions"><button ref="fullscreenButton" type="button" :aria-label="expanded ? '退出全屏音乐' : '全屏音乐'" :aria-pressed="expanded" @click="setExpanded(!expanded)"><svg viewBox="0 0 24 24" aria-hidden="true"><path v-if="expanded" d="M4 9h5V4m6 0v5h5M4 15h5v5m6 0v-5h5" /><path v-else d="M9 4H4v5m11-5h5v5M4 15v5h5m6 0h5v-5" /></svg></button><button type="button" aria-label="关闭音乐面板" @click="close(true)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div></header>
+            <header data-music-morph><span class="music-kicker">{{ current.local ? 'MY MUSIC' : 'PAPER HOURS · VOL. ' + (current.volume || 1) }}</span><div class="music-header-actions"><button ref="fullscreenButton" type="button" :aria-label="expanded ? '退出全屏音乐' : '全屏音乐'" :aria-pressed="expanded" @click="setExpanded(!expanded)"><svg viewBox="0 0 24 24" aria-hidden="true"><path v-if="expanded" d="M4 9h5V4m6 0v5h5M4 15h5v5m6 0v-5h5" /><path v-else d="M9 4H4v5m11-5h5v5M4 15v5h5m6 0h5v-5" /></svg></button><button type="button" aria-label="关闭音乐面板" @click="close(true)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div></header>
           <div class="music-content">
             <div class="music-now">
               <div class="music-cover-stack" data-music-morph><Transition name="music-cover"><MusicArtwork :key="current.id + coverSrc" :track-id="current.id" :src="coverSrc" /></Transition></div>
@@ -707,6 +717,7 @@ function onPlaying() {
               </li>
             </ol>
             <button v-if="managing" class="music-restore" type="button" :disabled="importing" @click="restoreBuiltins">恢复内置曲目</button>
+            <a v-if="managing && current.volume === 2" class="music-credits" :href="`${config.app.baseURL}audio/lofi-vol02/CREDITS.txt`" target="_blank" rel="noopener">音乐制作与采样署名 ↗</a>
             <label class="music-volume" for="music-volume"><span>音量</span><input id="music-volume" class="music-range" :style="{ '--range-progress': `${volume * 100}%` }" type="range" min="0" max="1" step="0.01" :value="volume" :aria-valuetext="`${Math.round(volume * 100)}%`" @input="changeVolume"><output for="music-volume">{{ Math.round(volume * 100) }}%</output></label>
             </div>
           </div>
@@ -806,6 +817,7 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 .music-library-buttons button { padding-inline: 0; gap: 3px; white-space: nowrap; }
 .music-library-buttons svg { width: 14px; height: 14px; }
 .music-file { display: none; }.music-track-actions { display: flex; justify-content: flex-end; padding-bottom: 4px; gap: 4px; }.music-restore { margin: -8px 0 12px; font-size: 12px; color: var(--muted); }button:disabled { cursor: default; opacity: .4; }
+.music-credits { display: inline-block; margin-bottom: 12px; color: var(--muted); font-size: 12px; text-underline-offset: 3px; order: 5; }
 .music-volume { display: flex; gap: 12px; align-items: center; color: var(--muted); font-size: 11px; }.music-volume input { flex: 1; min-width: 0; }.music-volume output { min-width: 30px; text-align: right; }
 .music-status { margin: 14px 0 0; min-height: 1.6em; font-size: 11px; color: var(--muted); }
 .music-icon-enter-active { transition: opacity 220ms var(--ease-fluid), transform 220ms var(--ease-settle); }

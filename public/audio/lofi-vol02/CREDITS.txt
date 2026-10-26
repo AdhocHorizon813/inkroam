@@ -1,0 +1,17 @@
+# Credits / 采样署名
+
+曲谱、旋律、和声编排及渲染代码：为 Inkroam 制作，AI 辅助编写，2026-10-26。
+没有引用既有歌曲旋律或整段音乐循环；这不是对全世界旋律库的独创性检索结论。
+
+第1、3首的钢琴音色采用 **Salamander Grand Piano v3 — Alexander Holm** 的软力度采样；FLAC/SFZ仓库由 kinwie 重新映射。
+来源：https://github.com/sfzinstruments/SalamanderGrandPiano
+固定版本：3382bf9496bba2486f5ab0de55a264d1dfc38404
+许可：Creative Commons Attribution 3.0 Unported（CC BY 3.0）
+许可链接：https://creativecommons.org/licenses/by/3.0/
+许可全文随包保存于 SAMPLE-LICENSE.txt。
+本工程只选取12个v4力度层样本，进行少量移调、包络、滤波、声像与混响处理；没有完整实现其SFZ、踏板与共鸣系统。
+第2首使用代码合成的电钢琴、木质短音、低音、铺底与打击乐，没有使用钢琴采样。
+其它鼓、低音和铺底亦由代码合成，无第三方鼓循环、环境录音或人声。
+
+若发布音频或再次分发工程，请同时保留上述采样作者、来源、许可和处理说明。
+这不是采样作者对 Inkroam 的背书，也不主张第三方采样的排他所有权。

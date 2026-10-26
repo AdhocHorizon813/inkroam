@@ -67,7 +67,7 @@ await player.play()
 assert.equal(loads, 1, 'Resume reuses current resource')
 player.loaded.value = true; media.duration = 148.455; player.metadata()
 player.seek({ target: { value: '30' } }); assert.equal(media.currentTime, 30)
-player.playing.value = true; player.selectTrack(3)
+player.playing.value = true; player.selectTrack(musicTracks.length)
 await Promise.resolve()
 assert.equal(player.index.value, 0)
 assert.equal(src, '/inkroam/audio/lofi-vol01/01_rain_on_the_margin.v2.mp3')
@@ -86,7 +86,7 @@ assert.equal(musicPreferences('{"volume":-1}').volume, 0)
 assert.equal(musicTime(129.316), '2:09'); assert.equal(musicTime(NaN), '0:00')
 assert.throws(() => loadMusicForPlay(media, '../bad', '/'))
 for (const track of musicTracks) {
-  const file = `public/audio/lofi-vol01/${track.id}.v2.mp3`
+  const file = `public/audio/${track.file}`
   assert(statSync(file).size < 4_000_000)
   assert(readFileSync(file).subarray(0, 3).toString() === 'ID3')
 }
