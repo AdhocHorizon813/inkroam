@@ -714,8 +714,8 @@ function onPlaying() {
       </div>
     </section>
     <span ref="labelMeasure" class="music-measure" aria-hidden="true">{{ dockTitle }}</span>
-    <div class="music-pill music-surface" :inert="expanded" :aria-hidden="expanded" :style="{ width: `${labelWidth + 64 + (hasPlayed ? 40 : 0)}px`, '--music-label-width': `${labelWidth}px` }">
-      <button ref="trigger" class="music-trigger" type="button" :aria-expanded="open" aria-controls="music-panel" @click="open ? close() : open = true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2" /><ellipse cx="6" cy="18" rx="3" ry="2" /><ellipse cx="17" cy="16" rx="3" ry="2" /></svg><span class="music-name"><Transition name="music-name"><span :key="dockTitle">{{ dockTitle }}</span></Transition></span></button>
+    <div class="music-pill" :class="{ 'music-surface': hasPlayed, 'is-unplayed': !hasPlayed }" :inert="expanded" :aria-hidden="expanded" :style="{ width: `${labelWidth + 64 + (hasPlayed ? 40 : 0)}px`, '--music-label-width': `${labelWidth}px` }">
+      <button ref="trigger" class="music-trigger" :class="{ 'music-surface': !hasPlayed }" type="button" :aria-expanded="open" aria-controls="music-panel" @click="open ? close() : open = true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2" /><ellipse cx="6" cy="18" rx="3" ry="2" /><ellipse cx="17" cy="16" rx="3" ry="2" /></svg><span class="music-name"><Transition name="music-name"><span :key="dockTitle">{{ dockTitle }}</span></Transition></span></button>
       <Transition name="music-control"><button v-if="hasPlayed" class="music-quick-play" type="button" :disabled="!tracks.length" :aria-busy="loading" :aria-label="loading ? '取消加载音乐' : showPause ? '暂停音乐' : '播放音乐'" @click="togglePlay"><Transition name="music-icon" mode="out-in"><svg :key="showPause ? 'pause' : 'play'" viewBox="0 0 24 24" aria-hidden="true"><path v-if="showPause" d="M8 6v12M16 6v12" /><path v-else d="m8 4 12 8-12 8Z" /></svg></Transition></button></Transition>
     </div>
   </div>
@@ -725,6 +725,12 @@ function onPlaying() {
 .music-dock { position: fixed; z-index: 45; left: max(24px, env(safe-area-inset-left)); bottom: max(24px, env(safe-area-inset-bottom)); color: var(--ink); font: 13px/1.6 var(--sans); }
 .music-pill { position: relative; z-index: 2; display: flex; max-width: calc(100vw - 130px); align-items: center; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); transition: width 360ms var(--ease-settle); }
 .music-trigger { min-width: 0; flex: 1; }.music-trigger > svg { flex: none; }
+/* A single idle action owns its entire surface, like AppearancePanel's button.
+   Move the border and 10px shell padding onto that same button, not a hit-area
+   pseudo-element. Outer width, content inset and 42/46px height stay unchanged. */
+.music-pill.is-unplayed { padding: 0; border: 0; background: transparent; }
+.music-pill.is-unplayed > .music-trigger { width: 100%; min-height: 42px; padding-inline: 18px; border-width: 1px; border-style: solid; border-radius: inherit; }
+:where(.music-trigger).music-surface { background: var(--paper); border-color: var(--line); }
 .music-measure { position: absolute; width: max-content; visibility: hidden; pointer-events: none; white-space: nowrap; }
 .music-name { display: inline-grid; min-width: 0; width: var(--music-label-width); overflow: hidden; transition: width 360ms var(--ease-settle); }
 .music-name > span { grid-area: 1 / 1; overflow: hidden; text-overflow: clip; white-space: nowrap; }
@@ -836,6 +842,7 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 @media(hover:hover) and (pointer:fine) { button:hover { color: var(--accent); } }
 @media(max-width:767.98px) {
   .music-dock { left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); }button { min-height: 44px; }
+  .music-pill.is-unplayed > .music-trigger { min-height: 46px; }
   .music-panel.is-expanded .music-body { padding-inline: max(24px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right)); }
   .music-panel.is-expanded .music-content { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 16px; }
   .music-panel.is-expanded .music-now { gap: 20px; }

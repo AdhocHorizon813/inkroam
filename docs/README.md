@@ -4,6 +4,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [to-the-next-ai-2026-10-26.md](to-the-next-ai-2026-10-26.md) | 给后续 AI 的整体开发复盘：审美、功能、教学内容、性能、工程与协作 |
 | [todo.md](todo.md) | 后续待办与调研：话题聚合、标签目录及入口可发现性 |
 | [architecture.md](architecture.md) | 技术栈、目录结构、渲染模型、数据流与 SEO |
 | [payload-optimization.md](payload-optimization.md) | 页面数据精简的代码改法、保留能力、前后实测及复现方法 |

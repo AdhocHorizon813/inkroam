@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { usePageScrollable } from '~/composables/usePageScrollable'
-import { onPageScroll, pageScrollTop, rememberScrollPosition } from '~/utils/page-scroll'
+import { onPageScroll, pageScrollTop, rememberScrollPosition, scrollPageTo } from '~/utils/page-scroll'
 /* Explicit import on purpose: this environment cannot rewrite the .nuxt cache, so Nuxt's
    auto-import component manifest stays stale and <DepthReceivers /> resolves to nothing
    ("Failed to resolve component" + a hydration mismatch), leaving the whole receiver
@@ -10,6 +10,12 @@ import NavDepthLight from '~/components/NavDepthLight.vue'
 
 const config = useRuntimeConfig()
 const route = useRoute()
+function onBrandClick(event: MouseEvent) {
+  // Preserve navigation from other pages and modified/new-tab clicks.
+  if (route.path !== '/' || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+  event.preventDefault()
+  scrollPageTo(0, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth')
+}
 const routeFrame = ref<HTMLElement | null>(null)
 const pageScroll = ref<HTMLElement | null>(null)
 usePageScrollable(pageScroll)
@@ -173,7 +179,7 @@ useHead(() => ({
   <div ref="pageScroll" class="page-scroll">
     <div class="site-shell">
       <header class="site-header">
-        <NuxtLink class="brand" to="/" aria-label="纸上漫游首页">
+        <NuxtLink class="brand" to="/" :aria-label="route.path === '/' ? '纸上漫游，回到顶部' : '纸上漫游首页'" @click.capture="onBrandClick">
           <span class="brand-mark">纸</span>
           <span>纸上漫游</span>
         </NuxtLink>
