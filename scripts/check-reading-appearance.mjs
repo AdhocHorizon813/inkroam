@@ -6,6 +6,7 @@ import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
 
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+  .replace("import { vExperimentalGlass } from '~/utils/glass-surfaces'", '')
 const template = panel.match(/<template>([\s\S]*)<\/template>/)[1]
 const css = readFileSync('app/assets/css/main.css', 'utf8')
 

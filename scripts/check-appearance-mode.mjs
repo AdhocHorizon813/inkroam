@@ -6,11 +6,14 @@ import { ref, reactive, computed, watch, nextTick, effectScope } from 'vue'
 import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
 
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
+// Template directive is exercised in check-glass-surfaces, not this VM script.
 const script = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+  .replace("import { vExperimentalGlass } from '~/utils/glass-surfaces'", '')
 const compiled = ts.transpile(script.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'true'), { target: ts.ScriptTarget.ES2022 })
 async function mount(saved, dark = false, options = {}) {
   const mounted = [], cleanup = [], shared = {}, media = { matches: dark, addEventListener() {}, removeEventListener() {} }
-  const root = { dataset: {}, style: { setProperty() {}, removeProperty() {} } }
+  const properties = new Map()
+  const root = { dataset: {}, style: { setProperty(k, v) { properties.set(k, v) }, removeProperty(k) { properties.delete(k) }, getPropertyValue(k) { return properties.get(k) } } }
   let stored
   const reads = []
   const context = vm.createContext({ ref, reactive, computed, watch, nextTick,
@@ -39,6 +42,56 @@ async function mount(saved, dark = false, options = {}) {
   }
 }
 const controlled = ['navMaterial','contentMaterial','dropdownMaterial','backgroundMaterial','navBlur','contentBlur','dropdownBlur','backgroundBlur','backgroundOverlay','codeMaterial','codeBlur','diagramScale']
+// Experimental optics is explicit opt-in, not a light/dark material preset.
+for (const saved of [null, {}, { experimentalLiquidGlass: 'true' }, { experimentalLiquidGlass: 1 }, { experimentalLiquidGlass: true, defaultSettings: true }]) {
+  const instance = await mount(saved)
+  try {
+    assert.equal(instance.state.experimentalLiquidGlass, saved?.experimentalLiquidGlass === true)
+    instance.state.experimentalLiquidGlass = true
+    instance.state.colorMode = 'dark'
+    await nextTick()
+    assert.equal(instance.root.dataset.experimentalLiquidGlass, 'on')
+    assert.equal(instance.stored().experimentalLiquidGlass, true)
+    instance.state.visual = 'classic'
+    await nextTick()
+    assert.equal(instance.root.dataset.experimentalLiquidGlass, 'off')
+    assert.equal(instance.state.experimentalLiquidGlass, true, 'Classic preserves the requested preference')
+    instance.state.visual = 'modern'
+    await nextTick()
+    assert.equal(instance.root.dataset.experimentalLiquidGlass, 'on')
+    const reloaded = await mount(instance.stored())
+    try { assert.equal(reloaded.root.dataset.experimentalLiquidGlass, 'on') } finally { reloaded.stop() }
+    instance.resetAppearance()
+    await nextTick()
+    assert.equal(instance.state.experimentalLiquidGlass, false)
+    assert.equal(instance.root.dataset.experimentalLiquidGlass, 'off')
+  } finally { instance.stop() }
+}
+console.log('PASS: experimental liquid glass opt-in, persistence, classic isolation and reset.')
+for (const [saved, expected] of [[undefined, 86], [null, 86], ['50', 86], [-20, 0], [140, 100], [55.6, 56]]) {
+  const instance = await mount({ glassClarity: saved, defaultSettings: true })
+  try {
+    assert.equal(instance.state.glassClarity, expected)
+    instance.state.colorMode = 'dark'
+    await nextTick()
+    assert.equal(instance.state.glassClarity, expected, 'Presets do not replace clarity')
+    for (const clarity of [0, 86, 100]) {
+      instance.state.glassClarity = clarity
+      await nextTick()
+      assert.equal(instance.root.dataset.glassClarity, String(clarity))
+      assert.equal(instance.stored().glassClarity, clarity)
+    }
+    instance.resetAppearance()
+    await nextTick()
+    assert.equal(instance.state.glassClarity, 86)
+    assert.equal(instance.state.glassAntialias, false)
+    instance.state.glassAntialias = true
+    await nextTick()
+    assert.equal(instance.root.dataset.glassAntialias, 'on')
+    assert.equal(instance.stored().glassAntialias, true)
+  } finally { instance.stop() }
+}
+console.log('PASS: clarity normalization, persistence, endpoints, legacy default and reset.')
 const values = state => controlled.map(key => state[key])
 const light = ['liquid','liquid','liquid','liquid',14,5,4,0,40,'liquid',5,75]
 const dark = ['mica','mica','mica','mica',12,10,12,4,40,'mica',10,75]

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vExperimentalGlass } from '~/utils/glass-surfaces'
 type DisplayMode = 'off' | 'fullscreen' | 'focus'
 const mode = ref<DisplayMode>('off')
 const supported = ref(false)
@@ -58,6 +59,7 @@ onUnmounted(() => {
   <fieldset class="setting-group">
     <legend class="setting-label">显示模式</legend>
     <div class="segmented-control" :style="segmentStyle" :aria-busy="pending">
+      <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
       <button
         v-for="choice in choices"
         :key="choice.value"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vExperimentalGlass } from '~/utils/glass-surfaces'
 import MusicArtwork from '~/components/MusicArtwork.vue'
 import { musicTracks, musicTime, musicPreferences, loadMusicForPlay, MUSIC_STORAGE_KEY } from '~/utils/music'
 import { listLocalMusic, localMusicFile, addLocalMusic, deleteLocalMusic, localMusicCover, saveMusicCover, prepareMusicCover } from '~/utils/local-music'
@@ -672,7 +673,7 @@ function onPlaying() {
     <audio ref="audio" preload="none" @playing="onPlaying" @pause="onPause" @waiting="onWaiting" @loadedmetadata="metadata" @timeupdate="syncTime" @ended="ended" @error="failed" />
     <!-- Like AppearancePanel: a persistent surface clips from its trigger.
          Animate the material itself, not a height-collapsing backdrop ancestor. -->
-    <section id="music-panel" ref="panel" class="music-panel music-surface" :class="{ 'is-open': open, 'is-expanded': expanded, 'is-morphing': morphing, 'is-resizing': resizing }" :style="{ height: expanded ? undefined : panelHeight === null ? undefined : `${panelHeight}px` }" :role="expanded ? 'dialog' : undefined" :aria-modal="expanded ? true : undefined" :aria-hidden="!open" :inert="!open" aria-label="音乐播放器">
+    <section id="music-panel" v-experimental-glass="open" data-glass-module="music" ref="panel" class="music-panel music-surface" :class="{ 'is-open': open, 'is-expanded': expanded, 'is-morphing': morphing, 'is-resizing': resizing }" :style="{ height: expanded ? undefined : panelHeight === null ? undefined : `${panelHeight}px` }" :role="expanded ? 'dialog' : undefined" :aria-modal="expanded ? true : undefined" :aria-hidden="!open" :inert="!open" aria-label="音乐播放器">
       <div class="music-scroll">
         <div ref="body" class="music-body">
             <header data-music-morph><span class="music-kicker">{{ current.local ? 'MY MUSIC' : 'PAPER HOURS · VOL. ' + (current.volume || 1) }}</span><div class="music-header-actions"><button ref="fullscreenButton" type="button" :aria-label="expanded ? '退出全屏音乐' : '全屏音乐'" :aria-pressed="expanded" @click="setExpanded(!expanded)"><svg viewBox="0 0 24 24" aria-hidden="true"><path v-if="expanded" d="M4 9h5V4m6 0v5h5M4 15h5v5m6 0v-5h5" /><path v-else d="M9 4H4v5m11-5h5v5M4 15v5h5m6 0h5v-5" /></svg></button><button type="button" aria-label="关闭音乐面板" @click="close(true)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div></header>
@@ -695,7 +696,7 @@ function onPlaying() {
                  dragging but is transparent; the visible track, fill and ball are painted
                  with transforms so the thumb cannot snap to whole pixels each frame. -->
             <div ref="progressVisual" class="music-progress" :style="{ '--music-progress': progressRatio }">
-              <span class="music-progress__track" aria-hidden="true"><span class="music-progress__fill"></span><span class="music-progress__ball-layer"><span class="music-progress__ball"></span></span></span>
+              <span class="music-progress__track" aria-hidden="true"><span class="music-progress__fill"></span><span class="music-progress__ball-layer"><span v-experimental-glass="open" data-glass-module="thumb" class="music-progress__ball"></span></span></span>
               <input id="music-progress" ref="progressInput" class="music-progress__input" type="range" min="0" :max="duration" step="0.01" :value="elapsed" :disabled="!tracks.length" :aria-valuetext="knownDuration ? `${musicTime(elapsed)}，共 ${musicTime(duration)}` : `预选 ${Math.round(elapsed)}%`" @pointerdown="startScrub" @keydown="startScrub" @keyup="finishScrub" @blur="finishScrub" @input="seek">
             </div>
             <div class="music-times"><span>{{ knownDuration ? musicTime(elapsed) : `${Math.round(elapsed)}%` }}</span><span>{{ knownDuration ? musicTime(duration) : '—:—' }}</span></div>
@@ -718,7 +719,7 @@ function onPlaying() {
             </ol>
             <button v-if="managing" class="music-restore" type="button" :disabled="importing" @click="restoreBuiltins">恢复内置曲目</button>
             <a v-if="managing && current.volume === 2" class="music-credits" :href="`${config.app.baseURL}audio/lofi-vol02/CREDITS.txt`" target="_blank" rel="noopener">音乐制作与采样署名 ↗</a>
-            <label class="music-volume" for="music-volume"><span>音量</span><input id="music-volume" class="music-range" :style="{ '--range-progress': `${volume * 100}%` }" type="range" min="0" max="1" step="0.01" :value="volume" :aria-valuetext="`${Math.round(volume * 100)}%`" @input="changeVolume"><output for="music-volume">{{ Math.round(volume * 100) }}%</output></label>
+            <label class="music-volume" for="music-volume"><span>音量</span><GlassRange><input id="music-volume" class="music-range" :style="{ '--range-progress': `${volume * 100}%` }" type="range" min="0" max="1" step="0.01" :value="volume" :aria-valuetext="`${Math.round(volume * 100)}%`" @input="changeVolume"></GlassRange><output for="music-volume">{{ Math.round(volume * 100) }}%</output></label>
             </div>
           </div>
         </div>

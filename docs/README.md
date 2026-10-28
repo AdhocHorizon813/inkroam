@@ -4,6 +4,7 @@
 
 | 文档 | 内容 |
 | --- | --- |
+| [experimental-liquid-glass.md](experimental-liquid-glass.md) | 实验性液态玻璃：导航、底部入口及浮层折射、独立材质、按需加载与验收边界 |
 | [to-the-next-ai-2026-10-26.md](to-the-next-ai-2026-10-26.md) | 给后续 AI 的整体开发复盘：审美、功能、教学内容、性能、工程与协作 |
 | [todo.md](todo.md) | 后续待办与调研：话题聚合、标签目录及入口可发现性 |
 | [architecture.md](architecture.md) | 技术栈、目录结构、渲染模型、数据流与 SEO |

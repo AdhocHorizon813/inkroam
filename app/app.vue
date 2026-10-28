@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vExperimentalGlass } from '~/utils/glass-surfaces'
 import { usePageScrollable } from '~/composables/usePageScrollable'
 import { onPageScroll, pageScrollTop, rememberScrollPosition, scrollPageTo } from '~/utils/page-scroll'
 /* Explicit import on purpose: this environment cannot rewrite the .nuxt cache, so Nuxt's
@@ -7,6 +8,7 @@ import { onPageScroll, pageScrollTop, rememberScrollPosition, scrollPageTo } fro
    layer unrendered. Importing it here removes the dependency on that manifest. */
 import DepthReceivers from '~/components/DepthReceivers.vue'
 import NavDepthLight from '~/components/NavDepthLight.vue'
+import ExperimentalGlass from '~/components/ExperimentalGlass.client.vue'
 
 const config = useRuntimeConfig()
 const route = useRoute()
@@ -178,7 +180,7 @@ useHead(() => ({
   </div>
   <div ref="pageScroll" class="page-scroll">
     <div class="site-shell">
-      <header class="site-header">
+      <header v-experimental-glass="true" data-glass-module="navbar" class="site-header">
         <NuxtLink class="brand" to="/" :aria-label="route.path === '/' ? '纸上漫游，回到顶部' : '纸上漫游首页'" @click.capture="onBrandClick">
           <span class="brand-mark">纸</span>
           <span>纸上漫游</span>
@@ -199,4 +201,5 @@ useHead(() => ({
   </div>
   <AppearancePanel />
   <MusicPlayer />
+  <ExperimentalGlass />
 </template>

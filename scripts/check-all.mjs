@@ -7,6 +7,9 @@ for (const flag of flags) {
 }
 const built = flags.has('--built')
 const suites = [
+  'check-glass-surfaces',
+  'check-glass-adapter',
+  'check-glass-controls',
   'check-music-player',
   'check-article-tools',
   'check-c2-note',
@@ -35,7 +38,7 @@ const suites = [
   'check-search-filters', 'check-pdf-controls', 'check-pdf-search',
   'check-filter-select', 'check-calendar', 'check-search-popover',
 ]
-if (built) suites.push('check-notes', 'check-search-math', 'check-built-links')
+if (built) suites.push('check-notes', 'check-search-math', 'check-built-links', 'check-glass-built')
 if (flags.has('--live')) suites.push('check-note-search', 'check-pdf-embed')
 let failed = 0
 for (const suite of suites) {

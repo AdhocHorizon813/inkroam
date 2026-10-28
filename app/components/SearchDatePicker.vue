@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vExperimentalGlass } from '~/utils/glass-surfaces'
 import { calendarDays, maskDateInput, shiftCalendarDate, shiftCalendarMonth, validCalendarDate, withinDateRange } from '~/utils/calendar-date'
 
 const props = defineProps<{ label: string; modelValue: string; enabled: boolean; min?: string; max?: string }>()
@@ -105,7 +106,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
     <div v-if="error" :id="`${id}-error`" class="date-error" role="status">{{ error }}</div>
     <div ref="popup" popover="manual" class="date-popup search-popover" :class="{ 'is-open': open }" :inert="!open" :aria-hidden="!open">
       <div class="date-clip">
-        <section :id="`${id}-calendar`" class="calendar-surface dropdown-surface" role="dialog" :aria-label="`${label}日历`">
+        <section v-experimental-glass="open" data-glass-module="dropdown" :id="`${id}-calendar`" class="calendar-surface dropdown-surface" role="dialog" :aria-label="`${label}日历`">
           <header class="calendar-header">
             <button type="button" aria-label="上个月" :disabled="clamp(shiftCalendarMonth(cursor, -1)) === cursor" @click="changeMonth(-1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5" /></svg></button>
             <span :id="`${id}-month`" aria-live="polite">{{ monthLabel }}</span>

@@ -5,7 +5,8 @@ import ts from 'typescript'
 import { ref, computed } from 'vue'
 
 const source = readFileSync('app/components/DisplayModeSettings.vue', 'utf8')
-const code = ts.transpile(source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1], { target: ts.ScriptTarget.ES2022 })
+const code = ts.transpile(source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+  .replace("import { vExperimentalGlass } from '~/utils/glass-surfaces'", ''), { target: ts.ScriptTarget.ES2022 })
 let mounted, cleanup, reject = false, requests = 0
 const listeners = new Map()
 const root = { dataset: {}, async requestFullscreen() {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vExperimentalGlass } from '~/utils/glass-surfaces'
 const route = useRoute()
 
 const items = [
@@ -59,6 +60,8 @@ onBeforeUnmount(() => {
 <template>
   <nav ref="navElement" class="main-nav" aria-label="主导航">
     <span
+      v-experimental-glass="indicator.ready"
+      data-glass-module="indicator"
       class="nav-highlight"
       :class="{ 'is-ready': indicator.ready }"
       :style="{

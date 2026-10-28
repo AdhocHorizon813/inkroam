@@ -2,6 +2,18 @@ export default defineNuxtConfig({
   modules: ['@nuxt/content'],
   css: ['katex/dist/katex.min.css', '~/assets/css/main.css', '~/assets/css/depth.css'],
   devtools: { enabled: false },
+  hooks: {
+    'build:manifest'(manifest) {
+      // Nuxt prefetches dynamic entries even when the opt-in branch never ran.
+      // Keep only this experimental engine demand-loaded; leave other hints alone.
+      for (const chunk of Object.values(manifest)) {
+        if (chunk.src?.replaceAll('\\', '/').endsWith('vendor/liquidglass/liquid-glass.js')) {
+          chunk.prefetch = false
+          chunk.preload = false
+        }
+      }
+    },
+  },
   content: {
     experimental: { sqliteConnector: 'native' },
     build: {

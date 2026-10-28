@@ -6,6 +6,7 @@ import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
 
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+  .replace("import { vExperimentalGlass } from '~/utils/glass-surfaces'", '')
 // This harness tests count preferences, not browser PDF capabilities or scrolling.
 const compiled = ts.transpile(source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'false'), { target: ts.ScriptTarget.ES2022 })
 

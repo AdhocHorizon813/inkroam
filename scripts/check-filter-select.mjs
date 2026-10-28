@@ -5,6 +5,7 @@ import ts from 'typescript'
 
 const source = readFileSync('app/components/SearchFilterSelect.vue', 'utf8')
 const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+  .replace("import { vExperimentalGlass } from '~/utils/glass-surfaces'", '')
 const events = []
 const watches = []
 const props = { label: '标签', modelValue: 'math', enabled: true, options: [

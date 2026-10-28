@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vExperimentalGlass } from '~/utils/glass-surfaces'
 const props = defineProps<{ label: string; modelValue: string; options: { value: string; label: string }[]; enabled: boolean; disabled?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const root = ref<HTMLElement | null>(null)
@@ -81,7 +82,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
     </button>
     <div ref="popup" popover="manual" class="filter-popup search-popover" :class="{ 'is-open': open }" :inert="!open" :aria-hidden="!open">
       <div class="filter-clip">
-        <div class="filter-surface dropdown-surface">
+        <div v-experimental-glass="open" data-glass-module="dropdown" class="filter-surface dropdown-surface">
           <input ref="input" v-model="query" type="search" role="combobox" :aria-label="`搜索${label}选项`" :aria-controls="`${id}-list`" :aria-expanded="open" aria-autocomplete="list" :aria-activedescendant="filtered.length ? `${id}-option-${active}` : undefined" :placeholder="`搜索${label}…`" autocomplete="off" @keydown="keydown">
           <ul :id="`${id}-list`" class="filter-options" role="listbox" :aria-labelledby="`${id}-label`">
             <li v-for="(option, index) in filtered" :id="`${id}-option-${index}`" :key="option.value" role="option" :aria-selected="option.value === modelValue" :data-option-index="index" :class="{ 'is-active': index === active, 'is-selected': option.value === modelValue }" @pointermove="active = index" @pointerdown.prevent @click="choose(option.value)">

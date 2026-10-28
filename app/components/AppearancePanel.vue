@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vExperimentalGlass } from '~/utils/glass-surfaces'
 import { supportsEmbeddedPdf } from '~/utils/pdf-embed'
 import { decodeAppearanceStorage } from '~/utils/appearance-storage'
 import { usePageScrollable } from '~/composables/usePageScrollable'
@@ -20,6 +21,10 @@ interface AppearanceState {
   backgroundTint: boolean
   depth: 'off' | 'soft' | 'defined'
   depthTiming: 'delayed' | 'sync'
+  // Opt-in experiment, independent of managed material defaults.
+  experimentalLiquidGlass: boolean
+  glassClarity: number
+  glassAntialias: boolean
   navMaterial: MaterialMode
   musicMaterial: MaterialMode
   contentMaterial: MaterialMode
@@ -145,6 +150,9 @@ const state = reactive<AppearanceState>({
   backgroundTint: true,
   depth: 'off',
   depthTiming: 'sync',
+  experimentalLiquidGlass: false,
+  glassClarity: 86,
+  glassAntialias: false,
   colorMode: 'auto',
   /* 初值取 v5 时代的值：老访客缺的键就落在这里（观感与改动前一致），真·新访客会在 onMounted 里
      在偏好规范化时换成当前明暗的新默认。SSR 首帧的面板内容也按这套渲染，与
@@ -230,6 +238,10 @@ function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppea
   if (typeof normalized.backgroundTint !== 'boolean') normalized.backgroundTint = true
   if (!['off', 'soft', 'defined'].includes(normalized.depth)) normalized.depth = 'off'
   if (!['delayed', 'sync'].includes(normalized.depthTiming)) normalized.depthTiming = 'sync'
+  normalized.experimentalLiquidGlass = normalized.experimentalLiquidGlass === true
+  normalized.glassClarity = Number.isFinite(normalized.glassClarity)
+    ? Math.round(Math.max(0, Math.min(100, normalized.glassClarity))) : 86
+  normalized.glassAntialias = normalized.glassAntialias === true
   if (!['liquid', 'acrylic', 'mica'].includes(normalized.musicMaterial)) normalized.musicMaterial = LEGACY_DEFAULTS.musicMaterial
   if (!Number.isFinite(normalized.musicBlur)) normalized.musicBlur = LEGACY_DEFAULTS.musicBlur
   normalized.musicBlur = Math.max(0, Math.min(48, normalized.musicBlur))
@@ -390,6 +402,10 @@ function applyAppearance() {
   root.dataset.backgroundTint = state.backgroundTint ? 'on' : 'off'
   root.dataset.depth = state.depth
   root.dataset.depthTiming = state.depthTiming
+  // Reserved renderer gate: classic keeps the preference but never enables the experiment.
+  root.dataset.experimentalLiquidGlass = state.visual === 'modern' && state.experimentalLiquidGlass ? 'on' : 'off'
+  root.dataset.glassClarity = String(state.glassClarity)
+  root.dataset.glassAntialias = state.glassAntialias ? 'on' : 'off'
   root.style.setProperty('--background-overlay-opacity', String(state.backgroundOverlay / 100))
   /* 图的显示比例写成变量，而不是逐张改 svg：滑条一动由 CSS 的 calc 直接重算，
      页面上二十张图不用重画一遍（见 MermaidDiagram.vue 里 svg 的 width）。 */
@@ -525,6 +541,9 @@ function resetAppearance() {
     backgroundTint: true,
     depth: 'off',
     depthTiming: 'sync',
+    experimentalLiquidGlass: false,
+    glassClarity: 86,
+    glassAntialias: false,
     ...appearanceDefaults(systemPrefersDark.value ? 'dark' : 'light'),
     background: 'auto',
     backgroundPicked: false,
@@ -557,6 +576,8 @@ function resetAppearance() {
 
     <section
       id="appearance-panel"
+      v-experimental-glass="isOpen"
+      data-glass-module="appearance"
       class="appearance-panel"
       :class="{ 'is-open': isOpen }"
       :aria-hidden="!isOpen"
@@ -575,6 +596,7 @@ function resetAppearance() {
         <div class="setting-group">
           <span class="setting-label">视觉风格</span>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.visual === 'modern' ? 0 : 1)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.visual === 'modern' }" @click="selectVisual('modern')">现代幻境</button>
             <button type="button" :class="{ active: state.visual === 'classic' }" @click="selectVisual('classic')">纸媒原版</button>
           </div>
@@ -584,6 +606,7 @@ function resetAppearance() {
           <legend class="setting-label">默认设置</legend>
           <p class="setting-hint">启用后，材质、模糊、遮罩、背景氛围与图表尺寸按当前明暗自动取值，不能手动调整。</p>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.defaultSettings ? 0 : 1)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.defaultSettings" :class="{ active: state.defaultSettings }" @click="requestDefaultSettings(true)">启用</button>
             <button type="button" :aria-pressed="!state.defaultSettings" :class="{ active: !state.defaultSettings }" @click="requestDefaultSettings(false)">禁用</button>
           </div>
@@ -592,6 +615,7 @@ function resetAppearance() {
         <fieldset class="setting-group">
           <legend class="setting-label">外观模式</legend>
           <div class="segmented-control" :style="segmentStyle(state.colorMode === 'light' ? 0 : state.colorMode === 'dark' ? 1 : 2)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.colorMode === 'light' }" @click="state.colorMode = 'light'">浅色</button>
             <button type="button" :class="{ active: state.colorMode === 'dark' }" @click="state.colorMode = 'dark'">深色</button>
             <button type="button" :class="{ active: state.colorMode === 'auto' }" @click="state.colorMode = 'auto'">自动</button>
@@ -603,6 +627,7 @@ function resetAppearance() {
         <fieldset class="setting-group">
           <legend class="setting-label">层次感</legend>
           <div class="segmented-control" :style="segmentStyle(state.depth === 'off' ? 0 : state.depth === 'soft' ? 1 : 2)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.depth === 'off'" :class="{ active: state.depth === 'off' }" @click="state.depth = 'off'">关闭</button>
             <button type="button" :aria-pressed="state.depth === 'soft'" :class="{ active: state.depth === 'soft' }" @click="state.depth = 'soft'">轻柔</button>
             <button type="button" :aria-pressed="state.depth === 'defined'" :class="{ active: state.depth === 'defined' }" @click="state.depth = 'defined'">鲜明</button>
@@ -612,14 +637,42 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="state.visual === 'classic' || state.depth === 'off'">
           <legend class="setting-label">光效时序</legend>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.depthTiming === 'sync' ? 0 : 1)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.depthTiming === 'sync'" :class="{ active: state.depthTiming === 'sync' }" @click="state.depthTiming = 'sync'">同步</button>
             <button type="button" :aria-pressed="state.depthTiming === 'delayed'" :class="{ active: state.depthTiming === 'delayed' }" @click="state.depthTiming = 'delayed'">延迟</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="setting-group" :disabled="state.visual === 'classic'">
+          <legend class="setting-label">实验性液态玻璃</legend>
+          <div class="segmented-control segmented-control--two" :style="segmentStyle(state.experimentalLiquidGlass ? 1 : 0)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <button type="button" :aria-pressed="!state.experimentalLiquidGlass" :class="{ active: !state.experimentalLiquidGlass }" @click="state.experimentalLiquidGlass = false">关闭</button>
+            <button type="button" :aria-pressed="state.experimentalLiquidGlass" :class="{ active: state.experimentalLiquidGlass }" @click="state.experimentalLiquidGlass = true">开启</button>
+          </div>
+        </fieldset>
+
+        <div class="setting-group" :aria-disabled="state.visual === 'classic' || !state.experimentalLiquidGlass">
+          <div class="range-heading"><label class="setting-label" for="glass-clarity">玻璃通透度</label><output for="glass-clarity">{{ state.glassClarity }}%</output></div>
+          <GlassRange>
+            <input id="glass-clarity" v-model.number="state.glassClarity" type="range" min="0" max="100" step="1" :style="{ '--range-progress': `${state.glassClarity}%` }" :disabled="state.visual === 'classic' || !state.experimentalLiquidGlass">
+          </GlassRange>
+          <div class="range-scale" aria-hidden="true"><span>0 %</span><span>100 %</span></div>
+        </div>
+
+        <fieldset class="setting-group" :disabled="state.visual === 'classic' || !state.experimentalLiquidGlass">
+          <legend class="setting-label">玻璃抗锯齿</legend>
+          <div class="segmented-control segmented-control--two" :style="segmentStyle(state.glassAntialias ? 1 : 0)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <button type="button" :aria-pressed="!state.glassAntialias" :class="{ active: !state.glassAntialias }" @click="state.glassAntialias = false">关闭</button>
+            <button type="button" :aria-pressed="state.glassAntialias" :class="{ active: state.glassAntialias }" @click="state.glassAntialias = true">开启</button>
           </div>
         </fieldset>
 
         <fieldset class="setting-group">
           <legend class="setting-label">最近文章</legend>
           <div class="segmented-control" :style="segmentStyle(state.latestPostCount === 5 ? 0 : state.latestPostCount === 10 ? 1 : 2)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.latestPostCount === 5 }" @click="state.latestPostCount = 5">5 篇</button>
             <button type="button" :class="{ active: state.latestPostCount === 10 }" @click="state.latestPostCount = 10">10 篇</button>
             <button type="button" :class="{ active: state.latestPostCount === 'all' }" @click="state.latestPostCount = 'all'">所有</button>
@@ -629,6 +682,7 @@ function resetAppearance() {
         <fieldset class="setting-group">
           <legend class="setting-label">最近笔记</legend>
           <div class="segmented-control" :style="segmentStyle(state.latestNoteCount === 5 ? 0 : state.latestNoteCount === 10 ? 1 : 2)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.latestNoteCount === 5" :class="{ active: state.latestNoteCount === 5 }" @click="state.latestNoteCount = 5">5 篇</button>
             <button type="button" :aria-pressed="state.latestNoteCount === 10" :class="{ active: state.latestNoteCount === 10 }" @click="state.latestNoteCount = 10">10 篇</button>
             <button type="button" :aria-pressed="state.latestNoteCount === 'all'" :class="{ active: state.latestNoteCount === 'all' }" @click="state.latestNoteCount = 'all'">所有</button>
@@ -642,6 +696,7 @@ function resetAppearance() {
             {{ pdfEmbedSupported ? '当前浏览器支持内嵌，此项不生效' : '浏览器不能内嵌 PDF，此项生效' }}
           </p>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.pdfFallback === 'card' ? 0 : 1)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.pdfFallback === 'card'" :class="{ active: state.pdfFallback === 'card' }" title="先显示文件卡片，点“在页面内阅读”再打开阅读器" @click="state.pdfFallback = 'card'">显示卡片</button>
             <button type="button" :aria-pressed="state.pdfFallback === 'reader'" :class="{ active: state.pdfFallback === 'reader' }" title="直接打开页面内阅读器，省去一次点击" @click="state.pdfFallback = 'reader'">直接阅读</button>
           </div>
@@ -652,7 +707,7 @@ function resetAppearance() {
             <label class="setting-label" for="diagram-scale">图表尺寸</label>
             <output for="diagram-scale">{{ state.diagramScale }}%</output>
           </div>
-          <input
+          <GlassRange><input
             id="diagram-scale"
             v-model.number="state.diagramScale"
             type="range"
@@ -661,13 +716,14 @@ function resetAppearance() {
             step="1"
             :style="{ '--range-progress': `${state.diagramScale}%` }"
             :disabled="managedDisabled"
-          >
+          ></GlassRange>
           <div class="range-scale" aria-hidden="true"><span>0 %</span><span>100 %</span></div>
         </div>
 
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">导航材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.navMaterial === 'liquid' ? 0 : state.navMaterial === 'acrylic' ? 1 : 2)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.navMaterial === 'liquid' }" @click="state.navMaterial = 'liquid'">液态玻璃</button>
             <button type="button" :class="{ active: state.navMaterial === 'acrylic' }" @click="state.navMaterial = 'acrylic'">亚克力</button>
             <button type="button" :class="{ active: state.navMaterial === 'mica' }" @click="state.navMaterial = 'mica'">云母</button>
@@ -679,7 +735,7 @@ function resetAppearance() {
             <span class="setting-label">导航模糊</span>
             <output>{{ state.navBlur }} px</output>
           </div>
-          <input
+          <GlassRange><input
             v-model.number="state.navBlur"
             type="range"
             min="0"
@@ -687,26 +743,28 @@ function resetAppearance() {
             step="1"
             :style="{ '--range-progress': `${state.navBlur / 48 * 100}%` }"
             :disabled="managedDisabled"
-          >
+          ></GlassRange>
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">音乐材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.musicMaterial === 'liquid' ? 0 : state.musicMaterial === 'acrylic' ? 1 : 2)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button v-for="material in (['liquid', 'acrylic', 'mica'] as const)" :key="material" type="button" :aria-pressed="state.musicMaterial === material" :class="{ active: state.musicMaterial === material }" @click="state.musicMaterial = material">{{ { liquid: '液态玻璃', acrylic: '亚克力', mica: '云母' }[material] }}</button>
           </div>
         </fieldset>
 
         <div class="setting-group" :aria-disabled="managedDisabled">
           <div class="range-heading"><label class="setting-label" for="music-blur">音乐模糊</label><output for="music-blur">{{ state.musicBlur }} px</output></div>
-          <input id="music-blur" v-model.number="state.musicBlur" type="range" min="0" max="48" step="1" :style="{ '--range-progress': `${state.musicBlur / 48 * 100}%` }" :disabled="managedDisabled">
+          <GlassRange><input id="music-blur" v-model.number="state.musicBlur" type="range" min="0" max="48" step="1" :style="{ '--range-progress': `${state.musicBlur / 48 * 100}%` }" :disabled="managedDisabled"></GlassRange>
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">内容材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.contentMaterial === 'liquid' ? 0 : state.contentMaterial === 'acrylic' ? 1 : 2)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.contentMaterial === 'liquid' }" @click="state.contentMaterial = 'liquid'">液态玻璃</button>
             <button type="button" :class="{ active: state.contentMaterial === 'acrylic' }" @click="state.contentMaterial = 'acrylic'">亚克力</button>
             <button type="button" :class="{ active: state.contentMaterial === 'mica' }" @click="state.contentMaterial = 'mica'">云母</button>
@@ -718,7 +776,7 @@ function resetAppearance() {
             <span class="setting-label">内容模糊</span>
             <output>{{ state.contentBlur }} px</output>
           </div>
-          <input
+          <GlassRange><input
             v-model.number="state.contentBlur"
             type="range"
             min="0"
@@ -726,26 +784,28 @@ function resetAppearance() {
             step="1"
             :style="{ '--range-progress': `${state.contentBlur / 48 * 100}%` }"
             :disabled="managedDisabled"
-          >
+          ></GlassRange>
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">代码材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.codeMaterial === 'liquid' ? 0 : state.codeMaterial === 'acrylic' ? 1 : 2)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button v-for="material in (['liquid', 'acrylic', 'mica'] as const)" :key="material" type="button" :aria-pressed="state.codeMaterial === material" :class="{ active: state.codeMaterial === material }" @click="state.codeMaterial = material">{{ { liquid: '液态玻璃', acrylic: '亚克力', mica: '云母' }[material] }}</button>
           </div>
         </fieldset>
 
         <div class="setting-group" :aria-disabled="managedDisabled">
           <div class="range-heading"><label class="setting-label" for="code-blur">代码模糊</label><output for="code-blur">{{ state.codeBlur }} px</output></div>
-          <input id="code-blur" v-model.number="state.codeBlur" type="range" min="0" max="48" step="1" :style="{ '--range-progress': `${state.codeBlur / 48 * 100}%` }" :disabled="managedDisabled">
+          <GlassRange><input id="code-blur" v-model.number="state.codeBlur" type="range" min="0" max="48" step="1" :style="{ '--range-progress': `${state.codeBlur / 48 * 100}%` }" :disabled="managedDisabled"></GlassRange>
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">下拉框材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.dropdownMaterial === 'liquid' ? 0 : state.dropdownMaterial === 'acrylic' ? 1 : 2)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.dropdownMaterial === 'liquid'" :class="{ active: state.dropdownMaterial === 'liquid' }" @click="state.dropdownMaterial = 'liquid'">液态玻璃</button>
             <button type="button" :aria-pressed="state.dropdownMaterial === 'acrylic'" :class="{ active: state.dropdownMaterial === 'acrylic' }" @click="state.dropdownMaterial = 'acrylic'">亚克力</button>
             <button type="button" :aria-pressed="state.dropdownMaterial === 'mica'" :class="{ active: state.dropdownMaterial === 'mica' }" @click="state.dropdownMaterial = 'mica'">云母</button>
@@ -757,7 +817,7 @@ function resetAppearance() {
             <span class="setting-label">下拉框模糊</span>
             <output>{{ state.dropdownBlur }} px</output>
           </div>
-          <input
+          <GlassRange><input
             v-model.number="state.dropdownBlur"
             type="range"
             min="0"
@@ -765,7 +825,7 @@ function resetAppearance() {
             step="1"
             :style="{ '--range-progress': `${state.dropdownBlur / 48 * 100}%` }"
             :disabled="managedDisabled"
-          >
+          ></GlassRange>
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 
@@ -811,6 +871,7 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">背景材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.backgroundMaterial === 'liquid' ? 0 : state.backgroundMaterial === 'acrylic' ? 1 : 2)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.backgroundMaterial === 'liquid' }" @click="state.backgroundMaterial = 'liquid'">液态玻璃</button>
             <button type="button" :class="{ active: state.backgroundMaterial === 'acrylic' }" @click="state.backgroundMaterial = 'acrylic'">亚克力</button>
             <button type="button" :class="{ active: state.backgroundMaterial === 'mica' }" @click="state.backgroundMaterial = 'mica'">云母</button>
@@ -822,7 +883,7 @@ function resetAppearance() {
             <span class="setting-label">背景模糊</span>
             <output>{{ state.backgroundBlur }} px</output>
           </div>
-          <input
+          <GlassRange><input
             v-model.number="state.backgroundBlur"
             type="range"
             min="0"
@@ -830,7 +891,7 @@ function resetAppearance() {
             step="1"
             :style="{ '--range-progress': `${state.backgroundBlur / 48 * 100}%` }"
             :disabled="managedDisabled"
-          >
+          ></GlassRange>
           <div class="range-scale" aria-hidden="true"><span>0 px</span><span>48 px</span></div>
         </div>
 
@@ -839,7 +900,7 @@ function resetAppearance() {
             <span class="setting-label">背景遮罩透明度</span>
             <output>{{ state.backgroundOverlay }} %</output>
           </div>
-          <input
+          <GlassRange><input
             v-model.number="state.backgroundOverlay"
             type="range"
             min="0"
@@ -847,13 +908,14 @@ function resetAppearance() {
             step="1"
             :style="{ '--range-progress': `${state.backgroundOverlay / 100 * 100}%` }"
             :disabled="managedDisabled"
-          >
+          ></GlassRange>
           <div class="range-scale" aria-hidden="true"><span>0 %</span><span>100 %</span></div>
         </div>
 
         <fieldset class="setting-group" :disabled="state.visual === 'classic'">
           <legend class="setting-label">主题色混合背景</legend>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.backgroundTint ? 0 : 1)">
+            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.backgroundTint" :class="{ active: state.backgroundTint }" @click="state.backgroundTint = true">开启</button>
             <button type="button" :aria-pressed="!state.backgroundTint" :class="{ active: !state.backgroundTint }" @click="state.backgroundTint = false">关闭</button>
           </div>
@@ -891,6 +953,8 @@ function resetAppearance() {
          showModal() 自带 top layer、焦点陷阱与 Esc 关闭，不需要自己管层级。 -->
     <dialog
       ref="defaultSettingsDialog"
+      v-experimental-glass="pendingDefaultSettings !== null"
+      data-glass-module="confirm"
       class="appearance-confirm"
       aria-labelledby="appearance-confirm-title"
       aria-describedby="appearance-confirm-description"
