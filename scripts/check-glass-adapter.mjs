@@ -65,6 +65,7 @@ function setup({ engineName = 'blink', delayed = false, decode = true } = {}) {
   const context = vm.createContext({
     document: { documentElement: root, querySelectorAll: () => [dock], querySelector: () => pill, createElement: () => new Element() },
     window: win, matchMedia: () => media, glassSurfaces: registered, GLASS_SURFACES_CHANGED: 'changed', glassOptics,
+    GLASS_CONTENT_SELECTOR: '.article-page',
     currentGlassQuality: (w, h) => glassQuality(Number(root.dataset.glassClarity ?? 86), root.dataset.glassAntialias === 'on', w, h),
     MutationObserver: Observer, ResizeObserver: Observer,
     getComputedStyle: () => ({ position: 'static', zIndex: 'auto', borderTopLeftRadius: '12px' }),
@@ -82,7 +83,8 @@ const run = setup()
 assert.equal(run.loads(), 0, 'default off does not import the engine')
 run.enabled(true); await settle()
 assert.equal(run.calls.length, 2)
-assert.equal(run.dock.children.length, 1, 'dock text is separate from its decorative lens')
+assert.equal(run.dock.children.length, 0, 'dock has no injected negative-z layer or extra flex item')
+assert.equal(run.calls[0].target, run.dock, 'dock optics filter backdrop on host, never label content')
 assert.equal(run.panel.children.length, 0, 'clipped panels filter their backdrop directly')
 assert.equal(run.panel.getAttribute('data-liquid-glass-active'), '')
 run.enabled(false); await settle()

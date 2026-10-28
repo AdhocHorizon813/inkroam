@@ -20,6 +20,10 @@ export interface GlassOptions {
   mapScale?: number
   edgeSoftness?: number
   specularAmbient?: number
+  rimGlow?: number
+  boundedBezel?: boolean
+  bleedTop?: number
+  bleedBottom?: number
   hidden?: boolean
 }
 export interface GlassController {

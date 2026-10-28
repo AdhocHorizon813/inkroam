@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { mountExperimentalGlass } from '~/utils/experimental-glass'
+import { GLASS_SURFACES_CHANGED } from '~/utils/glass-surfaces'
 
 let destroy: (() => void) | undefined
 let disposed = false
+const nuxt = useNuxtApp()
+const stopPageFinish = nuxt.hook('page:finish', () => {
+  window.dispatchEvent(new Event(GLASS_SURFACES_CHANGED))
+})
 onMounted(async () => {
   await nextTick()
   if (!disposed) destroy = mountExperimentalGlass()
 })
-onBeforeUnmount(() => { disposed = true; destroy?.() })
+onBeforeUnmount(() => { disposed = true; stopPageFinish(); destroy?.() })
 </script>
 
 <template><!-- Glass attaches to docks and explicitly registered floating surfaces. --></template>
@@ -27,41 +32,32 @@ onBeforeUnmount(() => { disposed = true; destroy?.() })
   --experiment-control-ink: #252d38;
   --experiment-control-track: rgb(120 130 145 / .10);
 }
+/* The image viewer has a deliberately dark scrim in either page theme. */
+:root[data-visual='modern'] [data-liquid-glass-active][data-glass-theme='dark'] {
+  --experiment-glass-tint: rgb(17 24 39 / .10);
+  --experiment-glass-shadow: 0 4px 12px rgb(0 0 0 / .20);
+  --experiment-control-ink: #edf0f5;
+}
 /* Narrow opt-in override: only surfaces with a decoded lens release their old
    fill/blur. No declarations touch article cards or the paper theme. Important
    is necessary against the independently-selected nav/music material recipes. */
-:root[data-visual='modern'] [data-liquid-glass-active]:not([data-glass-module]) {
-  background: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border-color: transparent !important;
-}
 /* The experiment has its own recipe. These opt-in rules never rewrite the
    liquid/acrylic/mica definitions, and vanish when the decoded lens is removed. */
-:root[data-visual='modern'] [data-liquid-glass-active][data-glass-module]:not([data-liquid-glass-control]) {
+:root[data-visual='modern'] [data-liquid-glass-active]:not([data-liquid-glass-control]) {
   background: var(--experiment-glass-tint) !important;
   border-color: transparent !important;
   box-shadow: var(--experiment-glass-shadow) !important;
   color: var(--experiment-control-ink);
 }
-:root[data-visual='modern'] [data-liquid-glass-active]:not([data-glass-module]) {
-  box-shadow: var(--experiment-glass-shadow) !important;
-  color: var(--experiment-control-ink);
+/* Disable the legacy directional CSS border ONLY on experimental glass. Rim
+   light now comes solely from the lens boundary normal and sampled backdrop. */
+:root[data-visual='modern'] .appearance-panel[data-liquid-glass-active]::after {
+  content: none !important;
+  display: none !important;
 }
 /* NavDepthLight remains the owner of self-emission and its sync/delayed opacity
    timing. Refraction samples behind the header; light is painted above it. Keep
    the existing depth projections and the dark/light recipes unmodified. */
-.experimental-glass-surface {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  display: block;
-  border-radius: inherit;
-  pointer-events: none;
-  visibility: hidden;
-  background: var(--experiment-glass-tint);
-}
-[data-liquid-glass-active] > .experimental-glass-surface { visibility: visible; }
 
 /* The real moving surface replaces only the old pseudo-element's paint. Its
    dimensions and spring curve are identical; no button labels are filtered. */
@@ -80,6 +76,49 @@ onBeforeUnmount(() => { disposed = true; destroy?.() })
 }
 .segmented-control--two > .glass-segment-indicator { width: calc((100% - 13px) / 2); }
 .glass-segment-indicator[data-liquid-glass-active] { visibility: visible; }
+.glass-control-optics {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+.glass-control-optics[data-liquid-glass-active] { visibility: visible; }
+
+/* Real content-card optics, isolated from the five original material recipes.
+   The frame is paint-only/out-of-flow. Long pages allocate a viewport tile,
+   never a full-article SVG filter; text, selection and sticky TOC stay native. */
+:root[data-visual='modern'] [data-liquid-glass-content] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: transparent !important;
+}
+:root[data-visual='modern'] [data-liquid-glass-content]::before {
+  display: none !important;
+}
+.experimental-content-glass {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  overflow: clip;
+  pointer-events: none;
+  visibility: hidden;
+}
+[data-liquid-glass-content] > .experimental-content-glass { visibility: visible; }
+.experimental-content-glass__lens {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: rgb(17 24 39 / .20);
+}
+:root[data-color-mode='light'] .experimental-content-glass__lens {
+  background: rgb(250 250 248 / .22);
+}
+:root[data-visual='modern'] .glass-control-optics[data-liquid-glass-control] {
+  box-shadow: none !important;
+}
 .segmented-control:has(> .glass-segment-indicator[data-liquid-glass-active])::before { visibility: hidden; }
 /* Isolation would prevent a nested indicator from sampling outside its group. */
 .segmented-control:has(> .glass-segment-indicator[data-liquid-glass-active]) { isolation: auto; }

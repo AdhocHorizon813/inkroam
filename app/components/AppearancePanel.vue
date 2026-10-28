@@ -576,7 +576,7 @@ function resetAppearance() {
 
     <section
       id="appearance-panel"
-      v-experimental-glass="isOpen"
+      v-experimental-glass="true"
       data-glass-module="appearance"
       class="appearance-panel"
       :class="{ 'is-open': isOpen }"
@@ -596,7 +596,7 @@ function resetAppearance() {
         <div class="setting-group">
           <span class="setting-label">视觉风格</span>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.visual === 'modern' ? 0 : 1)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.visual === 'modern' }" @click="selectVisual('modern')">现代幻境</button>
             <button type="button" :class="{ active: state.visual === 'classic' }" @click="selectVisual('classic')">纸媒原版</button>
           </div>
@@ -606,7 +606,7 @@ function resetAppearance() {
           <legend class="setting-label">默认设置</legend>
           <p class="setting-hint">启用后，材质、模糊、遮罩、背景氛围与图表尺寸按当前明暗自动取值，不能手动调整。</p>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.defaultSettings ? 0 : 1)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.defaultSettings" :class="{ active: state.defaultSettings }" @click="requestDefaultSettings(true)">启用</button>
             <button type="button" :aria-pressed="!state.defaultSettings" :class="{ active: !state.defaultSettings }" @click="requestDefaultSettings(false)">禁用</button>
           </div>
@@ -615,7 +615,7 @@ function resetAppearance() {
         <fieldset class="setting-group">
           <legend class="setting-label">外观模式</legend>
           <div class="segmented-control" :style="segmentStyle(state.colorMode === 'light' ? 0 : state.colorMode === 'dark' ? 1 : 2)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.colorMode === 'light' }" @click="state.colorMode = 'light'">浅色</button>
             <button type="button" :class="{ active: state.colorMode === 'dark' }" @click="state.colorMode = 'dark'">深色</button>
             <button type="button" :class="{ active: state.colorMode === 'auto' }" @click="state.colorMode = 'auto'">自动</button>
@@ -627,7 +627,7 @@ function resetAppearance() {
         <fieldset class="setting-group">
           <legend class="setting-label">层次感</legend>
           <div class="segmented-control" :style="segmentStyle(state.depth === 'off' ? 0 : state.depth === 'soft' ? 1 : 2)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.depth === 'off'" :class="{ active: state.depth === 'off' }" @click="state.depth = 'off'">关闭</button>
             <button type="button" :aria-pressed="state.depth === 'soft'" :class="{ active: state.depth === 'soft' }" @click="state.depth = 'soft'">轻柔</button>
             <button type="button" :aria-pressed="state.depth === 'defined'" :class="{ active: state.depth === 'defined' }" @click="state.depth = 'defined'">鲜明</button>
@@ -637,7 +637,7 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="state.visual === 'classic' || state.depth === 'off'">
           <legend class="setting-label">光效时序</legend>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.depthTiming === 'sync' ? 0 : 1)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.depthTiming === 'sync'" :class="{ active: state.depthTiming === 'sync' }" @click="state.depthTiming = 'sync'">同步</button>
             <button type="button" :aria-pressed="state.depthTiming === 'delayed'" :class="{ active: state.depthTiming === 'delayed' }" @click="state.depthTiming = 'delayed'">延迟</button>
           </div>
@@ -646,7 +646,7 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="state.visual === 'classic'">
           <legend class="setting-label">实验性液态玻璃</legend>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.experimentalLiquidGlass ? 1 : 0)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="!state.experimentalLiquidGlass" :class="{ active: !state.experimentalLiquidGlass }" @click="state.experimentalLiquidGlass = false">关闭</button>
             <button type="button" :aria-pressed="state.experimentalLiquidGlass" :class="{ active: state.experimentalLiquidGlass }" @click="state.experimentalLiquidGlass = true">开启</button>
           </div>
@@ -663,7 +663,7 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="state.visual === 'classic' || !state.experimentalLiquidGlass">
           <legend class="setting-label">玻璃抗锯齿</legend>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.glassAntialias ? 1 : 0)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="!state.glassAntialias" :class="{ active: !state.glassAntialias }" @click="state.glassAntialias = false">关闭</button>
             <button type="button" :aria-pressed="state.glassAntialias" :class="{ active: state.glassAntialias }" @click="state.glassAntialias = true">开启</button>
           </div>
@@ -672,7 +672,7 @@ function resetAppearance() {
         <fieldset class="setting-group">
           <legend class="setting-label">最近文章</legend>
           <div class="segmented-control" :style="segmentStyle(state.latestPostCount === 5 ? 0 : state.latestPostCount === 10 ? 1 : 2)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.latestPostCount === 5 }" @click="state.latestPostCount = 5">5 篇</button>
             <button type="button" :class="{ active: state.latestPostCount === 10 }" @click="state.latestPostCount = 10">10 篇</button>
             <button type="button" :class="{ active: state.latestPostCount === 'all' }" @click="state.latestPostCount = 'all'">所有</button>
@@ -682,7 +682,7 @@ function resetAppearance() {
         <fieldset class="setting-group">
           <legend class="setting-label">最近笔记</legend>
           <div class="segmented-control" :style="segmentStyle(state.latestNoteCount === 5 ? 0 : state.latestNoteCount === 10 ? 1 : 2)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.latestNoteCount === 5" :class="{ active: state.latestNoteCount === 5 }" @click="state.latestNoteCount = 5">5 篇</button>
             <button type="button" :aria-pressed="state.latestNoteCount === 10" :class="{ active: state.latestNoteCount === 10 }" @click="state.latestNoteCount = 10">10 篇</button>
             <button type="button" :aria-pressed="state.latestNoteCount === 'all'" :class="{ active: state.latestNoteCount === 'all' }" @click="state.latestNoteCount = 'all'">所有</button>
@@ -696,7 +696,7 @@ function resetAppearance() {
             {{ pdfEmbedSupported ? '当前浏览器支持内嵌，此项不生效' : '浏览器不能内嵌 PDF，此项生效' }}
           </p>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.pdfFallback === 'card' ? 0 : 1)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.pdfFallback === 'card'" :class="{ active: state.pdfFallback === 'card' }" title="先显示文件卡片，点“在页面内阅读”再打开阅读器" @click="state.pdfFallback = 'card'">显示卡片</button>
             <button type="button" :aria-pressed="state.pdfFallback === 'reader'" :class="{ active: state.pdfFallback === 'reader' }" title="直接打开页面内阅读器，省去一次点击" @click="state.pdfFallback = 'reader'">直接阅读</button>
           </div>
@@ -723,7 +723,7 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">导航材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.navMaterial === 'liquid' ? 0 : state.navMaterial === 'acrylic' ? 1 : 2)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.navMaterial === 'liquid' }" @click="state.navMaterial = 'liquid'">液态玻璃</button>
             <button type="button" :class="{ active: state.navMaterial === 'acrylic' }" @click="state.navMaterial = 'acrylic'">亚克力</button>
             <button type="button" :class="{ active: state.navMaterial === 'mica' }" @click="state.navMaterial = 'mica'">云母</button>
@@ -750,7 +750,7 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">音乐材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.musicMaterial === 'liquid' ? 0 : state.musicMaterial === 'acrylic' ? 1 : 2)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button v-for="material in (['liquid', 'acrylic', 'mica'] as const)" :key="material" type="button" :aria-pressed="state.musicMaterial === material" :class="{ active: state.musicMaterial === material }" @click="state.musicMaterial = material">{{ { liquid: '液态玻璃', acrylic: '亚克力', mica: '云母' }[material] }}</button>
           </div>
         </fieldset>
@@ -764,7 +764,7 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">内容材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.contentMaterial === 'liquid' ? 0 : state.contentMaterial === 'acrylic' ? 1 : 2)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.contentMaterial === 'liquid' }" @click="state.contentMaterial = 'liquid'">液态玻璃</button>
             <button type="button" :class="{ active: state.contentMaterial === 'acrylic' }" @click="state.contentMaterial = 'acrylic'">亚克力</button>
             <button type="button" :class="{ active: state.contentMaterial === 'mica' }" @click="state.contentMaterial = 'mica'">云母</button>
@@ -791,7 +791,7 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">代码材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.codeMaterial === 'liquid' ? 0 : state.codeMaterial === 'acrylic' ? 1 : 2)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button v-for="material in (['liquid', 'acrylic', 'mica'] as const)" :key="material" type="button" :aria-pressed="state.codeMaterial === material" :class="{ active: state.codeMaterial === material }" @click="state.codeMaterial = material">{{ { liquid: '液态玻璃', acrylic: '亚克力', mica: '云母' }[material] }}</button>
           </div>
         </fieldset>
@@ -805,7 +805,7 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">下拉框材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.dropdownMaterial === 'liquid' ? 0 : state.dropdownMaterial === 'acrylic' ? 1 : 2)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.dropdownMaterial === 'liquid'" :class="{ active: state.dropdownMaterial === 'liquid' }" @click="state.dropdownMaterial = 'liquid'">液态玻璃</button>
             <button type="button" :aria-pressed="state.dropdownMaterial === 'acrylic'" :class="{ active: state.dropdownMaterial === 'acrylic' }" @click="state.dropdownMaterial = 'acrylic'">亚克力</button>
             <button type="button" :aria-pressed="state.dropdownMaterial === 'mica'" :class="{ active: state.dropdownMaterial === 'mica' }" @click="state.dropdownMaterial = 'mica'">云母</button>
@@ -871,7 +871,7 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">背景材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.backgroundMaterial === 'liquid' ? 0 : state.backgroundMaterial === 'acrylic' ? 1 : 2)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :class="{ active: state.backgroundMaterial === 'liquid' }" @click="state.backgroundMaterial = 'liquid'">液态玻璃</button>
             <button type="button" :class="{ active: state.backgroundMaterial === 'acrylic' }" @click="state.backgroundMaterial = 'acrylic'">亚克力</button>
             <button type="button" :class="{ active: state.backgroundMaterial === 'mica' }" @click="state.backgroundMaterial = 'mica'">云母</button>
@@ -915,7 +915,7 @@ function resetAppearance() {
         <fieldset class="setting-group" :disabled="state.visual === 'classic'">
           <legend class="setting-label">主题色混合背景</legend>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.backgroundTint ? 0 : 1)">
-            <span v-experimental-glass="isOpen" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
+            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="state.backgroundTint" :class="{ active: state.backgroundTint }" @click="state.backgroundTint = true">开启</button>
             <button type="button" :aria-pressed="!state.backgroundTint" :class="{ active: !state.backgroundTint }" @click="state.backgroundTint = false">关闭</button>
           </div>

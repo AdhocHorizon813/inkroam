@@ -43,11 +43,19 @@ export const DEFAULTS = Object.freeze({
   edgeSoftness: 0,
   // Inkroam: 0 = upstream white reflection; 1 = reflection tinted by backdrop.
   specularAmbient: 0,
+  // Inkroam: optional broad inner glow. Zero leaves only the geometric rim.
+  rimGlow: 0.3,
+  // Keep the bevel before the rounded rectangle's medial-axis normal seam.
+  boundedBezel: false,
+  // Viewport-sized slices of a long card: extend optical edges outside the
+  // visible tile, so scrolling never introduces a false horizontal rim.
+  bleedTop: 0,
+  bleedBottom: 0,
 });
 
 // Keys that change the displacement map itself. Everything else (position, strength) is a cheap
 // attribute update on an existing filter.
-const MAP_KEYS = ['width', 'height', 'radius', 'bezel', 'curvature', 'ior', 'invert', 'specular', 'specularWidth', 'lightAngle', 'edgeSoftness'];
+const MAP_KEYS = ['width', 'height', 'radius', 'bezel', 'curvature', 'ior', 'invert', 'specular', 'specularWidth', 'lightAngle', 'edgeSoftness', 'rimGlow', 'boundedBezel'];
 
 export const engine = detectEngine();
 
@@ -115,7 +123,11 @@ export function renderLensMap(options = {}, scale = 1) {
   const hw = p.width / 2;
   const hh = p.height / 2;
   const r = Math.max(0, Math.min(p.radius, hw, hh));
-  const bezel = Math.max(0.5, p.bezel * Math.min(hw, hh));
+  // A wide panel can have a 50px bevel but a 12px corner. At inset > radius,
+  // its SDF normal switches axes on a diagonal: nonzero displacement there
+  // produces a torn corner. Finish refraction before that seam, not after it.
+  const bezel = Math.max(0.5, Math.min(p.bezel * Math.min(hw, hh),
+    p.boundedBezel && r > 0 ? r : Infinity));
   const table = profileTable(p.curvature, p.ior);
   const N = table.length - 1;
   const rimWidth = Math.max(0.5, p.specularWidth);
@@ -169,7 +181,7 @@ export function renderLensMap(options = {}, scale = 1) {
       // light, with a dimmer reflection on the far side.
       const crisp = Math.max(0, 1 - inset / rimWidth);
       const glow = Math.max(0, 1 - inset / (rimWidth * 5));
-      const rim = p.specular * (crisp * crisp + 0.3 * glow * glow);
+      const rim = p.specular * (crisp * crisp + p.rimGlow * glow * glow);
       const a = Math.round(alpha * 255);
 
       const i2 = w - 1 - i;
@@ -265,7 +277,7 @@ const CHANNELS = [
 //   refracted  = feDisplacementMap(source, bend)           (x3 with per-channel scale when chroma > 0)
 //   lit        = refracted + white * (2 * map.b - 1)        (rim highlight from the blue channel)
 //   result     = (lit IN lensShape) OVER (source OUT lensShape)
-function buildGraph(filter, p) {
+function buildGraph(filter, p, fittedBackdrop = false) {
   filter.replaceChildren();
   const lensRect = [];
   const add = (name, attrs, inLens) => {
@@ -314,8 +326,13 @@ function buildGraph(filter, p) {
   }
 
   add('feComposite', { in: lit, in2: 'lensShape', operator: 'in', result: 'lens' }, true);
-  add('feComposite', { in: 'SourceGraphic', in2: 'lensShape', operator: 'out', result: 'outside' });
-  add('feComposite', { in: 'lens', in2: 'outside', operator: 'over' });
+  // A fitted backdrop is already clipped to the host's rounded border box.
+  // There are no outside pixels to restore. Avoid two full-panel intermediate
+  // surfaces on every frame of its transform/clip-path reveal animation.
+  if (!fittedBackdrop) {
+    add('feComposite', { in: 'SourceGraphic', in2: 'lensShape', operator: 'out', result: 'outside' });
+    add('feComposite', { in: 'lens', in2: 'outside', operator: 'over' });
+  }
   return { image, aspect, blur, displace, lensRect, rimMix };
 }
 
@@ -408,7 +425,9 @@ export function createGlass(target, options = {}) {
   // Filter coordinates are fractions of the element box, so every resize has to re-flush.
   const observer = active
     ? new ResizeObserver(() => {
-        box = { width: target.offsetWidth, height: target.offsetHeight };
+        const width = target.offsetWidth, height = target.offsetHeight;
+        if (box.width === width && box.height === height) return;
+        box = { width, height };
         schedule();
       })
     : null;
@@ -417,6 +436,7 @@ export function createGlass(target, options = {}) {
   // Re-issue the filter id shortly after a map swap: WebKit loads its own copy of the data URL and
   // does not repaint the filter when that load lands.
   function settle() {
+    if (engine !== 'webkit') return;
     settleTimers.forEach(clearTimeout);
     settleTimers = [60, 250].map((ms) => setTimeout(schedule, ms));
   }
@@ -450,9 +470,13 @@ export function createGlass(target, options = {}) {
     }
     if (p.width < 1 || p.height < 1) return;
 
-    const s = `${p.chroma > 0}|${p.blur > 0}|${p.specular > 0}`;
+    // Let Blink's native backdrop blur sample at device resolution, including
+    // pixels outside the box. The SVG only does refraction/rim composition.
+    // Content mode retains the upstream graph (cross-engine image lenses).
+    const graphParams = useBackdropURL ? { ...p, blur: 0 } : p;
+    const s = `${p.chroma > 0}|${graphParams.blur > 0}|${p.specular > 0}`;
     if (s !== structure) {
-      graph = buildGraph(filter, p);
+      graph = buildGraph(filter, graphParams, useBackdropURL && flags.fit);
       structure = s;
       shown = { key: '', seq: -1 };
       wanted = '';
@@ -463,14 +487,17 @@ export function createGlass(target, options = {}) {
     // Snap the lens to device pixels: fractional sub-regions shimmer while the lens moves.
     const snap = (v) => Math.round(v * dpr) / dpr;
     const x = snap(p.x);
-    const y = snap(p.y);
+    const y = snap(p.y - p.bleedTop);
     const w = snap(p.width);
-    const h = snap(p.height);
+    const h = snap(p.height + p.bleedTop + p.bleedBottom);
 
-    const key = mapKeyOf(p, scale);
+    // Quantize the shape, not the page. Subpixel spring tails used to generate
+    // dozens of almost identical PNGs. Moving a fixed-size lens reuses its map.
+    const shape = { ...p, width: w, height: h, radius: snap(Math.min(p.radius, w / 2, h / 2)) };
+    const key = mapKeyOf(shape, scale);
     if (wanted !== key) {
       wanted = key;
-      const entry = lensMap(p, scale, key);
+      const entry = lensMap(shape, scale, key);
       const seq = ++requested;
       if (entry.decoded) show(entry, seq);
       // While a squish animation requests a new map every frame, show the newest map that has
@@ -503,10 +530,11 @@ export function createGlass(target, options = {}) {
 
     // WebKit caches filter output per filter id and keeps serving it after the graph changes;
     // a fresh id on every update forces it to re-read.
-    filter.id = `${base}-v${++version}`;
-    const ref = `url(#${filter.id})`;
-    if (useBackdropURL) target.style.backdropFilter = ref;
-    else target.style.filter = ref;
+    if (engine === 'webkit' || !filter.id) filter.id = `${base}-v${++version}`;
+    const ref = `${useBackdropURL && p.blur > 0 ? `blur(${p.blur}px) ` : ''}url(#${filter.id})`;
+    if (useBackdropURL) {
+      if (target.style.backdropFilter !== ref) target.style.backdropFilter = ref;
+    } else if (target.style.filter !== ref) target.style.filter = ref;
   }
 
   function schedule() {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vExperimentalGlass } from '~/utils/glass-surfaces'
 interface LightboxImage {
   src: string
   alt: string
@@ -422,6 +423,9 @@ onBeforeUnmount(() => {
 
         <button
           ref="closeButton"
+          v-experimental-glass="open"
+          data-glass-module="button"
+          data-glass-theme="dark"
           class="image-lightbox__close"
           type="button"
           aria-label="关闭图片预览"
@@ -436,6 +440,9 @@ onBeforeUnmount(() => {
         <button
           v-if="hasMultiple"
           class="image-lightbox__nav image-lightbox__nav--prev"
+          v-experimental-glass="open"
+          data-glass-module="button"
+          data-glass-theme="dark"
           type="button"
           aria-label="上一张图片"
           @click="go(-1)"
@@ -467,6 +474,9 @@ onBeforeUnmount(() => {
         <button
           v-if="hasMultiple"
           class="image-lightbox__nav image-lightbox__nav--next"
+          v-experimental-glass="open"
+          data-glass-module="button"
+          data-glass-theme="dark"
           type="button"
           aria-label="下一张图片"
           @click="go(1)"

@@ -3,6 +3,7 @@ import { glassSurfaces, GLASS_SURFACES_CHANGED } from './glass-surfaces'
 import { glassOptics } from './glass-optics'
 import { attachGlassControl } from './glass-controls'
 import { currentGlassQuality } from './glass-quality'
+import { attachGlassContent, GLASS_CONTENT_SELECTOR } from './glass-content'
 
 type EngineModule = typeof import('../vendor/liquidglass/liquid-glass.js')
 type Surface = { destroy: () => void; refreshQuality?: () => void }
@@ -20,7 +21,7 @@ export function mountExperimentalGlass() {
     && root.dataset.visual === 'modern' && !reduceTransparency.matches
 
   const candidates = () => [...document.querySelectorAll<HTMLElement>(
-    '.appearance-trigger, .music-pill.music-surface, .music-pill.is-unplayed > .music-trigger.music-surface',
+    `.appearance-trigger, .music-pill.music-surface, .music-pill.is-unplayed > .music-trigger.music-surface, ${GLASS_CONTENT_SELECTOR}`,
   ), ...glassSurfaces].filter(host => host.isConnected
     && !(root.dataset.displayMode === 'focus'
       && (host.dataset.glassModule === 'navbar' || host.closest?.('.site-header'))))
@@ -31,33 +32,24 @@ export function mountExperimentalGlass() {
   }
 
   function attach(host: HTMLElement, engine: EngineModule): Surface {
+    if (host.matches?.(GLASS_CONTENT_SELECTOR)) return attachGlassContent(host, engine)
     if (host.dataset.glassModule === 'indicator' || host.dataset.glassModule === 'thumb') {
       return attachGlassControl(host, engine)
     }
     const panel = Boolean(host.dataset.glassModule)
-    // Panels have animated clip paths and scrollable content. Their own backdrop
-    // filter samples outside that backdrop root and never filters foreground text.
-    // Dock controls retain the separate decorative layer from the first rollout.
-    const lens = panel ? host : document.createElement('i')
-    if (!panel) {
-      lens.className = 'experimental-glass-surface'
-      lens.setAttribute('aria-hidden', 'true')
-      host.appendChild(lens)
-    }
+    // All surfaces use their own backdrop. A dock child at z-index:-1 was trapped
+    // by the host's backdrop root and could sample an empty/incorrect surface.
+    // No injected flex item, no filtering or duplicating the label itself.
+    const lens = host
     let controller: GlassController | undefined
     let ready = false
     let destroyed = false
     let timeout = 0
     let geometry: ResizeObserver | undefined
-    const original = (panel ? ['filter', 'backdrop-filter', '-webkit-backdrop-filter'] : ['position', 'z-index']).map(property => ({
+    const original = ['filter', 'backdrop-filter', '-webkit-backdrop-filter'].map(property => ({
       property, value: host.style.getPropertyValue(property), priority: host.style.getPropertyPriority(property),
     }))
     const originalReady = host.getAttribute('data-liquid-glass-active')
-    // z-index establishes the local stacking context without an isolation/opacity
-    // backdrop root. The lens can sit at -1, behind glyphs but above page content.
-    const computed = getComputedStyle(host)
-    if (!panel && computed.position === 'static') host.style.position = 'relative'
-    if (!panel && computed.zIndex === 'auto') host.style.zIndex = '0'
 
     function destroy() {
       if (destroyed) return
@@ -66,7 +58,6 @@ export function mountExperimentalGlass() {
       readiness.disconnect()
       geometry?.disconnect()
       controller?.destroy()
-      if (!panel) lens.remove()
       if (originalReady === null) host.removeAttribute('data-liquid-glass-active')
       else host.setAttribute('data-liquid-glass-active', originalReady)
       for (const { property, value, priority } of original) {
@@ -90,7 +81,7 @@ export function mountExperimentalGlass() {
     function measure() {
       if (destroyed) return
       const radius = panel ? parseFloat(getComputedStyle(host).borderTopLeftRadius) || 0 : 999
-      controller?.update({ radius, ...currentGlassQuality(host.clientWidth, host.clientHeight) })
+      controller?.update({ radius, ...currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme) })
     }
     try {
       controller = engine.createGlass(lens, {
@@ -98,13 +89,11 @@ export function mountExperimentalGlass() {
         // Both dock controls are capsules. Upstream clamps this radius against
         // the live half-height/half-width, including desktop/mobile resizing.
         radius: 999,
-        ...glassOptics(host.dataset.glassModule), ...currentGlassQuality(host.clientWidth, host.clientHeight),
+        ...glassOptics(host.dataset.glassModule), ...currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme),
       })
-      if (panel) {
-        measure()
-        geometry = new ResizeObserver(measure)
-        geometry.observe(host)
-      }
+      measure()
+      geometry = new ResizeObserver(measure)
+      geometry.observe(host)
       // Failure must leave a usable old-material control, never a blank surface.
       timeout = window.setTimeout(() => {
         if (!ready) { destroy(); surfaces.delete(host) }

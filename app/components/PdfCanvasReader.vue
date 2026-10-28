@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vExperimentalGlass } from '~/utils/glass-surfaces'
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
 import { findPdfMatches, type PdfMatch } from '~/utils/pdf-search'
 
@@ -366,7 +367,7 @@ onBeforeUnmount(() => {
       <div ref="textHost" class="pdf-reader__text" aria-hidden="true" />
       </div>
     </div>
-    <div v-if="status === 'ready'" class="pdf-reader__bar">
+    <div v-if="status === 'ready'" v-experimental-glass="true" data-glass-module="toolbar" class="pdf-reader__bar">
       <button type="button" aria-label="上一页" :disabled="pageNumber <= 1" @click="go(-1)">‹</button>
       <form class="pdf-reader__counter" @submit.prevent="jumpToPage(Number(pageInput))">
         <input v-model="pageInput" type="number" min="1" :max="pageCount" aria-label="页码，按回车跳转" @change="jumpToPage(Number(pageInput))">
@@ -383,7 +384,7 @@ onBeforeUnmount(() => {
     </div>
     <div class="pdf-reader__search" :class="{ 'is-open': searchOpen }" :inert="!searchOpen">
       <div class="pdf-reader__search-inner">
-        <form class="pdf-reader__bar pdf-reader__find" role="search" aria-label="在当前 PDF 中搜索" @submit.prevent="searchDocument" @keydown.esc.stop.prevent="toggleSearch">
+        <form v-experimental-glass="true" data-glass-module="toolbar" class="pdf-reader__bar pdf-reader__find" role="search" aria-label="在当前 PDF 中搜索" @submit.prevent="searchDocument" @keydown.esc.stop.prevent="toggleSearch">
           <input ref="searchInput" v-model="query" type="search" placeholder="搜索此 PDF" aria-label="PDF 搜索关键词" @input="invalidateSearch">
           <button type="submit">查找</button>
           <button type="button" aria-label="上一个匹配" :disabled="!matches.length" @click="selectMatch(selectedMatch - 1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg></button>

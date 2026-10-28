@@ -21,7 +21,19 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const oldStyles = ['left', 'top', 'width', 'height', 'transform', 'margin-left', 'border-radius', 'transition', 'filter', 'backdrop-filter', '-webkit-backdrop-filter']
     .map(name => [name, host.style.getPropertyValue(name), host.style.getPropertyPriority(name)] as const)
   // Keep optics underneath the original glyphs; never clone or recolor labels.
-  const lens = host
+  // A scroll mask is a backdrop root: a lens inside it sees a flat/empty track.
+  // Put only the optics before the masked content, in the panel's coordinate
+  // system. Original labels, rail, focus and hit targets never move or duplicate.
+  const panel = host.closest<HTMLElement>('.appearance-panel, .music-panel')
+  const scroller = panel ? host.closest<HTMLElement>('.appearance-panel__scroll, .music-scroll') : null
+  const portaled = Boolean(panel && scroller)
+  const lens = portaled ? document.createElement('span') : host
+  if (portaled) {
+    lens.className = 'glass-control-optics'
+    lens.dataset.glassModule = 'indicator'
+    lens.setAttribute('aria-hidden', 'true')
+    panel!.insertBefore(lens, panel!.firstChild)
+  }
 
   let controller: GlassController | undefined
   let ready = false, disposed = false, initialized = false
@@ -42,20 +54,45 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const position = engine.createSpring(0, (value, speed) => { x = value; velocity = speed; render() },
     { stiffness: slider ? 900 : 380, damping: slider ? 50 : 28 })
   const pressure = engine.createSpring(0, value => { press = value; render() }, { stiffness: 520, damping: 32 })
+  const widthSpring = engine.createSpring(0, value => { targetWidth = value; render() }, { stiffness: 380, damping: 32 })
+  const heightSpring = engine.createSpring(0, value => { targetHeight = value; render() }, { stiffness: 380, damping: 32 })
+  const verticalSpring = engine.createSpring(0, value => { targetY = value; render() }, { stiffness: 380, damping: 32 })
+  let alignFrame = 0
+
+  function alignOptics() {
+    if (!portaled || disposed) return
+    const box = host.getBoundingClientRect(), frame = panel!.getBoundingClientRect()
+    const view = scroller!.getBoundingClientRect()
+    const sx = frame.width / Math.max(1, panel!.offsetWidth)
+    const sy = frame.height / Math.max(1, panel!.offsetHeight)
+    lens.style.left = `${(box.left - frame.left) / sx - panel!.clientLeft}px`
+    lens.style.top = `${(box.top - frame.top) / sy - panel!.clientTop}px`
+    lens.style.width = host.style.width
+    lens.style.height = host.style.height
+    lens.style.borderRadius = host.style.borderRadius
+    lens.style.visibility = box.bottom <= view.top || box.top >= view.bottom ? 'hidden' : ''
+    // Respect the scroll viewport without inheriting its backdrop-root mask.
+    lens.style.clipPath = `inset(${Math.max(0, view.top - box.top) / sy}px ${Math.max(0, box.right - view.right) / sx}px ${Math.max(0, box.bottom - view.bottom) / sy}px ${Math.max(0, view.left - box.left) / sx}px round ${host.style.borderRadius})`
+  }
+  const queueAlign = () => {
+    if (!alignFrame) alignFrame = requestAnimationFrame(() => { alignFrame = 0; alignOptics() })
+  }
+  if (portaled) listen(scroller!, 'scroll', queueAlign)
 
   function render() {
     if (!controller || disposed) return
     // Motion stretches the lens, never the original text or hit targets.
-    const stretch = Math.min(slider ? 10 : 14, Math.abs(velocity) * .02)
+    const stretch = !slider && dragged ? 0 : Math.min(slider ? 10 : 14, Math.abs(velocity) * .02)
     const w = slider ? 28 + press * 14 + stretch : targetWidth + stretch + press * 4
     const h = slider ? 18 + press * 10 - stretch * .2 : Math.max(16, targetHeight - stretch * .23 - press * 2)
-    const left = slider ? x - w / 2 : x - (w - targetWidth) / 2
+    const left = x - w / 2
     const top = targetY - h / 2
     // Navbar uses Inkroam's existing compact 9px corner, not a half-height pill.
     const radius = slider ? h / 2 : Math.min(navbar ? 9 : 10, h / 2)
     controller.update({ x: 0, y: 0, width: w, height: h, radius,
       blur: quality.blur, mapScale: quality.mapScale,
-      edgeSoftness: quality.edgeSoftness, specular: quality.specular * (slider ? 1 : .4), specularAmbient: quality.specularAmbient })
+      edgeSoftness: quality.edgeSoftness, rimGlow: 0, boundedBezel: true,
+      specular: quality.specular * (slider ? 1 : .75), specularAmbient: quality.specularAmbient })
     // Transform on the old host is replaced only while the experiment owns it.
     // Positioning still uses its original containing block (music ball is nested).
     const nested = musicProgress
@@ -68,7 +105,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     host.style.marginLeft = '0'
     host.style.transition = 'none'
     host.style.setProperty('--glass-press', String(press))
-
+    alignOptics()
   }
 
   function selected() {
@@ -78,10 +115,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       || b.classList.contains('router-link-active')) ?? buttons[0]!
   }
   function target(button: HTMLElement, immediate = false) {
-    targetWidth = button.offsetWidth
-    targetHeight = button.offsetHeight
-    targetY = button.offsetTop + targetHeight / 2
-    position.set(button.offsetLeft, { immediate })
+    widthSpring.set(button.offsetWidth, { immediate })
+    heightSpring.set(button.offsetHeight, { immediate })
+    verticalSpring.set(button.offsetTop + button.offsetHeight / 2, { immediate })
+    position.set(button.offsetLeft + button.offsetWidth / 2, { immediate })
   }
   function readRange(immediate = false) {
     if (!input) return
@@ -116,11 +153,15 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   }
 
   const decoded = new MutationObserver(() => {
-    if (ready || disposed || !host.style.backdropFilter.includes('url(')) return
+    if (ready || disposed || !lens.style.backdropFilter.includes('url(')) return
     ready = true
     clearTimeout(timeout)
     host.setAttribute('data-liquid-glass-control', '')
     host.setAttribute('data-liquid-glass-active', '')
+    if (portaled) {
+      lens.setAttribute('data-liquid-glass-control', '')
+      lens.setAttribute('data-liquid-glass-active', '')
+    }
 
     decoded.disconnect()
   })
@@ -130,11 +171,13 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   try {
     controller = engine.createGlass(lens, { mode: 'backdrop', refraction: slider ? 6 : navbar ? 8 : 5,
       bezel: slider ? .9 : navbar ? .6 : .35, curvature: slider || navbar ? 3 : 4,
-      chroma: 0, specular: quality.specular * (slider ? 1 : .4), specularAmbient: quality.specularAmbient, specularWidth: 1,
+      chroma: 0, specular: quality.specular * (slider ? 1 : .75), specularAmbient: quality.specularAmbient, specularWidth: 1,
+      rimGlow: 0, boundedBezel: true,
       blur: quality.blur, mapScale: quality.mapScale, edgeSoftness: quality.edgeSoftness })
   } catch (error) { destroy(); throw error }
   resize = new ResizeObserver(refresh)
   resize.observe(group)
+  if (portaled) resize.observe(panel!)
   buttons.forEach(button => resize.observe(button))
   state = new MutationObserver(refresh)
   if (input) {
@@ -166,7 +209,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     if (slider || event.pointerId !== pressedPointer) return
     const dx = event.clientX - dragStartX, dy = event.clientY - dragStartY
     if (!dragged && (Math.abs(dx) < 6 || Math.abs(dy) > Math.abs(dx))) return
-    if (!dragged) group!.setPointerCapture?.(event.pointerId)
+    if (!dragged) {
+      group!.setPointerCapture?.(event.pointerId)
+      widthSpring.stop(); heightSpring.stop(); verticalSpring.stop()
+    }
     dragged = true
     event.preventDefault()
     const box = group!.getBoundingClientRect()
@@ -175,10 +221,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     if (!enabled.length) return
     dragChoice = enabled.reduce((a, b) => Math.abs(a.offsetLeft + a.offsetWidth / 2 - local)
       <= Math.abs(b.offsetLeft + b.offsetWidth / 2 - local) ? a : b)
-    targetWidth = dragChoice.offsetWidth; targetHeight = dragChoice.offsetHeight
-    targetY = dragChoice.offsetTop + targetHeight / 2
-    position.set(Math.max(Math.min(...enabled.map(b => b.offsetLeft)),
-      Math.min(Math.max(...enabled.map(b => b.offsetLeft + b.offsetWidth)) - targetWidth, local - targetWidth / 2)))
+    // Do not resize when crossing a different-width candidate. Morph to its
+    // actual dimensions only after release (target() drives size springs).
+    const centers = enabled.map(b => b.offsetLeft + b.offsetWidth / 2)
+    position.set(Math.max(Math.min(...centers), Math.min(Math.max(...centers), local)))
   })
   // Only completed drags synthesize selection. Taps retain the original click,
   // links retain modifiers, and vertical touch gestures can still scroll.
@@ -221,10 +267,12 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     clearTimeout(timeout)
     clearTimeout(clickTimer)
     release()
-    position.stop(); pressure.stop()
+    position.stop(); pressure.stop(); widthSpring.stop(); heightSpring.stop(); verticalSpring.stop()
+    if (alignFrame) cancelAnimationFrame(alignFrame)
     resize?.disconnect(); state?.disconnect(); decoded.disconnect()
     cleanups.forEach(cleanup => cleanup())
     controller?.destroy()
+    if (portaled) lens.remove()
 
     host.removeAttribute('data-liquid-glass-active')
     host.removeAttribute('data-liquid-glass-control')
