@@ -17,7 +17,7 @@ const open = ref(false), playing = ref(false), loading = ref(false)
 // A closed panel keeps its decoded lens for instant reopening, but must not
 // composite its collapsed 100x44px backdrop over the page on mobile Chromium.
 const glassDormant = ref(true)
-let closeGlassTimer: ReturnType<typeof setTimeout> | undefined
+let closeGlassTimer: number | undefined
 const pendingSeek = ref<number | null>(null)
 const hasPlayed = ref(false)
 // Continuity is an intent, not evidence that the first play request succeeded.
