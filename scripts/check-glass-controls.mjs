@@ -129,6 +129,22 @@ nav.springs[0].target = -1
 nav.event(nav.second, 'pointerenter', { pointerType: 'mouse' })
 assert.equal(nav.springs[0].target, -1, 'Listeners removed')
 
+// The submenu accordion clips its children horizontally. Reserve enough
+// native-input runway for the larger optical thumb at both extreme values.
+// These geometry checks also cover press + spring stretch (28 + 14 + 10px).
+const submenuSource = fs.readFileSync('app/components/GlassSettings.vue', 'utf8')
+const submenuPadding = submenuSource.match(/\\.glass-settings__parameters\\s+:deep\\(\\.glass-range\\)\\s*\\{[^}]*padding-inline:\\s*(\\d+)px/)
+assert(submenuPadding, 'Submenu glass ranges must provide symmetric end clearance')
+const rangeInset = Number(submenuPadding[1])
+const glassThumbMax = 28 + 14 + 10, nativeThumb = 16, bodyPadding = 2
+for (const rangeWidth of [220, 280, 600]) {
+  for (const fraction of [0, 1]) {
+    const center = rangeInset + nativeThumb / 2 + fraction * (rangeWidth - 2 * rangeInset - nativeThumb)
+    assert(center - glassThumbMax / 2 + bodyPadding >= 0, 'Left-end glass thumb must not be clipped')
+    assert(center + glassThumbMax / 2 <= rangeWidth + bodyPadding, 'Right-end glass thumb must not be clipped')
+  }
+}
+
 const range = fixture(true)
 range.decode()
 assert.equal(range.calls[0].el, range.host, 'Sample actual rail; never duplicate/tint its right endpoint')
