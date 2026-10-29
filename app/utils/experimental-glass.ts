@@ -127,14 +127,11 @@ export function mountExperimentalGlass() {
         if (!targets.has(host)) { surface.destroy(); surfaces.delete(host) }
       }
       for (const host of targets) if (!surfaces.has(host)) surfaces.set(host, attach(host, engine))
-      // Only the active subpage needs a layout refresh. Hidden accordion
-      // sections and the outgoing appearance page must never resync their
-      // portaled lenses or start independent geometry work on a switch.
+      // Active controls get a geometry refresh; hidden and outgoing controls
+      // still receive their cheap visibility gate (no bounding-box read) so
+      // an external optics portal cannot linger during a subpage transition.
       for (const host of targets) {
         if (host.dataset.glassModule !== 'indicator' && host.dataset.glassModule !== 'thumb') continue
-        if (host.closest?.('[data-glass-page-hidden="true"]')
-          || host.closest?.('[inert]')
-          || host.offsetParent === null) continue
         surfaces.get(host)?.refreshLayout?.()
       }
       // A slider in one group must not refresh every other control's filter.
