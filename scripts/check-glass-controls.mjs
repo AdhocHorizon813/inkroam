@@ -199,6 +199,11 @@ assert.equal(tether.style.top, 'anchor(top)')
 assert.equal(tether.style.width, 'anchor-size(width)')
 assert.equal(tether.style.height, 'anchor-size(height)')
 assert.equal(tether.style.getPropertyValue('position-visibility'), 'anchors-visible')
+assert.equal(tether.style.borderRadius, tethered.host.style.borderRadius,
+  'Native-anchor portal must clip its backdrop to the source radius, not a square box')
+tethered.springs[0].tick(50, 500)
+assert.equal(tether.style.borderRadius, tethered.host.style.borderRadius,
+  'Portal radius stays synchronized during spring deformation')
 tethered.event(tethered.scroller, 'scroll') // no JS rAF read/scroll follower
 tethered.cleanup.destroy()
 assert.equal(tethered.host.style.getPropertyValue('anchor-name'), '', 'Restore original anchor-name on unmount')

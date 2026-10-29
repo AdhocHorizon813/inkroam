@@ -164,6 +164,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   let alignFrame = 0
   function alignOptics() {
     if (!portaled || disposed) return
+    // Native anchors transfer bounds, not paint geometry. Without the same
+    // CSS radius, Blink composites a pale rectangular backdrop outside the
+    // rounded source even though the SVG displacement map itself is rounded.
+    lens.style.borderRadius = host.style.borderRadius
     // inert and data-glass-page-hidden express intent, not optical absence.
     // Only the completed lifecycle may hide a portaled lens.
     if (host.closest('[data-glass-presence="closed"]') || host.offsetParent === null) {
@@ -198,7 +202,6 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       lens.style.top = `${(box.top - frame.top) / sy - panel!.clientTop}px`
       lens.style.width = host.style.width
       lens.style.height = host.style.height
-      lens.style.borderRadius = host.style.borderRadius
     }
     // `v-show` keeps the other appearance subpage mounted but not rendered, so a
     // lens that was visible a moment ago must not keep painting at its stale rect.
