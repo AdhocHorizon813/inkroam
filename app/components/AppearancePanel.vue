@@ -429,6 +429,19 @@ function applyAppearance() {
   root.dataset.depthTiming = state.depthTiming
   // Reserved renderer gate: classic keeps the preference but never enables the experiment.
   root.dataset.experimentalLiquidGlass = state.visual === 'modern' && state.experimentalLiquidGlass ? 'on' : 'off'
+  // True glass is lazy: preselect its content-card tint on Blink before the
+  // displacement-map image has decoded, avoiding a much more opaque first frame.
+  // The gate follows the actual per-component/global override and leaves ordinary
+  // materials (and browsers without Chromium backdrop optics) unchanged.
+  const blink = typeof navigator !== 'undefined'
+    && (/Chrome\\//.test(navigator.userAgent) || (navigator as Navigator & {
+      userAgentData?: { brands?: { brand: string }[] }
+    }).userAgentData?.brands?.some(brand => /Chromium/.test(brand.brand)) === true)
+  const contentGlassEnabled = state.glassGlobal.enabled
+    ? state.glassGlobal.settings.enabled
+    : state.glassComponents.content.enabled
+  root.dataset.glassContentPreview = root.dataset.experimentalLiquidGlass === 'on'
+    && state.contentMaterial === 'liquid' && contentGlassEnabled && blink ? 'on' : 'off'
   root.dataset.glassClarity = String(state.glassClarity)
   root.dataset.glassAntialias = state.glassAntialias ? 'on' : 'off'
   const glassGlobal = JSON.stringify(state.glassGlobal)
