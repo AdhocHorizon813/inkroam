@@ -49,6 +49,14 @@ onBeforeUnmount(() => { disposed = true; stopPageFinish(); destroy?.() })
   box-shadow: var(--experiment-glass-shadow) !important;
   color: var(--experiment-control-ink);
 }
+/* Closed music-panel still owns a decoded SVG lens for fast reopening, but
+   its collapsed clip must not composite a rectangular backdrop over the page.
+   Suspend only the backdrop while the panel is fully closed; its original
+   160ms opening/closing transitions and music-pill optics stay intact. */
+:root[data-visual='modern'] .music-panel.is-glass-dormant {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
 /* Disable the legacy directional CSS border ONLY on experimental glass. Rim
    light now comes solely from the lens boundary normal and sampled backdrop. */
 :root[data-visual='modern'] .appearance-panel[data-liquid-glass-active]::after {
