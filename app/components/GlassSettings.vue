@@ -158,6 +158,11 @@ const segments = (index: number, count: number) => ({ '--segment-transform': `tr
 .glass-settings__clip { min-height: 0; overflow: hidden; }
 .glass-settings__body { padding: 4px 2px 14px; }
 .glass-settings__parameters { margin: 0; padding: 0; border: 0; min-width: 0; }
+/* The native range thumb is 16px, but the experimental glass thumb can grow
+   to 52px while pressed/moving. On the accordion's clipped edges, reserve
+   enough horizontal runway for the whole lens and its shadow at 0% and 100%.
+   Input hit targets, native centre alignment and reveal clipping stay intact. */
+.glass-settings__parameters :deep(.glass-range) { padding-inline: 24px; }
 .glass-settings__option-hint { margin: 8px 0 0; }
 /* Match the first page's optics, registering only the expanded group's lenses.
    Keep native controls and their original paint as the experiment-off fallback. */
