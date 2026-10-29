@@ -100,7 +100,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     && !child.classList.contains('theme-toggle'))
   if (slider ? !input : !buttons.length) return { destroy() {} }
 
-  const oldStyles = ['left', 'top', 'width', 'height', 'transform', 'margin-left', 'border-radius', 'transition', 'filter', 'backdrop-filter', '-webkit-backdrop-filter', 'anchor-name']
+  const oldStyles = ['left', 'top', 'width', 'height', 'transform', 'margin-left', 'border-radius', 'transition', 'filter', 'backdrop-filter', '-webkit-backdrop-filter', 'anchor-name', 'visibility']
     .map(name => [name, host.style.getPropertyValue(name), host.style.getPropertyPriority(name)] as const)
   // Keep optics underneath the original glyphs; never clone or recolor labels.
   // A scroll mask is a backdrop root: a lens inside it sees a flat/empty track.
@@ -110,10 +110,15 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const scroller = panel ? host.closest<HTMLElement>('.appearance-panel__scroll, .music-scroll') : null
   const reveal = host.closest<HTMLElement>('.glass-settings__reveal')
   const subpage = panel ? findAppearanceSubpage(host, panel) : null
-  const portaled = Boolean(panel && scroller)
+  // A thumb must sample the rail painted immediately underneath it. Portaling
+  // it before the masked scroller puts that rail ABOVE the lens, so its SVG URL
+  // remains active but cannot refract the control it belongs to. Keep thumbs
+  // inline, as in the original working slider path; their DOM follows scroll,
+  // clipping, opacity and fullscreen motion without any position follower.
+  const portaled = Boolean(panel && scroller && !slider)
   // A JavaScript scroll handler + rAF follows one composited frame behind touch
   // scrolling. On Blink, CSS anchor positioning lets the compositor tether an
-  // out-of-scroller backdrop lens directly to its real indicator/thumb.
+  // out-of-scroller indicator lens directly to its real source.
   // Keep the measured-position path for browsers without native anchors.
   const nativeAnchored = portaled && typeof CSS !== 'undefined'
     && CSS.supports('anchor-name: --inkroam-optic-probe')
@@ -465,7 +470,12 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       else element.removeAttribute('data-liquid-glass-dormant')
     }
     if (value) lens.style.visibility = 'hidden'
-    else refreshLayout()
+    else {
+      const originalVisibility = portaled ? undefined : oldStyles.find(([name]) => name === 'visibility')
+      if (originalVisibility?.[1]) lens.style.setProperty('visibility', originalVisibility[1], originalVisibility[2])
+      else lens.style.removeProperty('visibility')
+      refreshLayout()
+    }
   }
   return { destroy, refreshQuality, refreshLayout, setDormant }
 }

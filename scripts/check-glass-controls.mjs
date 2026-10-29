@@ -12,7 +12,7 @@ class Element extends EventTarget {
     this.style = { values: new Map(), setProperty(k, v, p = '') { this.values.set(k, [v, p]) },
       getPropertyValue(k) { return this.values.get(k)?.[0] || '' }, getPropertyPriority(k) { return this.values.get(k)?.[1] || '' },
       removeProperty(k) { this.values.delete(k) } }
-    for (const k of ['left', 'top', 'width', 'height', 'transform', 'marginLeft', 'borderRadius', 'transition', 'filter', 'backdropFilter']) {
+    for (const k of ['left', 'top', 'width', 'height', 'transform', 'marginLeft', 'borderRadius', 'transition', 'filter', 'backdropFilter', 'visibility']) {
       const css = k.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`)
       Object.defineProperty(this.style, k, { get: () => this.style.getPropertyValue(css), set: v => this.style.setProperty(css, v) })
     }
@@ -295,3 +295,24 @@ assert.equal(outgoing.calls[0].el.getAttribute('data-liquid-glass-dormant'), nul
 assert.equal(outgoing.calls.length, 1, 'Dormancy reuses decoded control')
 outgoing.cleanup.destroy()
 console.log('PASS outgoing inert subpage retains optics/opacity, then sleeps and reopens without rebuilding')
+
+// A panel's masked viewport paints its rail after the external optical portal.
+// Thumbs must remain above their own rail in the original DOM paint order.
+for (const anchored of [false, true]) {
+  const inline = fixture(true, true, anchored)
+  inline.decode()
+  assert.equal(inline.calls[0].el, inline.host, 'Panel slider samples its own rail on the original thumb')
+  assert.equal(inline.panel.children.length, 1, 'No optical thumb underneath the scroll viewport')
+  assert.equal(inline.host.style.getPropertyValue('anchor-name'), '', 'Inline thumb needs no external anchor')
+  inline.springs[1].tick(1, 0)
+  assert.equal(inline.calls[0].updates.at(-1).width, 42)
+  assert.equal(inline.calls[0].updates.at(-1).radius, 14)
+  inline.cleanup.setDormant(true)
+  assert.equal(inline.calls[0].updates.at(-1).hidden, true)
+  inline.cleanup.setDormant(false)
+  assert.equal(inline.calls[0].el, inline.host, 'Wake preserves the original inline optical target')
+  assert.notEqual(inline.host.style.visibility, 'hidden', 'Sleeping inline slider becomes visible on reopen')
+  assert.equal(inline.calls.length, 1)
+  inline.cleanup.destroy()
+}
+console.log('PASS panel slider optics stay above their own rail, preserve press geometry and reuse the inline controller after sleep')
