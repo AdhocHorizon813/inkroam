@@ -27,9 +27,27 @@ export function attachGlassContent(host: HTMLElement, engine: typeof import('../
   host.appendChild(frame)
   let controller: GlassController | undefined, disposed = false, raf = 0
   let radius = parseFloat(style.borderTopLeftRadius) || 0
+  // Hand the tint over in a single frame. This is the exact moment the card's
+  // background flips from the preview tint to transparent, and background-color
+  // is transitioned by the material recipes: left alone, the old tint fades out
+  // over ~215ms *below* an already-tinted lens, so the panel briefly
+  // double-tints (tint + tint) and flashes brighter right after a route change.
+  // Suppressing the property for this one assignment keeps the swap atomic and
+  // leaves every other transition (theme, material, route motion) untouched.
+  function commit() {
+    const previous = host.style.transition
+    host.style.transition = 'none'
+    host.setAttribute('data-liquid-glass-content', '')
+    void host.offsetWidth // flush the pending style change without a transition
+    requestAnimationFrame(() => {
+      if (disposed) return
+      if (previous) host.style.transition = previous
+      else host.style.removeProperty('transition')
+    })
+  }
   const decoded = new MutationObserver(() => {
     if (disposed || !lens.style.backdropFilter.includes('url(')) return
-    host.setAttribute('data-liquid-glass-content', '')
+    commit()
     decoded.disconnect()
   })
   decoded.observe(lens, { attributes: true, attributeFilter: ['style'] })

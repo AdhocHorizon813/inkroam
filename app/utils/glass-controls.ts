@@ -45,6 +45,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   let dragChoice: HTMLElement | null = null
   let quality = currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme, host)
   let timeout = 0
+  let settle = 0
   let resize: ResizeObserver | undefined
   let state: MutationObserver | undefined
   const cleanups: (() => void)[] = []
@@ -59,6 +60,20 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const heightSpring = engine.createSpring(0, value => { targetHeight = value; render() }, { stiffness: 380, damping: 32 })
   const verticalSpring = engine.createSpring(0, value => { targetY = value; render() }, { stiffness: 380, damping: 32 })
   let alignFrame = 0
+  // While the subpages slide, follow the host every frame instead of waiting for
+  // the motion to end.
+  let followFrame = 0
+  let followUntil = 0
+  const followMotion = () => {
+    followFrame = 0
+    if (disposed) return
+    alignOptics()
+    if (performance.now() < followUntil) followFrame = requestAnimationFrame(followMotion)
+  }
+  const startFollow = () => {
+    followUntil = performance.now() + 400
+    if (!followFrame) followFrame = requestAnimationFrame(followMotion)
+  }
 
   function alignOptics() {
     if (!portaled || disposed) return
@@ -75,15 +90,30 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     lens.style.width = host.style.width
     lens.style.height = host.style.height
     lens.style.borderRadius = host.style.borderRadius
-    lens.style.visibility = box.bottom <= viewTop || box.top >= viewBottom ? 'hidden' : ''
+    // `v-show` keeps the other appearance subpage mounted but not rendered, so a
+    // lens that was visible a moment ago must not keep painting at its stale rect.
+    const rendered = host.offsetParent !== null && box.width >= 1 && box.height >= 1
+    lens.style.visibility = !rendered || box.bottom <= viewTop || box.top >= viewBottom ? 'hidden' : ''
     // Respect the scroll viewport without inheriting its backdrop-root mask.
     lens.style.clipPath = `inset(${Math.max(0, viewTop - box.top) / sy}px ${Math.max(0, box.right - view.right) / sx}px ${Math.max(0, box.bottom - viewBottom) / sy}px ${Math.max(0, view.left - box.left) / sx}px round ${host.style.borderRadius})`
   }
   const queueAlign = () => {
     if (!alignFrame) alignFrame = requestAnimationFrame(() => { alignFrame = 0; alignOptics() })
   }
-  if (portaled) listen(scroller!, 'scroll', queueAlign)
-
+  if (portaled) {
+    listen(scroller!, 'scroll', queueAlign)
+    // A level-1 / level-2 switch slides the incoming subpage in with translateX
+    // over 260ms. The optics layer lives in panel coordinates, so it must re-read
+    // the host rect on every frame of that motion; aligning only at
+    // transitionend leaves the whole animation visibly misaligned and then snaps.
+    const realign = () => queueAlign()
+    listen(panel!, 'transitionstart', startFollow)
+    listen(panel!, 'transitionrun', startFollow)
+    listen(panel!, 'transitionend', realign)
+    listen(panel!, 'transitioncancel', realign)
+    listen(panel!, 'animationstart', startFollow)
+    listen(panel!, 'animationend', realign)
+  }
   function render() {
     if (!controller || disposed) return
     // Motion stretches the lens, never the original text or hit targets.
@@ -269,16 +299,37 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   listen(group, 'focusout', () => release())
   refresh()
   refreshQuality()
-  timeout = window.setTimeout(() => { if (!ready) destroy() }, 4000)
+  // Belt and braces for a slide that never reports transitionend: reduced
+  // motion applies the same 12px offset for a single frame, and a rapid switch
+  // can cancel the previous transition.
+  settle = window.setTimeout(() => {
+    if (disposed || !portaled) return
+    refresh()
+    queueAlign()
+  }, 320)
+  // A subpage attached while hidden has a zero-size box, so its lens cannot
+  // flush and decode yet. Keep waiting instead of killing a surface that the
+  // next switch needs; only a *rendered* control that still failed is broken.
+  const armWatchdog = () => {
+    clearTimeout(timeout)
+    timeout = window.setTimeout(() => {
+      if (ready || disposed) return
+      if (host.offsetParent === null) { armWatchdog(); return }
+      destroy()
+    }, 4000)
+  }
+  armWatchdog()
 
   function destroy() {
     if (disposed) return
     disposed = true
     clearTimeout(timeout)
+    clearTimeout(settle)
     clearTimeout(clickTimer)
     release()
     position.stop(); pressure.stop(); widthSpring.stop(); heightSpring.stop(); verticalSpring.stop()
     if (alignFrame) cancelAnimationFrame(alignFrame)
+    if (followFrame) cancelAnimationFrame(followFrame)
     resize?.disconnect(); state?.disconnect(); decoded.disconnect()
     cleanups.forEach(cleanup => cleanup())
     controller?.destroy()
@@ -292,5 +343,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       else host.style.removeProperty(name)
     }
   }
-  return { destroy, refreshQuality }
+  function refreshLayout() {
+    if (disposed) return
+    if (slider) readRange(true)
+    else if (!dragged) target(selected(), true)
+    render()
+  }
+  return { destroy, refreshQuality, refreshLayout }
 }

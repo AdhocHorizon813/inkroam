@@ -7,7 +7,7 @@ import { attachGlassContent, GLASS_CONTENT_SELECTOR } from './glass-content'
 import { glassSurfaceEnabled, effectiveGlassPreference } from './glass-settings'
 
 type EngineModule = typeof import('../vendor/liquidglass/liquid-glass.js')
-type Surface = { destroy: () => void; refreshQuality?: () => void }
+type Surface = { destroy: () => void; refreshQuality?: () => void; refreshLayout?: () => void }
 
 // One owner for docks and explicitly registered floating surfaces. No DOM cloning.
 // This function is called only after the app and its persistent docks have mounted.
@@ -25,12 +25,12 @@ export function mountExperimentalGlass() {
   const candidates = () => [...document.querySelectorAll<HTMLElement>(
     `.appearance-trigger, .music-pill.music-surface, .music-pill.is-unplayed > .music-trigger.music-surface, ${GLASS_CONTENT_SELECTOR}`,
   ), ...glassSurfaces].filter(host => host.isConnected && glassSurfaceEnabled(host, root.dataset)
-    && !host.closest?.('[data-glass-page-hidden="true"]')
-    // An inert container (a closed music panel) renders nothing, so any lens
-    // inside it would composite a backdrop sample the user cannot see through
-    // the panel's collapsed clip — a rectangular patch with a hard edge. Its
-    // own controls must leave the pipeline with it, not survive invisibly.
-    && !host.closest?.('[inert]')
+    // Both appearance subpages are attached up front, while still hidden. Their
+    // wrapper is the only inert ancestor we look through: building a lens on the
+    // incoming page instead meant the native pill showed first and the glass then
+    // slid into place from a stale rect, both visible to the eye. A closed music
+    // panel stays excluded — it renders nothing to align against.
+    && (!host.closest?.('[inert]') || Boolean(host.closest?.('[data-glass-page-hidden]')))
     && !(root.dataset.displayMode === 'focus'
       && (host.dataset.glassModule === 'navbar' || host.closest?.('.site-header'))))
 
@@ -127,6 +127,15 @@ export function mountExperimentalGlass() {
         if (!targets.has(host)) { surface.destroy(); surfaces.delete(host) }
       }
       for (const host of targets) if (!surfaces.has(host)) surfaces.set(host, attach(host, engine))
+      // Every retained surface re-reads its target: a hidden subpage measured
+      // zero offsets at attach time, so on the switch frame the springs must snap
+      // to the now-laid-out buttons — before paint, not after a transition.
+      for (const host of targets) {
+        if (host.dataset.glassModule !== 'indicator' && host.dataset.glassModule !== 'thumb') continue
+        const surface = surfaces.get(host)
+        if (surface?.refreshLayout) surface.refreshLayout()
+        else surface?.refreshQuality?.()
+      }
       // A slider in one group must not refresh every other control's filter.
       surfaces.forEach((surface, host) => {
         const stamp = JSON.stringify([root.dataset.colorMode, window.devicePixelRatio, effectiveGlassPreference(host, root.dataset)])
@@ -148,6 +157,13 @@ export function mountExperimentalGlass() {
   const pill = document.querySelector('.music-pill')
   // Playback transfers surface ownership from the idle button to the whole pill.
   if (pill) music.observe(pill, { attributes: true, attributeFilter: ['class'] })
+  // Both appearance subpages stay mounted and swap with `inert` plus
+  // `data-glass-page-hidden`; that attribute is the only thing that changes on a
+  // level-1 / level-2 switch. Without re-running the pass here, the hidden page's
+  // portaled control lenses keep their last measured rect and stay visible — a
+  // second shadowed indicator, offset from the real one, survives every switch.
+  const pages = new MutationObserver(() => { void sync() })
+  pages.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-glass-page-hidden', 'inert'] })
   reduceTransparency.addEventListener('change', sync)
   window.addEventListener(GLASS_SURFACES_CHANGED, sync)
   void sync()
@@ -155,6 +171,7 @@ export function mountExperimentalGlass() {
     disposed = true
     sequence++
     preferences.disconnect()
+    pages.disconnect()
     music.disconnect()
     reduceTransparency.removeEventListener('change', sync)
     window.removeEventListener(GLASS_SURFACES_CHANGED, sync)

@@ -76,6 +76,12 @@ assert.match(glassCss, /rgb\(17 24 39 \/ \.20\) !important/)
 assert.match(glassCss, /rgb\(250 250 248 \/ \.22\) !important/)
 assert.match(glassCss, /@media not \(prefers-reduced-transparency: reduce\)/)
 assert.match(glassCss, /\[data-liquid-glass-content\] \{\s*background: transparent !important/)
+// The tint handover flips a transitioned property. Without suppressing it for
+// that single assignment the card double-tints for ~215ms after a route change,
+// which is the亮度闪烁 this suite guards against.
+const contentGlassSource = readFileSync('app/utils/glass-content.ts', 'utf8')
+assert.match(contentGlassSource, /host\.style\.transition = 'none'/, 'Tint handover must not animate')
+assert.match(contentGlassSource, /void host\.offsetWidth/, 'The suppressed swap is flushed in the same frame')
 assert.match(appSource, /targets\.forEach\(target => target\.style\.opacity = '0'\)/, 'The existing route motion remains unchanged')
 // A closed panel must not own a decoded optical surface: its resting clip is a
 // 100x44 window that sat exactly over the music pill, so any backdrop root the
@@ -91,5 +97,12 @@ assert.match(surfacesSource, /setTimeout\(\(\) => release\(el\), 300\)/, 'Close 
 assert.match(glassCss, /\.music-panel\.is-glass-dormant \{\s*backdrop-filter: none !important/, 'Dormant rule stays as the closing-window guard')
 const engineSource = readFileSync('app/utils/experimental-glass.ts', 'utf8')
 assert.match(engineSource, /!host\.closest\?\.\('\[inert\]'\)/, 'Controls inside a closed (inert) panel leave the optical pipeline')
+const controlSource = readFileSync('app/utils/glass-controls.ts', 'utf8')
+// Level-1/level-2 switches only flip `inert` + `data-glass-page-hidden` on the
+// two always-mounted subpages. Portaled control lenses must be re-synced on that
+// change and must stop painting once their own host is no longer rendered,
+// otherwise the previous subpage's shadowed indicator survives at a stale rect.
+assert.match(engineSource, /attributeFilter: \['data-glass-page-hidden', 'inert'\]/, 'Subpage switches re-run the surface pass')
+assert.match(controlSource, /host\.offsetParent !== null/, 'A lens hides when its host is not rendered')
 
 console.log('Glass settings: migration, isolation, material gates, sampling budgets and captured defaults passed.')
