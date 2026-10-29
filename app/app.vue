@@ -25,40 +25,48 @@ let routeAnimations: Animation[] = []
 let stopScrollListener: (() => void) | undefined
 let stopNavigationGuard: (() => void) | undefined
 
-watch(() => route.path, async (_currentPath, previousPath) => {
+// Route entry should never hide the new page while the browser waits for a
+// frame. The old opacity:0 + two-rAF handoff left entire cards textless for
+// multiple frames (and sometimes longer when rendering was under load).
+// Animate only a small translation; text and artwork remain painted throughout.
+watch(() => route.path, async (_currentPath, previousPath, onCleanup) => {
   if (!import.meta.client || !previousPath) return
-  await nextTick()
 
-  const frame = routeFrame.value
-  if (!frame || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
+  let invalidated = false
+  onCleanup(() => {
+    invalidated = true
+    routeAnimations.forEach(animation => animation.cancel())
+    routeAnimations = []
+  })
   routeAnimations.forEach(animation => animation.cancel())
   routeAnimations = []
+
+  await nextTick()
+  const frame = routeFrame.value
+  if (invalidated || !frame || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
   const surfaces = frame.querySelectorAll<HTMLElement>(
     '.hero, .latest-section, .manifesto, .standard-page, .article-page',
   )
   const targets = Array.from(surfaces).flatMap(surface =>
-    Array.from(surface.children).filter((element): element is HTMLElement => element instanceof HTMLElement),
+    Array.from(surface.children).filter((element): element is HTMLElement =>
+      element instanceof HTMLElement && !element.classList.contains('experimental-content-glass')),
   )
 
-  targets.forEach(target => target.style.opacity = '0')
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    routeAnimations = targets.map((target, index) => {
-      const animation = target.animate([
-        { opacity: 0, transform: 'translate3d(0, 10px, 0)' },
-        { opacity: 1, transform: 'translate3d(0, 0, 0)' },
-      ], {
-        duration: 620,
-        delay: Math.min(index * 18, 108),
-        easing: 'cubic-bezier(.16, 1, .3, 1)',
-        fill: 'both',
-      })
-      target.style.removeProperty('opacity')
-      animation.onfinish = () => animation.cancel()
-      return animation
+  // Start in the same rendering opportunity as Vue's updated DOM. No forced
+  // opacity, no double requestAnimationFrame, and no animation of glass tiles.
+  routeAnimations = targets.map(target => {
+    const animation = target.animate([
+      { transform: 'translate3d(0, 8px, 0)' },
+      { transform: 'translate3d(0, 0, 0)' },
+    ], {
+      duration: 440,
+      easing: 'cubic-bezier(.16, 1, .3, 1)',
+      fill: 'both',
     })
-  }))
+    animation.onfinish = () => animation.cancel()
+    return animation
+  })
 }, { flush: 'post' })
 
 onBeforeUnmount(() => routeAnimations.forEach(animation => animation.cancel()))
