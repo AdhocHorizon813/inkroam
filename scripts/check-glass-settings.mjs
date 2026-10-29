@@ -77,5 +77,19 @@ assert.match(glassCss, /rgb\(250 250 248 \/ \.22\) !important/)
 assert.match(glassCss, /@media not \(prefers-reduced-transparency: reduce\)/)
 assert.match(glassCss, /\[data-liquid-glass-content\] \{\s*background: transparent !important/)
 assert.match(appSource, /targets\.forEach\(target => target\.style\.opacity = '0'\)/, 'The existing route motion remains unchanged')
+// A closed panel must not own a decoded optical surface: its resting clip is a
+// 100x44 window that sat exactly over the music pill, so any backdrop root the
+// engine kept alive there composited a rectangular sample with a hard edge.
+// The directive retains the surface for 300ms after close, which covers the
+// 160ms collapse; the displacement maps stay in the module-level LRU cache, so
+// reopening rebuilds only the (cheap) filter node.
+const musicSource = readFileSync('app/components/MusicPlayer.vue', 'utf8')
+const surfacesSource = readFileSync('app/utils/glass-surfaces.ts', 'utf8')
+assert.match(musicSource, /id="music-panel" v-experimental-glass="open"/, 'The music panel attaches optics only while it is open')
+assert.doesNotMatch(musicSource, /id="music-panel" v-experimental-glass="true"/, 'No persistent optical surface on the closed panel')
+assert.match(surfacesSource, /setTimeout\(\(\) => release\(el\), 300\)/, 'Close animation still owns its material for 300ms')
+assert.match(glassCss, /\.music-panel\.is-glass-dormant \{\s*backdrop-filter: none !important/, 'Dormant rule stays as the closing-window guard')
+const engineSource = readFileSync('app/utils/experimental-glass.ts', 'utf8')
+assert.match(engineSource, /!host\.closest\?\.\('\[inert\]'\)/, 'Controls inside a closed (inert) panel leave the optical pipeline')
 
 console.log('Glass settings: migration, isolation, material gates, sampling budgets and captured defaults passed.')

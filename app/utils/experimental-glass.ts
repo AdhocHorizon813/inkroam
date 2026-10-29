@@ -26,6 +26,11 @@ export function mountExperimentalGlass() {
     `.appearance-trigger, .music-pill.music-surface, .music-pill.is-unplayed > .music-trigger.music-surface, ${GLASS_CONTENT_SELECTOR}`,
   ), ...glassSurfaces].filter(host => host.isConnected && glassSurfaceEnabled(host, root.dataset)
     && !host.closest?.('[data-glass-page-hidden="true"]')
+    // An inert container (a closed music panel) renders nothing, so any lens
+    // inside it would composite a backdrop sample the user cannot see through
+    // the panel's collapsed clip — a rectangular patch with a hard edge. Its
+    // own controls must leave the pipeline with it, not survive invisibly.
+    && !host.closest?.('[inert]')
     && !(root.dataset.displayMode === 'focus'
       && (host.dataset.glassModule === 'navbar' || host.closest?.('.site-header'))))
 
