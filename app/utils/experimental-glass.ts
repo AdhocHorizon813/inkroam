@@ -127,14 +127,15 @@ export function mountExperimentalGlass() {
         if (!targets.has(host)) { surface.destroy(); surfaces.delete(host) }
       }
       for (const host of targets) if (!surfaces.has(host)) surfaces.set(host, attach(host, engine))
-      // Every retained surface re-reads its target: a hidden subpage measured
-      // zero offsets at attach time, so on the switch frame the springs must snap
-      // to the now-laid-out buttons — before paint, not after a transition.
+      // Only the active subpage needs a layout refresh. Hidden accordion
+      // sections and the outgoing appearance page must never resync their
+      // portaled lenses or start independent geometry work on a switch.
       for (const host of targets) {
         if (host.dataset.glassModule !== 'indicator' && host.dataset.glassModule !== 'thumb') continue
-        const surface = surfaces.get(host)
-        if (surface?.refreshLayout) surface.refreshLayout()
-        else surface?.refreshQuality?.()
+        if (host.closest?.('[data-glass-page-hidden="true"]')
+          || host.closest?.('[inert]')
+          || host.offsetParent === null) continue
+        surfaces.get(host)?.refreshLayout?.()
       }
       // A slider in one group must not refresh every other control's filter.
       surfaces.forEach((surface, host) => {
