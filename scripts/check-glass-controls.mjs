@@ -188,7 +188,7 @@ assert.match(managerSource, /surfaces\.get\(host\)\?\.refreshLayout\?\.\(\)/, 'L
 const tethered = fixture(false, true, true)
 tethered.decode()
 const tether = tethered.calls[0].el
-assert.match(tethered.host.style.getPropertyValue('anchor-name'), /^--inkroam-optic-\\d+$/)
+assert.match(tethered.host.style.getPropertyValue('anchor-name'), /^--inkroam-optic-\d+$/)
 assert.equal(tether.style.getPropertyValue('position-anchor'),
   tethered.host.style.getPropertyValue('anchor-name'))
 assert.equal(tether.style.left, 'anchor(left)')
