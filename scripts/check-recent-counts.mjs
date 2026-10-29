@@ -1,3 +1,4 @@
+import { normalizeGlassPreferences, normalizeGlassGlobal } from '../app/utils/glass-settings.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
@@ -6,6 +7,8 @@ import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
 
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+  .replace(/^import .*glass-settings.*$/gm, '')
+  .replace(/^import .*\.vue'$/gm, '')
   .replace("import { vExperimentalGlass } from '~/utils/glass-surfaces'", '')
 // This harness tests count preferences, not browser PDF capabilities or scrolling.
 const compiled = ts.transpile(source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'false'), { target: ts.ScriptTarget.ES2022 })
@@ -16,7 +19,7 @@ function mount(saved) {
   const watchers = []
   let stored
   const context = vm.createContext({
-    decodeAppearanceStorage,
+    decodeAppearanceStorage, normalizeGlassPreferences, normalizeGlassGlobal,
     /* 面板自绘滑条的组合式函数要真 DOM 与滚动事件，本套件不测滚动，桩成空实现。 */
     usePageScrollable: () => ({}),
     supportsEmbeddedPdf: () => false,

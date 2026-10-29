@@ -2,8 +2,9 @@ import type { GlassController } from '../vendor/liquidglass/liquid-glass.js'
 import { glassSurfaces, GLASS_SURFACES_CHANGED } from './glass-surfaces'
 import { glassOptics } from './glass-optics'
 import { attachGlassControl } from './glass-controls'
-import { currentGlassQuality } from './glass-quality'
+import { currentGlassQuality } from './glass-quality-dom'
 import { attachGlassContent, GLASS_CONTENT_SELECTOR } from './glass-content'
+import { glassSurfaceEnabled, effectiveGlassPreference } from './glass-settings'
 
 type EngineModule = typeof import('../vendor/liquidglass/liquid-glass.js')
 type Surface = { destroy: () => void; refreshQuality?: () => void }
@@ -14,6 +15,7 @@ export function mountExperimentalGlass() {
   const root = document.documentElement
   const reduceTransparency = matchMedia('(prefers-reduced-transparency: reduce)')
   const surfaces = new Map<HTMLElement, Surface>()
+  const qualityStamps = new WeakMap<HTMLElement, string>()
   let modulePromise: Promise<EngineModule> | undefined
   let sequence = 0
   let disposed = false
@@ -22,7 +24,8 @@ export function mountExperimentalGlass() {
 
   const candidates = () => [...document.querySelectorAll<HTMLElement>(
     `.appearance-trigger, .music-pill.music-surface, .music-pill.is-unplayed > .music-trigger.music-surface, ${GLASS_CONTENT_SELECTOR}`,
-  ), ...glassSurfaces].filter(host => host.isConnected
+  ), ...glassSurfaces].filter(host => host.isConnected && glassSurfaceEnabled(host, root.dataset)
+    && !host.closest?.('[data-glass-page-hidden="true"]')
     && !(root.dataset.displayMode === 'focus'
       && (host.dataset.glassModule === 'navbar' || host.closest?.('.site-header'))))
 
@@ -81,7 +84,7 @@ export function mountExperimentalGlass() {
     function measure() {
       if (destroyed) return
       const radius = panel ? parseFloat(getComputedStyle(host).borderTopLeftRadius) || 0 : 999
-      controller?.update({ radius, ...currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme) })
+      controller?.update({ radius, ...currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme, host) })
     }
     try {
       controller = engine.createGlass(lens, {
@@ -89,7 +92,7 @@ export function mountExperimentalGlass() {
         // Both dock controls are capsules. Upstream clamps this radius against
         // the live half-height/half-width, including desktop/mobile resizing.
         radius: 999,
-        ...glassOptics(host.dataset.glassModule), ...currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme),
+        ...glassOptics(host.dataset.glassModule), ...currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme, host),
       })
       measure()
       geometry = new ResizeObserver(measure)
@@ -119,7 +122,13 @@ export function mountExperimentalGlass() {
         if (!targets.has(host)) { surface.destroy(); surfaces.delete(host) }
       }
       for (const host of targets) if (!surfaces.has(host)) surfaces.set(host, attach(host, engine))
-      surfaces.forEach(surface => surface.refreshQuality?.())
+      // A slider in one group must not refresh every other control's filter.
+      surfaces.forEach((surface, host) => {
+        const stamp = JSON.stringify([root.dataset.colorMode, window.devicePixelRatio, effectiveGlassPreference(host, root.dataset)])
+        if (qualityStamps.get(host) === stamp) return
+        qualityStamps.set(host, stamp)
+        surface.refreshQuality?.()
+      })
     } catch (error) {
       if (disposed || current !== sequence) return
       detachAll()
@@ -129,7 +138,7 @@ export function mountExperimentalGlass() {
   }
 
   const preferences = new MutationObserver(() => { void sync() })
-  preferences.observe(root, { attributes: true, attributeFilter: ['data-experimental-liquid-glass', 'data-visual', 'data-display-mode', 'data-glass-clarity', 'data-glass-antialias', 'data-color-mode'] })
+  preferences.observe(root, { attributes: true, attributeFilter: ['data-experimental-liquid-glass', 'data-visual', 'data-display-mode', 'data-glass-clarity', 'data-glass-antialias', 'data-glass-components', 'data-glass-global', 'data-nav-material', 'data-music-material', 'data-material', 'data-dropdown-material', 'data-color-mode'] })
   const music = new MutationObserver(() => { void sync() })
   const pill = document.querySelector('.music-pill')
   // Playback transfers surface ownership from the idle button to the whole pill.

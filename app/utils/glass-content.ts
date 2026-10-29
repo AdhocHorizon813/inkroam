@@ -1,5 +1,5 @@
 import type { GlassController } from '../vendor/liquidglass/liquid-glass.js'
-import { currentGlassQuality } from './glass-quality'
+import { currentGlassQuality } from './glass-quality-dom'
 import { onPageScroll } from './page-scroll'
 
 export const GLASS_CONTENT_SELECTOR = '.hero, .latest-section, .manifesto, .standard-page, .article-page'
@@ -46,7 +46,7 @@ export function attachGlassContent(host: HTMLElement, engine: typeof import('../
     // is rectangular in the middle; the stationary frame clips the real card.
     lens.style.borderRadius = `${slice.bleedTop ? 0 : radius}px ${slice.bleedTop ? 0 : radius}px ${slice.bleedBottom ? 0 : radius}px ${slice.bleedBottom ? 0 : radius}px`
     controller?.update({ radius, bleedTop: slice.bleedTop, bleedBottom: slice.bleedBottom,
-      hidden: !slice.visible, ...currentGlassQuality(host.clientWidth, slice.height) })
+      hidden: !slice.visible, ...currentGlassQuality(host.clientWidth, slice.height + slice.bleedTop + slice.bleedBottom, undefined, host) })
   }
   function schedule() { if (!raf && !disposed) raf = requestAnimationFrame(measure) }
   const resize = new ResizeObserver(() => { radius = parseFloat(getComputedStyle(host).borderTopLeftRadius) || 0; schedule() })
@@ -69,7 +69,7 @@ export function attachGlassContent(host: HTMLElement, engine: typeof import('../
     measure()
     controller = engine.createGlass(lens, { mode: 'backdrop', fit: true, hidden: true,
       refraction: 14, bezel: .3, curvature: 4, chroma: 0, specularWidth: 1, radius,
-      ...currentGlassQuality(host.clientWidth, Math.min(host.clientHeight, window.innerHeight + 192)) })
+      ...currentGlassQuality(host.clientWidth, Math.min(host.clientHeight, window.innerHeight + 192), undefined, host) })
     measure()
   } catch (error) { destroy(); throw error }
   return { destroy, refreshQuality: schedule }

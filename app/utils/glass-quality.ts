@@ -1,3 +1,4 @@
+import type { GlassPreference } from './glass-settings'
 // Clarity is optical diffusion, not white opacity. Keep the tint independent.
 export function glassQuality(clarity: number, antialias: boolean, width = 0, height = 0, light = false, dpr = 1) {
   const clear = Number.isFinite(clarity) ? Math.max(0, Math.min(100, clarity)) : 86
@@ -15,7 +16,12 @@ export function glassQuality(clarity: number, antialias: boolean, width = 0, hei
   }
 }
 
-export function currentGlassQuality(width = 0, height = 0, colorMode?: string) {
-  const data = document.documentElement.dataset
-  return glassQuality(data.glassClarity === undefined ? 86 : Number(data.glassClarity), data.glassAntialias === 'on', width, height, (colorMode || data.colorMode) === 'light', window.devicePixelRatio || 1)
+export function componentGlassQuality(p: GlassPreference, width: number, height: number, light: boolean, dpr: number) {
+  const quality = glassQuality(p.clarity, p.antialias, width, height, light, dpr)
+  const sampling = (p.resolution || Math.min(2, Math.max(1, dpr))) * (p.antialias ? p.aaScale : 1)
+  // A real per-surface area limit, including AA. Large surfaces may fall below
+  // one map pixel/CSS pixel; this is an explicit user quality trade-off.
+  quality.mapScale = Math.min(sampling, Math.sqrt(p.pixelBudget * 1_000_000 / Math.max(1, width * height)))
+  return quality
 }
+

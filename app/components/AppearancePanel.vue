@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import AppearanceMenuRow from './AppearanceMenuRow.vue'
+import GlassSettings from './GlassSettings.vue'
+import { normalizeGlassPreferences, normalizeGlassGlobal, type GlassGlobalOverride, type GlassPreferences } from '~/utils/glass-settings'
 import { vExperimentalGlass } from '~/utils/glass-surfaces'
 import { supportsEmbeddedPdf } from '~/utils/pdf-embed'
 import { decodeAppearanceStorage } from '~/utils/appearance-storage'
@@ -25,6 +28,8 @@ interface AppearanceState {
   experimentalLiquidGlass: boolean
   glassClarity: number
   glassAntialias: boolean
+  glassComponents: GlassPreferences
+  glassGlobal: GlassGlobalOverride
   navMaterial: MaterialMode
   musicMaterial: MaterialMode
   contentMaterial: MaterialMode
@@ -128,6 +133,19 @@ const CUSTOM_BG_KEY = 'paper-trail-custom-background'
 const CUSTOM_BG_NAME_KEY = 'paper-trail-custom-background-name'
 
 const isOpen = ref(false)
+const glassSettingsOpen = ref(false)
+const settingsScroll = { main: 0, glass: 0 }
+async function navigateAppearance(glass: boolean) {
+  const scroll = panelScroll.value
+  if (scroll) settingsScroll[glassSettingsOpen.value ? 'glass' : 'main'] = scroll.scrollTop
+  glassSettingsOpen.value = glass
+  await nextTick()
+  if (scroll) {
+    scroll.scrollTop = settingsScroll[glass ? 'glass' : 'main']
+    scroll.querySelector<HTMLElement>(glass ? '.appearance-subpage-back' : '.appearance-glass-entry')?.focus({ preventScroll: true })
+  }
+  window.dispatchEvent(new Event('inkroam:glass-surfaces-changed'))
+}
 const status = ref('')
 /* 能内嵌 PDF 的浏览器上，PDF 附件这一项没有意义：禁用并按「支持内嵌」标注。
    null 表示还没判断（SSR 与首次渲染），此时保持可用、不做出任何断言。 */
@@ -153,6 +171,8 @@ const state = reactive<AppearanceState>({
   experimentalLiquidGlass: false,
   glassClarity: 86,
   glassAntialias: false,
+  glassComponents: normalizeGlassPreferences(),
+  glassGlobal: normalizeGlassGlobal(),
   colorMode: 'auto',
   /* 初值取 v5 时代的值：老访客缺的键就落在这里（观感与改动前一致），真·新访客会在 onMounted 里
      在偏好规范化时换成当前明暗的新默认。SSR 首帧的面板内容也按这套渲染，与
@@ -242,6 +262,8 @@ function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppea
   normalized.glassClarity = Number.isFinite(normalized.glassClarity)
     ? Math.round(Math.max(0, Math.min(100, normalized.glassClarity))) : 86
   normalized.glassAntialias = normalized.glassAntialias === true
+  normalized.glassComponents = normalizeGlassPreferences(stored?.glassComponents, normalized.glassClarity, normalized.glassAntialias)
+  normalized.glassGlobal = normalizeGlassGlobal(stored?.glassGlobal)
   if (!['liquid', 'acrylic', 'mica'].includes(normalized.musicMaterial)) normalized.musicMaterial = LEGACY_DEFAULTS.musicMaterial
   if (!Number.isFinite(normalized.musicBlur)) normalized.musicBlur = LEGACY_DEFAULTS.musicBlur
   normalized.musicBlur = Math.max(0, Math.min(48, normalized.musicBlur))
@@ -406,6 +428,10 @@ function applyAppearance() {
   root.dataset.experimentalLiquidGlass = state.visual === 'modern' && state.experimentalLiquidGlass ? 'on' : 'off'
   root.dataset.glassClarity = String(state.glassClarity)
   root.dataset.glassAntialias = state.glassAntialias ? 'on' : 'off'
+  const glassGlobal = JSON.stringify(state.glassGlobal)
+  if (root.dataset.glassGlobal !== glassGlobal) root.dataset.glassGlobal = glassGlobal
+  const glassComponents = JSON.stringify(state.glassComponents)
+  if (root.dataset.glassComponents !== glassComponents) root.dataset.glassComponents = glassComponents
   root.style.setProperty('--background-overlay-opacity', String(state.backgroundOverlay / 100))
   /* 图的显示比例写成变量，而不是逐张改 svg：滑条一动由 CSS 的 calc 直接重算，
      页面上二十张图不用重画一遍（见 MermaidDiagram.vue 里 svg 的 width）。 */
@@ -544,6 +570,8 @@ function resetAppearance() {
     experimentalLiquidGlass: false,
     glassClarity: 86,
     glassAntialias: false,
+  glassComponents: normalizeGlassPreferences(),
+  glassGlobal: normalizeGlassGlobal(),
     ...appearanceDefaults(systemPrefersDark.value ? 'dark' : 'light'),
     background: 'auto',
     backgroundPicked: false,
@@ -587,11 +615,18 @@ function resetAppearance() {
       <div ref="panelScroll" class="appearance-panel__scroll">
         <header class="appearance-panel__header">
           <div>
-            <span class="panel-kicker">DISPLAY</span>
-            <h2>阅读外观</h2>
+            <button v-if="glassSettingsOpen" type="button" class="appearance-subpage-back setting-label" @click="navigateAppearance(false)">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5" /></svg>阅读外观
+            </button>
+            <span v-else class="panel-kicker">DISPLAY</span>
+            <h2>{{ glassSettingsOpen ? '液态玻璃设置' : '阅读外观' }}</h2>
           </div>
           <button type="button" class="panel-close" aria-label="关闭外观设置" @click="isOpen = false">×</button>
         </header>
+        <div class="appearance-subpages">
+        <Transition name="appearance-subpage">
+        <div v-show="!glassSettingsOpen" :inert="glassSettingsOpen" :data-glass-page-hidden="glassSettingsOpen ? 'true' : undefined">
+
 
         <div class="setting-group">
           <span class="setting-label">视觉风格</span>
@@ -643,31 +678,9 @@ function resetAppearance() {
           </div>
         </fieldset>
 
-        <fieldset class="setting-group" :disabled="state.visual === 'classic'">
-          <legend class="setting-label">实验性液态玻璃</legend>
-          <div class="segmented-control segmented-control--two" :style="segmentStyle(state.experimentalLiquidGlass ? 1 : 0)">
-            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
-            <button type="button" :aria-pressed="!state.experimentalLiquidGlass" :class="{ active: !state.experimentalLiquidGlass }" @click="state.experimentalLiquidGlass = false">关闭</button>
-            <button type="button" :aria-pressed="state.experimentalLiquidGlass" :class="{ active: state.experimentalLiquidGlass }" @click="state.experimentalLiquidGlass = true">开启</button>
-          </div>
-        </fieldset>
 
-        <div class="setting-group" :aria-disabled="state.visual === 'classic' || !state.experimentalLiquidGlass">
-          <div class="range-heading"><label class="setting-label" for="glass-clarity">玻璃通透度</label><output for="glass-clarity">{{ state.glassClarity }}%</output></div>
-          <GlassRange>
-            <input id="glass-clarity" v-model.number="state.glassClarity" type="range" min="0" max="100" step="1" :style="{ '--range-progress': `${state.glassClarity}%` }" :disabled="state.visual === 'classic' || !state.experimentalLiquidGlass">
-          </GlassRange>
-          <div class="range-scale" aria-hidden="true"><span>0 %</span><span>100 %</span></div>
-        </div>
 
-        <fieldset class="setting-group" :disabled="state.visual === 'classic' || !state.experimentalLiquidGlass">
-          <legend class="setting-label">玻璃抗锯齿</legend>
-          <div class="segmented-control segmented-control--two" :style="segmentStyle(state.glassAntialias ? 1 : 0)">
-            <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
-            <button type="button" :aria-pressed="!state.glassAntialias" :class="{ active: !state.glassAntialias }" @click="state.glassAntialias = false">关闭</button>
-            <button type="button" :aria-pressed="state.glassAntialias" :class="{ active: state.glassAntialias }" @click="state.glassAntialias = true">开启</button>
-          </div>
-        </fieldset>
+        <AppearanceMenuRow class="appearance-glass-entry" @click="navigateAppearance(true)">液态玻璃设置</AppearanceMenuRow>
 
         <fieldset class="setting-group">
           <legend class="setting-label">最近文章</legend>
@@ -945,6 +958,15 @@ function resetAppearance() {
           <span class="visually-hidden" role="status" aria-live="polite">{{ status }}</span>
           <button type="button" @click="resetAppearance">恢复默认</button>
         </footer>
+        </div>
+        </Transition>
+        <Transition name="appearance-subpage">
+        <div v-show="glassSettingsOpen" :inert="!glassSettingsOpen">
+        <GlassSettings v-model="state.glassComponents" v-model:global="state.glassGlobal" v-model:enabled="state.experimentalLiquidGlass" :visual="state.visual"
+          :materials="{ navMaterial: state.navMaterial, musicMaterial: state.musicMaterial, material: state.contentMaterial, dropdownMaterial: state.dropdownMaterial }" />
+        </div>
+        </Transition>
+        </div>
         <PageScrollbar />
       </div>
     </section>
@@ -979,3 +1001,14 @@ function resetAppearance() {
     </dialog>
   </div>
 </template>
+
+<style scoped>
+.appearance-subpage-back svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.appearance-subpage-back { display: inline-flex; align-items: center; gap: 5px; padding: 0; margin: 0 0 8px; border: 0; background: none; font-family: inherit; cursor: pointer; }
+.appearance-subpages { position: relative; }
+.appearance-subpage-enter-active, .appearance-subpage-leave-active { transition: transform 260ms cubic-bezier(.16, 1, .3, 1), opacity 180ms ease; }
+.appearance-subpage-leave-active { position: absolute; inset: 0 0 auto; pointer-events: none; }
+.appearance-subpage-enter-from { opacity: 0; transform: translateX(12px); }
+.appearance-subpage-leave-to { opacity: 0; transform: translateX(-8px); }
+@media (prefers-reduced-motion: reduce) { .appearance-subpage-enter-active, .appearance-subpage-leave-active { transition: none; } }
+</style>

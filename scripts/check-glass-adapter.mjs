@@ -1,3 +1,4 @@
+import { glassSurfaceEnabled, effectiveGlassPreference } from '../app/utils/glass-settings.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
@@ -37,7 +38,7 @@ const settle = async () => { for (let i = 0; i < 6; i++) await Promise.resolve()
 
 function setup({ engineName = 'blink', delayed = false, decode = true } = {}) {
   const root = new Element(), dock = new Element(), panel = new Element('music'), pill = new Element()
-  root.dataset = { visual: 'modern', experimentalLiquidGlass: 'off' }
+  root.dataset = { visual: 'modern', experimentalLiquidGlass: 'off', navMaterial: 'liquid', musicMaterial: 'liquid' }
   panel.style.setProperty('backdrop-filter', 'blur(7px)', 'important')
   panel.style.setProperty('filter', 'brightness(.9)')
   const originals = [...panel.style.values].map(([k, v]) => [k, { ...v }])
@@ -65,7 +66,7 @@ function setup({ engineName = 'blink', delayed = false, decode = true } = {}) {
   const context = vm.createContext({
     document: { documentElement: root, querySelectorAll: () => [dock], querySelector: () => pill, createElement: () => new Element() },
     window: win, matchMedia: () => media, glassSurfaces: registered, GLASS_SURFACES_CHANGED: 'changed', glassOptics,
-    GLASS_CONTENT_SELECTOR: '.article-page',
+    GLASS_CONTENT_SELECTOR: '.article-page', glassSurfaceEnabled, effectiveGlassPreference,
     currentGlassQuality: (w, h) => glassQuality(Number(root.dataset.glassClarity ?? 86), root.dataset.glassAntialias === 'on', w, h),
     MutationObserver: Observer, ResizeObserver: Observer,
     getComputedStyle: () => ({ position: 'static', zIndex: 'auto', borderTopLeftRadius: '12px' }),
@@ -101,6 +102,23 @@ assert(run.calls.every(call => call.destroyed), 'paper mode restores original su
 run.stop()
 assert.equal(run.observers.size, 0)
 assert.equal(run.timers.size, 0)
+
+const scoped = setup()
+scoped.enabled(true); await settle()
+const dockUpdates = scoped.calls[0].updates.length
+scoped.root.dataset.glassComponents = JSON.stringify({ music: { clarity: 25 } })
+scoped.emit(scoped.root, 'data-glass-components'); await settle()
+assert.equal(scoped.calls[0].updates.length, dockUpdates, 'Editing music does not refresh the dock optics')
+scoped.root.dataset.musicMaterial = 'mica'; scoped.emit(scoped.root, 'data-music-material'); await settle()
+assert(scoped.calls[1].destroyed, 'Material change releases experimental renderer')
+assert.deepEqual(scoped.panel.style.values, new Map(scoped.originals))
+scoped.root.dataset.glassGlobal = JSON.stringify({ enabled: true, settings: { enabled: false } })
+scoped.emit(scoped.root, 'data-glass-global'); await settle()
+assert(scoped.calls.every(call => call.destroyed), 'Global disable releases all lenses')
+scoped.root.dataset.glassGlobal = JSON.stringify({ enabled: false })
+scoped.emit(scoped.root, 'data-glass-global'); await settle()
+assert.equal(scoped.calls.length, 3, 'Global off restores only eligible component materials')
+scoped.stop()
 
 const pending = setup({ delayed: true })
 pending.enabled(true); pending.enabled(false); pending.resolve(); await settle()

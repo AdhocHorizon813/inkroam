@@ -1,5 +1,5 @@
 import type { GlassController } from '../vendor/liquidglass/liquid-glass.js'
-import { currentGlassQuality } from './glass-quality'
+import { currentGlassQuality } from './glass-quality-dom'
 
 type Engine = typeof import('../vendor/liquidglass/liquid-glass.js')
 
@@ -42,7 +42,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   let dragStartX = 0, dragStartY = 0, dragged = false, suppressClick = false
   let clickTimer = 0
   let dragChoice: HTMLElement | null = null
-  let quality = currentGlassQuality()
+  let quality = currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme, host)
   let timeout = 0
   let resize: ResizeObserver | undefined
   let state: MutationObserver | undefined
@@ -89,6 +89,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const top = targetY - h / 2
     // Navbar uses Inkroam's existing compact 9px corner, not a half-height pill.
     const radius = slider ? h / 2 : Math.min(navbar ? 9 : 10, h / 2)
+    quality = currentGlassQuality(w, h, host.dataset.glassTheme, host)
     controller.update({ x: 0, y: 0, width: w, height: h, radius,
       blur: quality.blur, mapScale: quality.mapScale,
       edgeSoftness: quality.edgeSoftness, rimGlow: 0, boundedBezel: true,
@@ -146,7 +147,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     pressedPointer = null; dragged = false; dragChoice = null; pressure.set(0)
   }
   function refreshQuality() {
-    quality = currentGlassQuality()
+    quality = currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme, host)
     // Frost the sampled backdrop, not the selectable foreground labels.
 
     render()

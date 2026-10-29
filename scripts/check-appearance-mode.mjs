@@ -1,3 +1,4 @@
+import { normalizeGlassPreferences, normalizeGlassGlobal } from '../app/utils/glass-settings.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
@@ -8,6 +9,8 @@ import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 // Template directive is exercised in check-glass-surfaces, not this VM script.
 const script = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
+  .replace(/^import .*glass-settings.*$/gm, '')
+  .replace(/^import .*\.vue'$/gm, '')
   .replace("import { vExperimentalGlass } from '~/utils/glass-surfaces'", '')
 const compiled = ts.transpile(script.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'true'), { target: ts.ScriptTarget.ES2022 })
 async function mount(saved, dark = false, options = {}) {
@@ -17,7 +20,7 @@ async function mount(saved, dark = false, options = {}) {
   let stored
   const reads = []
   const context = vm.createContext({ ref, reactive, computed, watch, nextTick,
-    decodeAppearanceStorage,
+    decodeAppearanceStorage, normalizeGlassPreferences, normalizeGlassGlobal,
     /* 面板自绘滑条的组合式函数要真 DOM 与滚动事件，本套件不测滚动，桩成空实现。 */
     usePageScrollable: () => ({}),
     supportsEmbeddedPdf: () => false, onMounted: fn => mounted.push(fn), onUnmounted: fn => cleanup.push(fn),
@@ -42,6 +45,28 @@ async function mount(saved, dark = false, options = {}) {
   }
 }
 const controlled = ['navMaterial','contentMaterial','dropdownMaterial','backgroundMaterial','navBlur','contentBlur','dropdownBlur','backgroundBlur','backgroundOverlay','codeMaterial','codeBlur','diagramScale']
+const componentState = await mount({ glassClarity: 32, glassAntialias: true })
+try {
+  assert.equal(componentState.state.glassComponents.music.clarity, 32, 'Migrate legacy optics once')
+  assert(componentState.state.glassComponents.navbar.antialias)
+  componentState.state.glassComponents.music.enabled = false
+  componentState.state.glassGlobal.enabled = true
+  componentState.state.glassGlobal.settings.clarity = 70
+  await nextTick()
+  const reloaded = await mount(componentState.stored())
+  try {
+    assert(reloaded.state.glassGlobal.enabled)
+    assert.equal(reloaded.state.glassGlobal.settings.clarity, 70)
+    reloaded.state.glassGlobal.enabled = false
+    reloaded.state.colorMode = 'dark'
+    await nextTick()
+    assert.equal(reloaded.state.glassComponents.music.enabled, false, 'Override and theme changes preserve components')
+    assert.equal(reloaded.state.glassComponents.music.clarity, 32)
+    reloaded.resetAppearance(); await nextTick()
+    assert.equal(reloaded.state.glassGlobal.enabled, false)
+    assert.equal(reloaded.state.glassComponents.music.clarity, 86)
+  } finally { reloaded.stop() }
+} finally { componentState.stop() }
 // Experimental optics is explicit opt-in, not a light/dark material preset.
 for (const saved of [null, {}, { experimentalLiquidGlass: 'true' }, { experimentalLiquidGlass: 1 }, { experimentalLiquidGlass: true, defaultSettings: true }]) {
   const instance = await mount(saved)
