@@ -313,11 +313,21 @@ try {
         for (const variant of cases.map(fixture => fixture.saved).filter(Boolean).filter(value => !('codeMaterial' in value || 'codeBlur' in value))) {
           const saved = Object.freeze({ ...variant, colorMode: mode, defaultSettings: enabled })
           const result = probe.normalizeStoredAppearance(initial, saved, systemDark)
-          // The frozen oracle predates the music channel: a legacy snapshot without
-          // musicBlur/musicMaterial copies the nav values by design, so those two
-          // fields are excluded from this comparison.
-          const withoutMusicChannel = state => { const copy = plain(state); delete copy.musicBlur; delete copy.musicMaterial; return copy }
-          assert.deepEqual(withoutMusicChannel(result), withoutMusicChannel(originalNormalize({ ...initial }, saved, systemDark)))
+          // The frozen oracle predates the music + glass channels: a legacy snapshot
+          // without these keys copies/normalizes them with newer rules by design, so
+          // those fields are excluded from this comparison.
+          const withoutNewChannels = state => {
+            const copy = plain(state)
+            delete copy.musicBlur
+            delete copy.musicMaterial
+            delete copy.experimentalLiquidGlass
+            delete copy.glassClarity
+            delete copy.glassAntialias
+            delete copy.glassComponents
+            delete copy.glassGlobal
+            return copy
+          }
+          assert.deepEqual(withoutNewChannels(result), withoutNewChannels(originalNormalize({ ...initial }, saved, systemDark)))
           assert.notEqual(result, initial, 'Normalization returns a detached snapshot')
           comparisons++
         }
@@ -326,7 +336,17 @@ try {
     for (const saved of [null, false, 0, '', 'text', [], { extraFutureKey: 7 }]) {
       // Same exclusion: a rejected snapshot falls back to per-mode music defaults,
       // which the frozen oracle cannot know about.
-      const withoutChannel = state => { const copy = plain(state); delete copy.musicBlur; delete copy.musicMaterial; return copy }
+      const withoutChannel = state => {
+        const copy = plain(state)
+        delete copy.musicBlur
+        delete copy.musicMaterial
+        delete copy.experimentalLiquidGlass
+        delete copy.glassClarity
+        delete copy.glassAntialias
+        delete copy.glassComponents
+        delete copy.glassGlobal
+        return copy
+      }
       assert.deepEqual(withoutChannel(probe.normalizeStoredAppearance(initial, saved, systemDark)), withoutChannel(originalNormalize({ ...initial }, saved, systemDark)))
       comparisons++
     }
@@ -340,9 +360,18 @@ try {
   try {
     originalNormalize(oldState, fixture, false)
     Object.assign(newState, probe.normalizeStoredAppearance(newState, fixture, false))
-    // The music channel is deliberately outside the frozen oracle: a legacy snapshot
-    // without musicBlur/musicMaterial copies the current nav values (here 31/liquid).
-    const withoutMusic = state => { const copy = plain(state); delete copy.musicBlur; delete copy.musicMaterial; return copy }
+    // Music + glass channels are deliberately outside the frozen oracle.
+    const withoutMusic = state => {
+      const copy = plain(state)
+      delete copy.musicBlur
+      delete copy.musicMaterial
+      delete copy.experimentalLiquidGlass
+      delete copy.glassClarity
+      delete copy.glassAntialias
+      delete copy.glassComponents
+      delete copy.glassGlobal
+      return copy
+    }
     assert.deepEqual(withoutMusic(newState), withoutMusic(oldState))
     assert.ok(after < before, 'Temporary stored values no longer invalidate reactive state')
     console.log(`Initialization fixture: synchronous reactive invalidations ${before} -> ${after}; not render counts or load-time measurements.`)
