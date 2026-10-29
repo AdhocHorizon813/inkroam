@@ -181,7 +181,7 @@ assert.match(controlsSource, /appearance-subpage-enter-active/, 'Do not chase un
 assert.match(controlsSource, /dataset\.glassPageHidden === 'true'/, 'Outgoing page optics are hidden immediately')
 assert.doesNotMatch(controlsSource, /followUntil|followFrame|listen\(panel!, 'transitionstart'/,
   'Individual controls must not install 400ms panel-wide RAF followers')
-assert.match(managerSource, /host\.offsetParent === null\) continue/, 'Do not resync hidden controls')
+assert.match(managerSource, /surfaces\.get\(host\)\?\.refreshLayout\?\.\(\)/, 'Let hidden controls release stale portal visibility')
 // On supporting Chromium builds, the real control is a CSS anchor. The
 // portaled lens follows its compositor scroll and transform without delayed
 // scroll listeners or geometry polling. The fallback path is tested below.
