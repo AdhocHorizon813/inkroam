@@ -92,6 +92,24 @@ onBeforeUnmount(() => { disposed = true; stopPageFinish(); destroy?.() })
 }
 .glass-control-optics[data-liquid-glass-active] { visibility: visible; }
 
+/* Keep the card's optical tint constant across the asynchronous lens decode.
+   While the true-glass map is pending, paint the same tint directly on the card.
+   Once decoded, the existing [data-liquid-glass-content] rule transfers that
+   paint to the real lens without the previous 68%-to-20% alpha jump.
+   This applies only to opt-in experimental content glass on Chromium; ordinary
+   light/dark materials retain their original appearance. */
+@media not (prefers-reduced-transparency: reduce) {
+  :root[data-visual='modern'][data-glass-content-preview='on']
+  :is(.hero, .latest-section, .manifesto, .standard-page, .article-page):not([data-liquid-glass-content]) {
+    background: rgb(17 24 39 / .20) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  :root[data-visual='modern'][data-color-mode='light'][data-glass-content-preview='on']
+  :is(.hero, .latest-section, .manifesto, .standard-page, .article-page):not([data-liquid-glass-content]) {
+    background: rgb(250 250 248 / .22) !important;
+  }
+}
 /* Real content-card optics, isolated from the five original material recipes.
    The frame is paint-only/out-of-flow. Long pages allocate a viewport tile,
    never a full-article SVG filter; text, selection and sticky TOC stay native. */
