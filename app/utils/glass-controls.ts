@@ -15,6 +15,7 @@ type PanelMotion = {
   onEnd: EventListener
 }
 const panelMotions = new WeakMap<HTMLElement, PanelMotion>()
+let nextOpticAnchor = 0
 
 function findAppearanceSubpage(host: HTMLElement, panel: HTMLElement): HTMLElement | null {
   let node: HTMLElement | null = host
@@ -109,7 +110,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     && !child.classList.contains('theme-toggle'))
   if (slider ? !input : !buttons.length) return { destroy() {} }
 
-  const oldStyles = ['left', 'top', 'width', 'height', 'transform', 'margin-left', 'border-radius', 'transition', 'filter', 'backdrop-filter', '-webkit-backdrop-filter']
+  const oldStyles = ['left', 'top', 'width', 'height', 'transform', 'margin-left', 'border-radius', 'transition', 'filter', 'backdrop-filter', '-webkit-backdrop-filter', 'anchor-name']
     .map(name => [name, host.style.getPropertyValue(name), host.style.getPropertyPriority(name)] as const)
   // Keep optics underneath the original glyphs; never clone or recolor labels.
   // A scroll mask is a backdrop root: a lens inside it sees a flat/empty track.
@@ -120,11 +121,30 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const reveal = host.closest<HTMLElement>('.glass-settings__reveal')
   const subpage = panel ? findAppearanceSubpage(host, panel) : null
   const portaled = Boolean(panel && scroller)
+  // A JavaScript scroll handler + rAF follows one composited frame behind touch
+  // scrolling. On Blink, CSS anchor positioning lets the compositor tether an
+  // out-of-scroller backdrop lens directly to its real indicator/thumb.
+  // Keep the measured-position path for browsers without native anchors.
+  const nativeAnchored = portaled && typeof CSS !== 'undefined'
+    && CSS.supports('anchor-name: --inkroam-optic-probe')
+    && CSS.supports('position-anchor: --inkroam-optic-probe')
+    && CSS.supports('top: anchor(top)')
+    && CSS.supports('position-visibility: anchors-visible')
   const lens = portaled ? document.createElement('span') : host
   if (portaled) {
     lens.className = 'glass-control-optics'
     lens.dataset.glassModule = 'indicator'
     lens.setAttribute('aria-hidden', 'true')
+    if (nativeAnchored) {
+      const anchor = `--inkroam-optic-${++nextOpticAnchor}`
+      host.style.setProperty('anchor-name', anchor)
+      lens.style.setProperty('position-anchor', anchor)
+      lens.style.setProperty('left', 'anchor(left)')
+      lens.style.setProperty('top', 'anchor(top)')
+      lens.style.setProperty('width', 'anchor-size(width)')
+      lens.style.setProperty('height', 'anchor-size(height)')
+      lens.style.setProperty('position-visibility', 'anchors-visible')
+    }
     panel!.insertBefore(lens, panel!.firstChild)
   }
 
@@ -156,10 +176,18 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     // The outgoing page's DOM is retained through its exit transition, but
     // its optical lens is portaled outside the fading/translating subtree.
     // Hide it immediately rather than showing a detached, ghost indicator.
-    if (subpage?.dataset.glassPageHidden === 'true'
+    const pageHidden = subpage?.dataset.glassPageHidden === 'true'
       || subpage?.hasAttribute('inert')
-      || host.closest('[data-glass-page-hidden="true"]')) {
+      || Boolean(host.closest('[data-glass-page-hidden="true"]'))
+    if (pageHidden || host.offsetParent === null) {
       lens.style.visibility = 'hidden'
+      return
+    }
+    if (nativeAnchored) {
+      // Native CSS anchors follow async/compositor scrolling without a JS
+      // geometry read or delayed scroll callback. The browser also handles
+      // the entering subpage's translateX and clipped anchor visibility.
+      lens.style.visibility = ''
       return
     }
     const box = host.getBoundingClientRect(), frame = panel!.getBoundingClientRect()
@@ -185,7 +213,9 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const queueAlign = () => {
     if (!alignFrame) alignFrame = requestAnimationFrame(() => { alignFrame = 0; alignOptics() })
   }
-  if (portaled) {
+  if (portaled && !nativeAnchored) {
+    // Legacy fallback only: rAF alignment is insufficient for momentum
+    // scrolling but remains available where CSS anchors are unsupported.
     listen(scroller!, 'scroll', queueAlign)
     if (subpage) cleanups.push(followAppearanceSubpage(panel!, subpage, alignOptics))
   }
