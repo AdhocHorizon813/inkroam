@@ -26,6 +26,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   // system. Original labels, rail, focus and hit targets never move or duplicate.
   const panel = host.closest<HTMLElement>('.appearance-panel, .music-panel')
   const scroller = panel ? host.closest<HTMLElement>('.appearance-panel__scroll, .music-scroll') : null
+  const reveal = host.closest<HTMLElement>('.glass-settings__reveal')
   const portaled = Boolean(panel && scroller)
   const lens = portaled ? document.createElement('span') : host
   if (portaled) {
@@ -63,6 +64,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     if (!portaled || disposed) return
     const box = host.getBoundingClientRect(), frame = panel!.getBoundingClientRect()
     const view = scroller!.getBoundingClientRect()
+    // Portaled optics must follow the accordion's clipping as it opens/closes.
+    const revealBox = reveal?.getBoundingClientRect()
+    const viewTop = Math.max(view.top, revealBox?.top ?? view.top)
+    const viewBottom = Math.min(view.bottom, revealBox?.bottom ?? view.bottom)
     const sx = frame.width / Math.max(1, panel!.offsetWidth)
     const sy = frame.height / Math.max(1, panel!.offsetHeight)
     lens.style.left = `${(box.left - frame.left) / sx - panel!.clientLeft}px`
@@ -70,9 +75,9 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     lens.style.width = host.style.width
     lens.style.height = host.style.height
     lens.style.borderRadius = host.style.borderRadius
-    lens.style.visibility = box.bottom <= view.top || box.top >= view.bottom ? 'hidden' : ''
+    lens.style.visibility = box.bottom <= viewTop || box.top >= viewBottom ? 'hidden' : ''
     // Respect the scroll viewport without inheriting its backdrop-root mask.
-    lens.style.clipPath = `inset(${Math.max(0, view.top - box.top) / sy}px ${Math.max(0, box.right - view.right) / sx}px ${Math.max(0, box.bottom - view.bottom) / sy}px ${Math.max(0, view.left - box.left) / sx}px round ${host.style.borderRadius})`
+    lens.style.clipPath = `inset(${Math.max(0, viewTop - box.top) / sy}px ${Math.max(0, box.right - view.right) / sx}px ${Math.max(0, box.bottom - viewBottom) / sy}px ${Math.max(0, view.left - box.left) / sx}px round ${host.style.borderRadius})`
   }
   const queueAlign = () => {
     if (!alignFrame) alignFrame = requestAnimationFrame(() => { alignFrame = 0; alignOptics() })
@@ -82,9 +87,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   function render() {
     if (!controller || disposed) return
     // Motion stretches the lens, never the original text or hit targets.
-    const stretch = !slider && dragged ? 0 : Math.min(slider ? 10 : 14, Math.abs(velocity) * .02)
-    const w = slider ? 28 + press * 14 + stretch : targetWidth + stretch + press * 4
-    const h = slider ? 18 + press * 10 - stretch * .2 : Math.max(16, targetHeight - stretch * .23 - press * 2)
+    const stretch = quality.deform === false || (!slider && dragged) ? 0 : Math.min(slider ? 10 : 14, Math.abs(velocity) * .02)
+    const deformation = quality.deform !== false ? press : 0
+    const w = slider ? 28 + deformation * 14 + stretch : targetWidth + stretch + deformation * 4
+    const h = slider ? 18 + deformation * 10 - stretch * .2 : Math.max(16, targetHeight - stretch * .23 - deformation * 2)
     const left = x - w / 2
     const top = targetY - h / 2
     // Navbar uses Inkroam's existing compact 9px corner, not a half-height pill.
@@ -92,6 +98,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     quality = currentGlassQuality(w, h, host.dataset.glassTheme, host)
     controller.update({ x: 0, y: 0, width: w, height: h, radius,
       blur: quality.blur, mapScale: quality.mapScale,
+      maxFps: quality.maxFps, settleDelay: quality.settleDelay,
       edgeSoftness: quality.edgeSoftness, rimGlow: 0, boundedBezel: true,
       specular: quality.specular * (slider ? 1 : .75), specularAmbient: quality.specularAmbient })
     // Transform on the old host is replaced only while the experiment owns it.
@@ -174,10 +181,12 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       bezel: slider ? .9 : navbar ? .6 : .35, curvature: slider || navbar ? 3 : 4,
       chroma: 0, specular: quality.specular * (slider ? 1 : .75), specularAmbient: quality.specularAmbient, specularWidth: 1,
       rimGlow: 0, boundedBezel: true,
-      blur: quality.blur, mapScale: quality.mapScale, edgeSoftness: quality.edgeSoftness })
+      blur: quality.blur, mapScale: quality.mapScale, edgeSoftness: quality.edgeSoftness,
+      maxFps: quality.maxFps, settleDelay: quality.settleDelay })
   } catch (error) { destroy(); throw error }
-  resize = new ResizeObserver(refresh)
+  resize = new ResizeObserver(() => { refresh(); queueAlign() })
   resize.observe(group)
+  if (reveal) resize.observe(reveal)
   if (portaled) resize.observe(panel!)
   buttons.forEach(button => resize.observe(button))
   state = new MutationObserver(refresh)

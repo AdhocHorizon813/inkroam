@@ -18,6 +18,8 @@ export interface GlassOptions {
   specularWidth?: number
   lightAngle?: number
   mapScale?: number
+  maxFps?: number
+  settleDelay?: number
   edgeSoftness?: number
   specularAmbient?: number
   rimGlow?: number

@@ -1,3 +1,4 @@
+import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '../app/utils/glass-defaults.ts'
 import { normalizeGlassPreferences, normalizeGlassGlobal } from '../app/utils/glass-settings.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -7,7 +8,7 @@ import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
 
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-  .replace(/^import .*glass-settings.*$/gm, '')
+  .replace(/^import .*glass-(?:settings|defaults).*$/gm, '')
   .replace(/^import .*\.vue'$/gm, '')
   .replace("import { vExperimentalGlass } from '~/utils/glass-surfaces'", '')
 const template = panel.match(/<template>([\s\S]*)<\/template>/)[1]
@@ -87,7 +88,7 @@ function mount(saved, { systemDark = false, defer = false } = {}) {
   const media = { matches: systemDark, addEventListener: () => {}, removeEventListener: () => {} }
   let stored = null
   const context = vm.createContext({
-    decodeAppearanceStorage, normalizeGlassPreferences, normalizeGlassGlobal,
+    decodeAppearanceStorage, normalizeGlassPreferences, normalizeGlassGlobal, createDefaultGlassGlobal, createDefaultGlassPreferences,
     /* 面板自绘滑条的组合式函数要真 DOM 与滚动事件，本套件不测滚动，桩成空实现。 */
     usePageScrollable: () => ({}),
     supportsEmbeddedPdf: () => false,

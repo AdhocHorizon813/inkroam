@@ -37,6 +37,8 @@ export const DEFAULTS = Object.freeze({
   specularWidth: 2, // rim highlight width, CSS px
   lightAngle: -120, // degrees; 0 = light from the right, -90 = from the top. The lit rim is brightest, the far rim reflects dimly
   mapScale: 0, // map pixels per CSS px; 0 = devicePixelRatio capped at 2
+  maxFps: 0, // Inkroam: optional filter update cap; never caps native input events.
+  settleDelay: 0, // Inkroam: optional map-generation debounce while shape changes.
   // Inkroam extension: feather the optical boundary inward in CSS pixels.
   // Zero preserves upstream output. Increasing mapScale alone shrinks the old
   // one-map-pixel AA ramp and cannot soften the final composited lens boundary.
@@ -418,6 +420,8 @@ export function createGlass(target, options = {}) {
   let shown = { key: '', seq: -1 }; // map currently referenced by feImage
   let version = 0;
   let frame = 0;
+  let updateTimer = 0, shapeTimer = 0, lastFlush = -Infinity;
+  let pendingShape = '', shapeChangedAt = 0;
   let settleTimers = [];
   let destroyed = false;
   let box = { width: target.offsetWidth, height: target.offsetHeight };
@@ -453,6 +457,7 @@ export function createGlass(target, options = {}) {
   function flush() {
     frame = 0;
     if (destroyed || !active) return;
+    lastFlush = performance.now();
     if (flags.hidden) {
       if (useBackdropURL) target.style.backdropFilter = '';
       else target.style.filter = '';
@@ -495,7 +500,14 @@ export function createGlass(target, options = {}) {
     // dozens of almost identical PNGs. Moving a fixed-size lens reuses its map.
     const shape = { ...p, width: w, height: h, radius: snap(Math.min(p.radius, w / 2, h / 2)) };
     const key = mapKeyOf(shape, scale);
-    if (wanted !== key) {
+    if (pendingShape !== key) { pendingShape = key; shapeChangedAt = performance.now(); }
+    const remaining = Math.max(0, p.settleDelay - (performance.now() - shapeChangedAt));
+    clearTimeout(shapeTimer);
+    if (wanted !== key && shown.key && remaining > 0) {
+      // Keep the decoded texture stretched to the live geometry, then replace
+      // it after settling. Never leave a newly-opened surface without a map.
+      shapeTimer = setTimeout(schedule, remaining);
+    } else if (wanted !== key) {
       wanted = key;
       const entry = lensMap(shape, scale, key);
       const seq = ++requested;
@@ -538,8 +550,16 @@ export function createGlass(target, options = {}) {
   }
 
   function schedule() {
+    if (destroyed) return;
     if (flags.sync) flush();
-    else if (!frame) frame = requestAnimationFrame(flush);
+    else if (!frame && !updateTimer) {
+      const wait = p.maxFps > 0 ? 1000 / p.maxFps - (performance.now() - lastFlush) : 0;
+      if (wait > 1) updateTimer = setTimeout(() => {
+        updateTimer = 0;
+        if (!destroyed) frame = requestAnimationFrame(flush);
+      }, wait);
+      else frame = requestAnimationFrame(flush);
+    }
   }
 
   schedule();
@@ -558,6 +578,7 @@ export function createGlass(target, options = {}) {
     /** Apply pending changes now (e.g. before measuring or taking a screenshot). */
     flush() {
       if (frame) cancelAnimationFrame(frame);
+      clearTimeout(updateTimer); updateTimer = 0;
       flush();
     },
     get params() {
@@ -569,6 +590,7 @@ export function createGlass(target, options = {}) {
     destroy() {
       destroyed = true;
       if (frame) cancelAnimationFrame(frame);
+      clearTimeout(updateTimer); clearTimeout(shapeTimer);
       settleTimers.forEach(clearTimeout);
       observer?.disconnect();
       filter.remove();

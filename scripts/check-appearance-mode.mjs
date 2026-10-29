@@ -1,3 +1,4 @@
+import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '../app/utils/glass-defaults.ts'
 import { normalizeGlassPreferences, normalizeGlassGlobal } from '../app/utils/glass-settings.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -9,7 +10,7 @@ import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 // Template directive is exercised in check-glass-surfaces, not this VM script.
 const script = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-  .replace(/^import .*glass-settings.*$/gm, '')
+  .replace(/^import .*glass-(?:settings|defaults).*$/gm, '')
   .replace(/^import .*\.vue'$/gm, '')
   .replace("import { vExperimentalGlass } from '~/utils/glass-surfaces'", '')
 const compiled = ts.transpile(script.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'true'), { target: ts.ScriptTarget.ES2022 })
@@ -20,7 +21,7 @@ async function mount(saved, dark = false, options = {}) {
   let stored
   const reads = []
   const context = vm.createContext({ ref, reactive, computed, watch, nextTick,
-    decodeAppearanceStorage, normalizeGlassPreferences, normalizeGlassGlobal,
+    decodeAppearanceStorage, normalizeGlassPreferences, normalizeGlassGlobal, createDefaultGlassGlobal, createDefaultGlassPreferences,
     /* 面板自绘滑条的组合式函数要真 DOM 与滚动事件，本套件不测滚动，桩成空实现。 */
     usePageScrollable: () => ({}),
     supportsEmbeddedPdf: () => false, onMounted: fn => mounted.push(fn), onUnmounted: fn => cleanup.push(fn),
@@ -64,7 +65,7 @@ try {
     assert.equal(reloaded.state.glassComponents.music.clarity, 32)
     reloaded.resetAppearance(); await nextTick()
     assert.equal(reloaded.state.glassGlobal.enabled, false)
-    assert.equal(reloaded.state.glassComponents.music.clarity, 86)
+    assert.equal(reloaded.state.glassComponents.music.clarity, 50)
   } finally { reloaded.stop() }
 } finally { componentState.stop() }
 // Experimental optics is explicit opt-in, not a light/dark material preset.

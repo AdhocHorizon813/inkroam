@@ -103,6 +103,8 @@ CSS 维护：已有顶层级联例外受 `check-css-cascade` 门禁保护，优�
 
 ## 文档
 
+液态玻璃的二级菜单提供分组件参数与全局覆盖。“采用默认设置”使用作者在 Edge 精调的固定方案；参数备份、控制范围和验证边界见 [液态玻璃设置](docs/liquid-glass-component-settings.md)。
+
 About 页在原有正文后设有原创角色「林澈 / Lin Che」的小节。插图位于 `public/images/about/lin-che.png`，共享两种视觉模式的排版与颜色变量；布局和换图注意事项见 [视觉系统](docs/visual-system.md#about-页的-another-resident)。图片自 2026-09-27 起按用途分入 `backgrounds/`、`about/`、`posts/<文章标识>/`、`notes/<课程英文名>/` 子目录（见 [写作规范](docs/content-authoring.md#图片用法)）：**旧的一级地址 `/images/<名字>.png` 已经失效，未保留兼容副本**。
 
 该模块的源码回归检查：`node scripts/check-about-resident.mjs`；静态生成后加 `--built` 检查部署路径与图片产物。实际响应式和主题视觉仍需浏览器验收。

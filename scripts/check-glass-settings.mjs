@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '../app/utils/glass-defaults.ts'
 import assert from 'node:assert/strict'
-import { GLASS_GROUPS, normalizeGlassPreferences, normalizeGlassGlobal, effectiveGlassPreference, glassSurfaceEnabled, glassMaterialKey, recommendGlassPreferences } from '../app/utils/glass-settings.ts'
+import { GLASS_GROUPS, normalizeGlassPreferences, normalizeGlassGlobal, effectiveGlassPreference, glassSurfaceEnabled, glassMaterialKey } from '../app/utils/glass-settings.ts'
 import { componentGlassQuality } from '../app/utils/glass-quality.ts'
 
 const legacy = normalizeGlassPreferences(undefined, 42, true)
@@ -8,7 +10,8 @@ assert(Object.values(legacy).every(p => p.clarity === 42 && p.antialias && p.ena
 legacy.music.clarity = 8
 assert.equal(legacy.navbar.clarity, 42, 'Groups cannot share mutable preferences')
 const corrupt = normalizeGlassPreferences({ music: { clarity: Infinity, resolution: -9, pixelBudget: 900, aaScale: 10, enabled: false } })
-assert.deepEqual(corrupt.music, { clarity: 86, resolution: 0, pixelBudget: 1.5, aaScale: 1, enabled: false, antialias: false })
+assert.deepEqual(corrupt.music, { clarity: 86, resolution: 0, pixelBudget: 1.5, aaScale: 1, enabled: false, antialias: false,
+  maxSide: 4096, maxFps: 0, settleDelay: 0, deform: true })
 
 const host = (module, context = '') => ({ dataset: { glassModule: module }, matches: () => false,
   closest: selector => context && selector.includes(context) ? {} : null })
@@ -42,19 +45,22 @@ assert(aa.edgeSoftness > 0)
 const big = componentGlassQuality({ ...p, antialias: true, pixelBudget: .5 }, 2000, 1600, false, 3)
 assert(big.mapScale < 1)
 assert(Math.abs(big.mapScale ** 2 * 2000 * 1600 - 500_000) < .01, 'Budget includes AA')
+const narrow = componentGlassQuality({ ...p, maxSide: 1024 }, 4000, 100, false, 2)
+assert.equal(narrow.mapScale * 4000, 1024, 'Long textures obey side limit')
+const throttle = componentGlassQuality({ ...p, maxFps: 30, settleDelay: 160, deform: false }, 100, 100, false, 1)
+assert.equal(throttle.maxFps, 30)
+assert.equal(throttle.settleDelay, 160)
+assert.equal(throttle.deform, false)
 assert(componentGlassQuality({ ...p, clarity: 0 }, 100, 50, false, 1).blur > componentGlassQuality({ ...p, clarity: 100 }, 100, 50, false, 1).blur)
 
-for (const [hints, label] of [
-  [{ pixels: 2e6, reducedMotion: false }, '均衡'],
-  [{ cores: 16, memory: 8, pixels: 2e6, reducedMotion: false }, '精细'],
-  [{ cores: 16, memory: 8, pixels: 8e6, reducedMotion: false }, '节能'],
-  [{ cores: 16, memory: 8, pixels: 2e6, reducedMotion: true }, '节能'],
-]) {
-  const original = JSON.stringify(legacy)
-  const result = recommendGlassPreferences(hints, legacy)
-  assert.equal(result.label, label)
-  assert.equal(JSON.stringify(legacy), original, 'Recommendation is pure')
-  assert.equal(result.preferences.music.clarity, 8, 'Keep personal clarity')
-  if (label === '节能') assert(!result.preferences.content.enabled && !result.preferences.indicator.enabled)
-}
-console.log('Glass settings: migration, isolation, material gates, sampling budgets and recommendations passed.')
+const capture = JSON.parse(readFileSync(new URL('../docs/liquid-glass-tuned-2026-10-29.json', import.meta.url), 'utf8'))
+assert.deepEqual(createDefaultGlassPreferences(), capture.components)
+assert.deepEqual(createDefaultGlassGlobal().settings, capture.global.settings)
+assert.equal(createDefaultGlassGlobal().enabled, false, 'New visitors still opt into global override')
+const customized = createDefaultGlassPreferences()
+customized.music.clarity = 0
+assert.equal(createDefaultGlassPreferences().music.clarity, 50, 'Defaults must not share mutable objects')
+const customGlobal = createDefaultGlassGlobal()
+customGlobal.settings.clarity = 0
+assert.equal(createDefaultGlassGlobal().settings.clarity, 100)
+console.log('Glass settings: migration, isolation, material gates, sampling budgets and captured defaults passed.')

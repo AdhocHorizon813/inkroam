@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppearanceMenuRow from './AppearanceMenuRow.vue'
 import GlassSettings from './GlassSettings.vue'
+import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '~/utils/glass-defaults'
 import { normalizeGlassPreferences, normalizeGlassGlobal, type GlassGlobalOverride, type GlassPreferences } from '~/utils/glass-settings'
 import { vExperimentalGlass } from '~/utils/glass-surfaces'
 import { supportsEmbeddedPdf } from '~/utils/pdf-embed'
@@ -171,8 +172,8 @@ const state = reactive<AppearanceState>({
   experimentalLiquidGlass: false,
   glassClarity: 86,
   glassAntialias: false,
-  glassComponents: normalizeGlassPreferences(),
-  glassGlobal: normalizeGlassGlobal(),
+  glassComponents: createDefaultGlassPreferences(),
+  glassGlobal: createDefaultGlassGlobal(),
   colorMode: 'auto',
   /* 初值取 v5 时代的值：老访客缺的键就落在这里（观感与改动前一致），真·新访客会在 onMounted 里
      在偏好规范化时换成当前明暗的新默认。SSR 首帧的面板内容也按这套渲染，与
@@ -262,8 +263,10 @@ function normalizeStoredAppearance(initial: AppearanceState, stored: StoredAppea
   normalized.glassClarity = Number.isFinite(normalized.glassClarity)
     ? Math.round(Math.max(0, Math.min(100, normalized.glassClarity))) : 86
   normalized.glassAntialias = normalized.glassAntialias === true
-  normalized.glassComponents = normalizeGlassPreferences(stored?.glassComponents, normalized.glassClarity, normalized.glassAntialias)
-  normalized.glassGlobal = normalizeGlassGlobal(stored?.glassGlobal)
+  normalized.glassComponents = stored
+    ? normalizeGlassPreferences(stored.glassComponents, normalized.glassClarity, normalized.glassAntialias)
+    : createDefaultGlassPreferences()
+  normalized.glassGlobal = stored ? normalizeGlassGlobal(stored.glassGlobal) : createDefaultGlassGlobal()
   if (!['liquid', 'acrylic', 'mica'].includes(normalized.musicMaterial)) normalized.musicMaterial = LEGACY_DEFAULTS.musicMaterial
   if (!Number.isFinite(normalized.musicBlur)) normalized.musicBlur = LEGACY_DEFAULTS.musicBlur
   normalized.musicBlur = Math.max(0, Math.min(48, normalized.musicBlur))
@@ -570,8 +573,8 @@ function resetAppearance() {
     experimentalLiquidGlass: false,
     glassClarity: 86,
     glassAntialias: false,
-  glassComponents: normalizeGlassPreferences(),
-  glassGlobal: normalizeGlassGlobal(),
+    glassComponents: createDefaultGlassPreferences(),
+    glassGlobal: createDefaultGlassGlobal(),
     ...appearanceDefaults(systemPrefersDark.value ? 'dark' : 'light'),
     background: 'auto',
     backgroundPicked: false,
@@ -615,8 +618,8 @@ function resetAppearance() {
       <div ref="panelScroll" class="appearance-panel__scroll">
         <header class="appearance-panel__header">
           <div>
-            <button v-if="glassSettingsOpen" type="button" class="appearance-subpage-back setting-label" @click="navigateAppearance(false)">
-              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5" /></svg>阅读外观
+            <button v-if="glassSettingsOpen" type="button" class="appearance-subpage-back panel-close" aria-label="返回阅读外观" title="返回阅读外观" @click="navigateAppearance(false)">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5" /></svg>
             </button>
             <span v-else class="panel-kicker">DISPLAY</span>
             <h2>{{ glassSettingsOpen ? '液态玻璃设置' : '阅读外观' }}</h2>
@@ -961,7 +964,7 @@ function resetAppearance() {
         </div>
         </Transition>
         <Transition name="appearance-subpage">
-        <div v-show="glassSettingsOpen" :inert="!glassSettingsOpen">
+        <div v-show="glassSettingsOpen" :inert="!glassSettingsOpen" :data-glass-page-hidden="!glassSettingsOpen ? 'true' : undefined">
         <GlassSettings v-model="state.glassComponents" v-model:global="state.glassGlobal" v-model:enabled="state.experimentalLiquidGlass" :visual="state.visual"
           :materials="{ navMaterial: state.navMaterial, musicMaterial: state.musicMaterial, material: state.contentMaterial, dropdownMaterial: state.dropdownMaterial }" />
         </div>
@@ -1004,7 +1007,7 @@ function resetAppearance() {
 
 <style scoped>
 .appearance-subpage-back svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; }
-.appearance-subpage-back { display: inline-flex; align-items: center; gap: 5px; padding: 0; margin: 0 0 8px; border: 0; background: none; font-family: inherit; cursor: pointer; }
+.appearance-subpage-back { margin-bottom: 8px; }
 .appearance-subpages { position: relative; }
 .appearance-subpage-enter-active, .appearance-subpage-leave-active { transition: transform 260ms cubic-bezier(.16, 1, .3, 1), opacity 180ms ease; }
 .appearance-subpage-leave-active { position: absolute; inset: 0 0 auto; pointer-events: none; }

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { vExperimentalGlass } from '~/utils/glass-surfaces'
 
+withDefaults(defineProps<{ active?: boolean }>(), { active: true })
+
 // The slotted native input remains the sole input/focus/ARIA owner. The lens is
 // pointer-transparent, and appears only once its filter is decoded successfully.
 const host = ref<HTMLElement | null>(null)
@@ -12,7 +14,7 @@ onUpdated(() => host.value?.dispatchEvent(new Event('inkroam:range-update')))
 <template>
   <span ref="host" class="glass-range">
     <slot />
-    <span v-experimental-glass="true" data-glass-module="thumb" class="glass-range__thumb" aria-hidden="true" />
+    <span v-experimental-glass="active" data-glass-module="thumb" class="glass-range__thumb" aria-hidden="true" />
   </span>
 </template>
 

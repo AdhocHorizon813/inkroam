@@ -1,0 +1,165 @@
+{
+  "source": "Edge http://localhost:3000",
+  "capturedOn": "2026-10-29",
+  "global": {
+    "enabled": true,
+    "settings": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 100,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 60,
+      "maxSide": 1024,
+      "pixelBudget": 1.5,
+      "resolution": 0.5,
+      "settleDelay": 80
+    }
+  },
+  "components": {
+    "navbar": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 100,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 4096,
+      "pixelBudget": 1.5,
+      "resolution": 1,
+      "settleDelay": 0
+    },
+    "content": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 100,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 2048,
+      "pixelBudget": 1.5,
+      "resolution": 0.5,
+      "settleDelay": 0
+    },
+    "appearance": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 50,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 4096,
+      "pixelBudget": 1.5,
+      "resolution": 0.5,
+      "settleDelay": 0
+    },
+    "music": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 50,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 4096,
+      "pixelBudget": 1.5,
+      "resolution": 0.5,
+      "settleDelay": 0
+    },
+    "tools": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 75,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 4096,
+      "pixelBudget": 1.5,
+      "resolution": 0,
+      "settleDelay": 0
+    },
+    "dropdown": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 100,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 4096,
+      "pixelBudget": 1.5,
+      "resolution": 0,
+      "settleDelay": 0
+    },
+    "confirm": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 50,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 4096,
+      "pixelBudget": 1.5,
+      "resolution": 0.5,
+      "settleDelay": 0
+    },
+    "toolbar": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 75,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 4096,
+      "pixelBudget": 1.5,
+      "resolution": 0,
+      "settleDelay": 0
+    },
+    "button": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 100,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 4096,
+      "pixelBudget": 1.5,
+      "resolution": 0,
+      "settleDelay": 0
+    },
+    "dock": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 100,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 4096,
+      "pixelBudget": 1.5,
+      "resolution": 0,
+      "settleDelay": 0
+    },
+    "indicator": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 100,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 4096,
+      "pixelBudget": 1.5,
+      "resolution": 0,
+      "settleDelay": 0
+    },
+    "thumb": {
+      "aaScale": 1,
+      "antialias": true,
+      "clarity": 100,
+      "deform": true,
+      "enabled": true,
+      "maxFps": 0,
+      "maxSide": 4096,
+      "pixelBudget": 1.5,
+      "resolution": 0,
+      "settleDelay": 0
+    }
+  }
+}

@@ -21,7 +21,7 @@ export function componentGlassQuality(p: GlassPreference, width: number, height:
   const sampling = (p.resolution || Math.min(2, Math.max(1, dpr))) * (p.antialias ? p.aaScale : 1)
   // A real per-surface area limit, including AA. Large surfaces may fall below
   // one map pixel/CSS pixel; this is an explicit user quality trade-off.
-  quality.mapScale = Math.min(sampling, Math.sqrt(p.pixelBudget * 1_000_000 / Math.max(1, width * height)))
-  return quality
+  quality.mapScale = Math.min(sampling, Math.sqrt(p.pixelBudget * 1_000_000 / Math.max(1, width * height)), p.maxSide / Math.max(1, width, height))
+  return { ...quality, maxFps: p.maxFps, settleDelay: p.settleDelay, deform: p.deform }
 }
 

@@ -21,6 +21,10 @@ export interface GlassPreference {
   aaScale: number
   resolution: number // 0 = device DPR (bounded); otherwise pixels per CSS pixel
   pixelBudget: number // millions of map pixels per surface, including AA
+  maxSide: number
+  maxFps: number // 0 keeps the browser's animation cadence
+  settleDelay: number // reuse the previous map until shape settles (ms)
+  deform: boolean
 }
 export type GlassPreferences = Record<GlassGroup, GlassPreference>
 export interface GlassGlobalOverride { enabled: boolean; settings: GlassPreference }
@@ -40,8 +44,12 @@ export function normalizeGlassPreferences(raw?: unknown, clarity = 86, antialias
       clarity: bounded(p.clarity, 0, 100, bounded(clarity, 0, 100, 86)),
       antialias: typeof p.antialias === 'boolean' ? p.antialias : antialias,
       aaScale: [1, 1.5, 2].includes(p.aaScale!) ? p.aaScale! : 1,
-      resolution: [0, 1, 1.5, 2].includes(p.resolution!) ? p.resolution! : 0,
+      resolution: [0, .5, .75, 1, 1.5, 2].includes(p.resolution!) ? p.resolution! : 0,
       pixelBudget: [.5, 1.5, 3].includes(p.pixelBudget!) ? p.pixelBudget! : 1.5,
+      maxSide: [1024, 2048, 4096].includes(p.maxSide!) ? p.maxSide! : 4096,
+      maxFps: [0, 15, 30, 60].includes(p.maxFps!) ? p.maxFps! : 0,
+      settleDelay: [0, 80, 160].includes(p.settleDelay!) ? p.settleDelay! : 0,
+      deform: p.deform !== false,
     }]
   })) as GlassPreferences
 }
@@ -89,20 +97,3 @@ export function effectiveGlassPreference(host: HTMLElement, data: DOMStringMap):
   return globalCache.enabled ? globalCache.settings : readGlassPreferences(data)[glassGroup(host)]
 }
 
-export interface GlassDeviceHints { cores?: number; memory?: number; pixels: number; reducedMotion: boolean }
-// Conservative, local heuristic; neither GPU identification nor a benchmark.
-export function recommendGlassPreferences(hints: GlassDeviceHints, current: GlassPreferences) {
-  const constrained = hints.reducedMotion || (hints.cores !== undefined && hints.cores <= 4)
-    || (hints.memory !== undefined && hints.memory <= 4) || hints.pixels > 5_000_000
-  const ample = !constrained && (hints.cores ?? 0) >= 12 && (hints.memory ?? 0) >= 8 && hints.pixels <= 3_000_000
-  const preferences = normalizeGlassPreferences(current)
-  for (const { id } of GLASS_GROUPS) {
-    const p = preferences[id]
-    p.enabled = !(constrained && ['content', 'indicator', 'thumb'].includes(id))
-    p.resolution = ample ? 1.5 : 1
-    p.pixelBudget = constrained ? .5 : 1.5
-    p.antialias = ample
-    p.aaScale = 1
-  }
-  return { label: constrained ? '节能' : ample ? '精细' : '均衡', preferences }
-}
