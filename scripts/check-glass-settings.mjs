@@ -63,4 +63,19 @@ assert.equal(createDefaultGlassPreferences().music.clarity, 50, 'Defaults must n
 const customGlobal = createDefaultGlassGlobal()
 customGlobal.settings.clarity = 0
 assert.equal(createDefaultGlassGlobal().settings.clarity, 100)
+// Lazy true-glass cards must begin with the exact same tint as the decoded
+// optical lens. This is limited to experimental content mode only.
+const panelSource = readFileSync('app/components/AppearancePanel.vue', 'utf8')
+const glassCss = readFileSync('app/components/ExperimentalGlass.client.vue', 'utf8')
+const appSource = readFileSync('app/app.vue', 'utf8')
+assert.match(panelSource, /root\.dataset\.glassContentPreview = root\.dataset\.experimentalLiquidGlass === 'on'/)
+assert.match(panelSource, /state\.contentMaterial === 'liquid' && contentGlassEnabled && blink/)
+assert.match(glassCss, /data-glass-content-preview='on'/)
+assert.match(glassCss, /:not\(\[data-liquid-glass-content\]\)/)
+assert.match(glassCss, /rgb\(17 24 39 \/ \.20\) !important/)
+assert.match(glassCss, /rgb\(250 250 248 \/ \.22\) !important/)
+assert.match(glassCss, /@media not \(prefers-reduced-transparency: reduce\)/)
+assert.match(glassCss, /\[data-liquid-glass-content\] \{\s*background: transparent !important/)
+assert.match(appSource, /targets\.forEach\(target => target\.style\.opacity = '0'\)/, 'The existing route motion remains unchanged')
+
 console.log('Glass settings: migration, isolation, material gates, sampling budgets and captured defaults passed.')
