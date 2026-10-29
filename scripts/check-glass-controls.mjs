@@ -40,7 +40,7 @@ class Element extends EventTarget {
   getBoundingClientRect() { return { left: 0, width: this.clientWidth } }
   click() { this.clicks = (this.clicks ?? 0) + 1 }
 }
-function fixture(slider = false, portaled = false) {
+function fixture(slider = false, portaled = false, nativeAnchors = false) {
   const host = new Element(), group = new Element('DIV'), window = new EventTarget()
   host.dataset.glassModule = slider ? 'thumb' : 'indicator'
   group.classes.add(slider ? 'glass-range' : 'main-nav')
@@ -79,6 +79,7 @@ function fixture(slider = false, portaled = false) {
     .replace('export function attachGlassControl', 'function attachGlassControl')
   const context = vm.createContext({ HTMLElement: Element, document: { createElement: tag => new Element(tag.toUpperCase()) },
     window, MutationObserver: Observer, ResizeObserver: Observer, clearTimeout: id => timers.delete(id),
+    CSS: { supports: () => nativeAnchors },
     currentGlassQuality: () => glassQuality(86, false),
     getComputedStyle: () => ({ direction, font: '500 12px sans-serif', letterSpacing: '0px', columnGap: '4px', padding: '0px', textTransform: 'none' }) })
   vm.runInContext(ts.transpile(source, { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.attach = attachGlassControl;', context)
@@ -181,6 +182,24 @@ assert.match(controlsSource, /dataset\.glassPageHidden === 'true'/, 'Outgoing pa
 assert.doesNotMatch(controlsSource, /followUntil|followFrame|listen\(panel!, 'transitionstart'/,
   'Individual controls must not install 400ms panel-wide RAF followers')
 assert.match(managerSource, /host\.offsetParent === null\) continue/, 'Do not resync hidden controls')
+// On supporting Chromium builds, the real control is a CSS anchor. The
+// portaled lens follows its compositor scroll and transform without delayed
+// scroll listeners or geometry polling. The fallback path is tested below.
+const tethered = fixture(false, true, true)
+tethered.decode()
+const tether = tethered.calls[0].el
+assert.match(tethered.host.style.getPropertyValue('anchor-name'), /^--inkroam-optic-\\d+$/)
+assert.equal(tether.style.getPropertyValue('position-anchor'),
+  tethered.host.style.getPropertyValue('anchor-name'))
+assert.equal(tether.style.left, 'anchor(left)')
+assert.equal(tether.style.top, 'anchor(top)')
+assert.equal(tether.style.width, 'anchor-size(width)')
+assert.equal(tether.style.height, 'anchor-size(height)')
+assert.equal(tether.style.getPropertyValue('position-visibility'), 'anchors-visible')
+tethered.event(tethered.scroller, 'scroll') // no JS rAF read/scroll follower
+tethered.cleanup.destroy()
+assert.equal(tethered.host.style.getPropertyValue('anchor-name'), '', 'Restore original anchor-name on unmount')
+
 const masked = fixture(false, true)
 masked.decode()
 assert.equal(masked.calls[0].el.parentElement, masked.panel, 'Lens escapes the masked scroll backdrop root')
