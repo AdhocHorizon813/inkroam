@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { vExperimentalGlass } from '~/utils/glass-surfaces'
+import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'
 import MusicArtwork from '~/components/MusicArtwork.vue'
 import { musicTracks, musicTime, musicPreferences, loadMusicForPlay, MUSIC_STORAGE_KEY } from '~/utils/music'
 import { listLocalMusic, localMusicFile, addLocalMusic, deleteLocalMusic, localMusicCover, saveMusicCover, prepareMusicCover } from '~/utils/local-music'
@@ -14,10 +14,6 @@ const config = useRuntimeConfig()
 const audio = ref<HTMLAudioElement | null>(null)
 const trigger = ref<HTMLButtonElement | null>(null)
 const open = ref(false), playing = ref(false), loading = ref(false)
-// A closed panel keeps its decoded lens for instant reopening, but must not
-// composite its collapsed 100x44px backdrop over the page on mobile Chromium.
-const glassDormant = ref(true)
-let closeGlassTimer: number | undefined
 const pendingSeek = ref<number | null>(null)
 const hasPlayed = ref(false)
 // Continuity is an intent, not evidence that the first play request succeeded.
@@ -94,7 +90,6 @@ onMounted(() => {
   void restoreLibrary()
 })
 onBeforeUnmount(() => {
-  if (closeGlassTimer !== undefined) window.clearTimeout(closeGlassTimer)
   disposed = true; request++
   morphSequence++
   morphAnimations.forEach(animation => animation.cancel())
@@ -116,25 +111,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', resizePanel)
 })
 const dock = ref<HTMLElement | null>(null)
-// Keep the refractive panel visible through its existing 160ms close animation.
-// Once visibility turns hidden, remove the *computed* backdrop filter (not the
-// controller or its cached displacement map) to avoid a ghost glass rectangle.
-function onPanelVisibilityTransition(event: TransitionEvent) {
-  if (event.target !== panel.value || event.propertyName !== 'visibility' || open.value || expanded.value) return
-  if (closeGlassTimer !== undefined) { window.clearTimeout(closeGlassTimer); closeGlassTimer = undefined }
-  glassDormant.value = true
-}
-watch(open, value => {
-  if (closeGlassTimer !== undefined) { window.clearTimeout(closeGlassTimer); closeGlassTimer = undefined }
-  if (value) { glassDormant.value = false; return }
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { glassDormant.value = true; return }
-  // Fallback for browsers that omit transitionend on a hidden backdrop-filter.
-  // The close transition is 160ms; retain its optics until after it finishes.
-  closeGlassTimer = window.setTimeout(() => {
-    closeGlassTimer = undefined
-    if (!open.value && !expanded.value) glassDormant.value = true
-  }, 240)
-}, { flush: 'sync' })
 watch([open, playing], scheduleProgress)
 watch([elapsed, duration], () => {
   if (!playing.value || scrubbing || !progressFrame) paintProgress(elapsed.value)
@@ -697,7 +673,7 @@ function onPlaying() {
     <audio ref="audio" preload="none" @playing="onPlaying" @pause="onPause" @waiting="onWaiting" @loadedmetadata="metadata" @timeupdate="syncTime" @ended="ended" @error="failed" />
     <!-- Like AppearancePanel: a persistent surface clips from its trigger.
          Animate the material itself, not a height-collapsing backdrop ancestor. -->
-    <section id="music-panel" v-experimental-glass="open" data-glass-module="music" ref="panel" class="music-panel music-surface" :class="{ 'is-open': open, 'is-expanded': expanded, 'is-morphing': morphing, 'is-resizing': resizing, 'is-glass-dormant': glassDormant }" @transitionend="onPanelVisibilityTransition" :style="{ height: expanded ? undefined : panelHeight === null ? undefined : `${panelHeight}px` }" :role="expanded ? 'dialog' : undefined" :aria-modal="expanded ? true : undefined" :aria-hidden="!open" :inert="!open" aria-label="音乐播放器">
+    <section id="music-panel" v-experimental-glass="open" v-glass-presence="open" data-glass-module="music" ref="panel" class="music-panel music-surface" :class="{ 'is-open': open, 'is-expanded': expanded, 'is-morphing': morphing, 'is-resizing': resizing }" :style="{ height: expanded ? undefined : panelHeight === null ? undefined : `${panelHeight}px` }" :role="expanded ? 'dialog' : undefined" :aria-modal="expanded ? true : undefined" :aria-hidden="!open" :inert="!open" aria-label="音乐播放器">
       <div class="music-scroll">
         <div ref="body" class="music-body">
             <header data-music-morph><span class="music-kicker">{{ current.local ? 'MY MUSIC' : 'PAPER HOURS · VOL. ' + (current.volume || 1) }}</span><div class="music-header-actions"><button ref="fullscreenButton" type="button" :aria-label="expanded ? '退出全屏音乐' : '全屏音乐'" :aria-pressed="expanded" @click="setExpanded(!expanded)"><svg viewBox="0 0 24 24" aria-hidden="true"><path v-if="expanded" d="M4 9h5V4m6 0v5h5M4 15h5v5m6 0v-5h5" /><path v-else d="M9 4H4v5m11-5h5v5M4 15v5h5m6 0h5v-5" /></svg></button><button type="button" aria-label="关闭音乐面板" @click="close(true)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div></header>

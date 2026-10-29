@@ -3,7 +3,7 @@ import AppearanceMenuRow from './AppearanceMenuRow.vue'
 import GlassSettings from './GlassSettings.vue'
 import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '~/utils/glass-defaults'
 import { normalizeGlassPreferences, normalizeGlassGlobal, type GlassGlobalOverride, type GlassPreferences } from '~/utils/glass-settings'
-import { vExperimentalGlass } from '~/utils/glass-surfaces'
+import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'
 import { supportsEmbeddedPdf } from '~/utils/pdf-embed'
 import { decodeAppearanceStorage } from '~/utils/appearance-storage'
 import { usePageScrollable } from '~/composables/usePageScrollable'
@@ -620,7 +620,8 @@ function resetAppearance() {
 
     <section
       id="appearance-panel"
-      v-experimental-glass="true"
+      v-experimental-glass="isOpen"
+      v-glass-presence="isOpen"
       data-glass-module="appearance"
       class="appearance-panel"
       :class="{ 'is-open': isOpen }"
@@ -641,7 +642,7 @@ function resetAppearance() {
         </header>
         <div class="appearance-subpages">
         <Transition name="appearance-subpage">
-        <div v-show="!glassSettingsOpen" :inert="glassSettingsOpen" :data-glass-page-hidden="glassSettingsOpen ? 'true' : undefined">
+        <div v-glass-presence="!glassSettingsOpen" v-show="!glassSettingsOpen" :inert="glassSettingsOpen" :data-glass-page-hidden="glassSettingsOpen ? 'true' : undefined">
 
 
         <div class="setting-group">
@@ -977,7 +978,7 @@ function resetAppearance() {
         </div>
         </Transition>
         <Transition name="appearance-subpage">
-        <div v-show="glassSettingsOpen" :inert="!glassSettingsOpen" :data-glass-page-hidden="!glassSettingsOpen ? 'true' : undefined">
+        <div v-glass-presence="glassSettingsOpen" v-show="glassSettingsOpen" :inert="!glassSettingsOpen" :data-glass-page-hidden="!glassSettingsOpen ? 'true' : undefined">
         <GlassSettings v-model="state.glassComponents" v-model:global="state.glassGlobal" v-model:enabled="state.experimentalLiquidGlass" :visual="state.visual"
           :materials="{ navMaterial: state.navMaterial, musicMaterial: state.musicMaterial, material: state.contentMaterial, dropdownMaterial: state.dropdownMaterial }" />
         </div>

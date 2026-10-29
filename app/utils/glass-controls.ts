@@ -3,14 +3,12 @@ import { currentGlassQuality } from './glass-quality-dom'
 
 type Engine = typeof import('../vendor/liquidglass/liquid-glass.js')
 
-// Control optics escape the scroll backdrop root and therefore cannot inherit
-// the subpage's translateX motion. Share ONE frame loop per appearance panel,
-// and follow ONLY the incoming subpage; never remeasure all registered controls.
+// Portaled optics share one scheduler per panel. It runs only while an
+// animated subpage/accordion owns motion; incoming AND outgoing lenses follow.
 type PanelMotion = {
-  pages: Map<HTMLElement, Set<() => void>>
+  owners: Map<HTMLElement, Set<() => void>>
+  moving: Set<HTMLElement>
   frame: number
-  active: HTMLElement | null
-  until: number
   onStart: EventListener
   onEnd: EventListener
 }
@@ -26,71 +24,63 @@ function findAppearanceSubpage(host: HTMLElement, panel: HTMLElement): HTMLEleme
   return null
 }
 
-function followAppearanceSubpage(panel: HTMLElement, page: HTMLElement, align: () => void) {
+function followOpticalMotion(panel: HTMLElement, owners: HTMLElement[], align: () => void) {
   let motion = panelMotions.get(panel)
   if (!motion) {
-    const state: PanelMotion = {
-      pages: new Map(), frame: 0, active: null, until: 0,
-      onStart: () => {}, onEnd: () => {},
-    }
-    const active = (candidate: HTMLElement) =>
-      candidate.parentElement?.classList.contains('appearance-subpages') === true
-      && candidate.dataset.glassPageHidden !== 'true' && !candidate.hasAttribute('inert')
-    const stop = () => {
-      if (state.frame) cancelAnimationFrame(state.frame)
-      state.frame = 0
-      state.active = null
-    }
-    const alignActive = () => {
-      const page = state.active
-      if (!page || !active(page)) { stop(); return }
-      for (const update of state.pages.get(page) ?? []) update()
+    const state: PanelMotion = { owners: new Map(), moving: new Set(), frame: 0,
+      onStart: () => {}, onEnd: () => {} }
+    const alignMoving = () => {
+      const callbacks = new Set<() => void>()
+      for (const owner of state.moving) {
+        for (const callback of state.owners.get(owner) ?? []) callbacks.add(callback)
+      }
+      callbacks.forEach(callback => callback())
     }
     const tick = () => {
       state.frame = 0
-      alignActive()
-      if (state.active && performance.now() < state.until)
-        state.frame = requestAnimationFrame(tick)
+      alignMoving()
+      for (const owner of state.moving) {
+        if (!owner.isConnected || !(owner.getAnimations?.() ?? []).some(animation =>
+          animation.playState === 'running' || animation.pending)) state.moving.delete(owner)
+      }
+      if (state.moving.size) state.frame = requestAnimationFrame(tick)
     }
-    state.onStart = (event: Event) => {
-      const target = event.target
-      if (!(target instanceof HTMLElement)
-        || (event as TransitionEvent).propertyName !== 'transform'
-        || !target.classList.contains('appearance-subpage-enter-active')
-        || !active(target)) return
-      state.active = target
-      state.until = performance.now() + 320 // 260ms transform plus frame margin
-      alignActive() // align on transitionrun, not only after the first frame
+    state.onStart = event => {
+      const owner = event.target as HTMLElement
+      if (!state.owners.has(owner)) return
+      state.moving.add(owner)
+      alignMoving()
       if (!state.frame) state.frame = requestAnimationFrame(tick)
     }
-    state.onEnd = (event: Event) => {
-      if (event.target !== state.active
-        || (event as TransitionEvent).propertyName !== 'transform') return
-      alignActive() // exactly one final alignment after transform completes
-      stop()
+    state.onEnd = event => {
+      if (!state.moving.has(event.target as HTMLElement)) return
+      // Multiple properties can end independently; the next frame checks the
+      // browser's remaining animations, including cancelled/reversed motion.
+      alignMoving()
+      if (!state.frame) state.frame = requestAnimationFrame(tick)
     }
-    panel.addEventListener('transitionrun', state.onStart)
-    panel.addEventListener('transitionstart', state.onStart)
-    panel.addEventListener('transitionend', state.onEnd)
-    panel.addEventListener('transitioncancel', state.onEnd)
+    for (const name of ['transitionrun', 'transitionstart', 'animationstart']) panel.addEventListener(name, state.onStart)
+    for (const name of ['transitionend', 'transitioncancel', 'animationend', 'animationcancel']) panel.addEventListener(name, state.onEnd)
     panelMotions.set(panel, state)
     motion = state
   }
-  let callbacks = motion.pages.get(page)
-  if (!callbacks) { callbacks = new Set(); motion.pages.set(page, callbacks) }
-  callbacks.add(align)
+  for (const owner of owners) {
+    let callbacks = motion.owners.get(owner)
+    if (!callbacks) { callbacks = new Set(); motion.owners.set(owner, callbacks) }
+    callbacks.add(align)
+  }
   return () => {
     const state = panelMotions.get(panel)
     if (!state) return
-    const group = state.pages.get(page)
-    group?.delete(align)
-    if (group?.size === 0) state.pages.delete(page)
-    if (state.pages.size !== 0) return
-    if (state.frame) cancelAnimationFrame(state.frame)
-    panel.removeEventListener('transitionrun', state.onStart)
-    panel.removeEventListener('transitionstart', state.onStart)
-    panel.removeEventListener('transitionend', state.onEnd)
-    panel.removeEventListener('transitioncancel', state.onEnd)
+    for (const owner of owners) {
+      const callbacks = state.owners.get(owner)
+      callbacks?.delete(align)
+      if (!callbacks?.size) { state.owners.delete(owner); state.moving.delete(owner) }
+    }
+    if (state.owners.size) return
+    cancelAnimationFrame(state.frame)
+    for (const name of ['transitionrun', 'transitionstart', 'animationstart']) panel.removeEventListener(name, state.onStart)
+    for (const name of ['transitionend', 'transitioncancel', 'animationend', 'animationcancel']) panel.removeEventListener(name, state.onEnd)
     panelMotions.delete(panel)
   }
 }
@@ -149,6 +139,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   }
 
   let controller: GlassController | undefined
+  let sleepingFilter = ''
   let ready = false, disposed = false, initialized = false
   let x = 0, velocity = 0, press = 0, targetWidth = 0, targetHeight = 0, targetY = 0
   let pressedPointer: number | null = null
@@ -173,21 +164,25 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   let alignFrame = 0
   function alignOptics() {
     if (!portaled || disposed) return
-    // The outgoing page's DOM is retained through its exit transition, but
-    // its optical lens is portaled outside the fading/translating subtree.
-    // Hide it immediately rather than showing a detached, ghost indicator.
-    const pageHidden = subpage?.dataset.glassPageHidden === 'true'
-      || subpage?.hasAttribute('inert')
-      || Boolean(host.closest('[data-glass-page-hidden="true"]'))
-    if (pageHidden || host.offsetParent === null) {
+    // inert and data-glass-page-hidden express intent, not optical absence.
+    // Only the completed lifecycle may hide a portaled lens.
+    if (host.closest('[data-glass-presence="closed"]') || host.offsetParent === null) {
       lens.style.visibility = 'hidden'
       return
     }
-    if (nativeAnchored) {
-      // Native CSS anchors follow async/compositor scrolling without a JS
-      // geometry read or delayed scroll callback. The browser also handles
-      // the entering subpage's translateX and clipped anchor visibility.
+    // Portals inherit panel opacity/transform, but not subpage/reveal opacity.
+    // Multiply just the escaped ancestors, so parent fading is applied once.
+    let opacity = 1
+    for (const node of [subpage, reveal]) {
+      if (node) opacity *= Number(getComputedStyle(node).opacity || 1)
+    }
+    lens.style.opacity = String(opacity)
+    if (nativeAnchored && ![subpage, reveal].some(owner =>
+      owner?.dataset.glassPresence === 'opening' || owner?.dataset.glassPresence === 'closing')) {
+      // Do not pin visibility to an old scroll rect: Blink follows the anchor
+      // asynchronously. JS clipping is needed only during escaped owner motion.
       lens.style.visibility = ''
+      lens.style.clipPath = ''
       return
     }
     const box = host.getBoundingClientRect(), frame = panel!.getBoundingClientRect()
@@ -198,11 +193,13 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const viewBottom = Math.min(view.bottom, revealBox?.bottom ?? view.bottom)
     const sx = frame.width / Math.max(1, panel!.offsetWidth)
     const sy = frame.height / Math.max(1, panel!.offsetHeight)
-    lens.style.left = `${(box.left - frame.left) / sx - panel!.clientLeft}px`
-    lens.style.top = `${(box.top - frame.top) / sy - panel!.clientTop}px`
-    lens.style.width = host.style.width
-    lens.style.height = host.style.height
-    lens.style.borderRadius = host.style.borderRadius
+    if (!nativeAnchored) {
+      lens.style.left = `${(box.left - frame.left) / sx - panel!.clientLeft}px`
+      lens.style.top = `${(box.top - frame.top) / sy - panel!.clientTop}px`
+      lens.style.width = host.style.width
+      lens.style.height = host.style.height
+      lens.style.borderRadius = host.style.borderRadius
+    }
     // `v-show` keeps the other appearance subpage mounted but not rendered, so a
     // lens that was visible a moment ago must not keep painting at its stale rect.
     const rendered = host.offsetParent !== null && box.width >= 1 && box.height >= 1
@@ -217,10 +214,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     // Legacy fallback only: rAF alignment is insufficient for momentum
     // scrolling but remains available where CSS anchors are unsupported.
     listen(scroller!, 'scroll', queueAlign)
-    if (subpage) cleanups.push(followAppearanceSubpage(panel!, subpage, alignOptics))
   }
+  if (portaled) cleanups.push(followOpticalMotion(panel!,
+    [subpage, reveal].filter((owner): owner is HTMLElement => Boolean(owner)), alignOptics))
   function render() {
-    if (!controller || disposed) return
+    if (!controller || disposed || host.hasAttribute('data-liquid-glass-dormant')) return
     // Motion stretches the lens, never the original text or hit targets.
     const stretch = quality.deform === false || (!slider && dragged) ? 0 : Math.min(slider ? 10 : 14, Math.abs(velocity) * .02)
     const deformation = quality.deform !== false ? press : 0
@@ -264,7 +262,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     position.set(button.offsetLeft + button.offsetWidth / 2, { immediate })
   }
   function readRange(immediate = false) {
-    if (!input) return
+    if (!input || host.hasAttribute('data-liquid-glass-dormant')) return
     const min = Number(input.min || 0), max = Number(input.max || 100)
     let ratio = max > min ? (Number(input.value) - min) / (max - min) : 0
     if (musicProgress) ratio = Number(group!.style.getPropertyValue('--music-progress') || ratio)
@@ -279,7 +277,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     position.set(center, { immediate: immediate || (musicProgress && pressedPointer === null) })
   }
   function refresh() {
-    if (disposed) return
+    if (disposed || host.hasAttribute('data-liquid-glass-dormant')) return
     if (slider) readRange(!initialized)
     else if (!dragged) target(selected(), !initialized)
     initialized = true
@@ -289,6 +287,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     pressedPointer = null; dragged = false; dragChoice = null; pressure.set(0)
   }
   function refreshQuality() {
+    if (host.hasAttribute('data-liquid-glass-dormant')) return
     quality = currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme, host)
     // Frost the sampled backdrop, not the selectable foreground labels.
 
@@ -430,6 +429,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     controller?.destroy()
     if (portaled) lens.remove()
 
+    host.removeAttribute('data-liquid-glass-dormant')
     host.removeAttribute('data-liquid-glass-active')
     host.removeAttribute('data-liquid-glass-control')
     host.style.removeProperty('--glass-press')
@@ -440,15 +440,29 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   }
   function refreshLayout() {
     if (disposed) return
-    if (subpage?.dataset.glassPageHidden === 'true'
-      || subpage?.hasAttribute('inert')
-      || host.closest('[data-glass-page-hidden="true"]')) {
+    if (host.closest('[data-glass-presence="closed"]')) {
       if (portaled) lens.style.visibility = 'hidden'
       return
     }
+    if (host.closest('[data-glass-presence="closing"]')) { alignOptics(); return }
     if (slider) readRange(true)
     else if (!dragged) target(selected(), true)
     render()
   }
-  return { destroy, refreshQuality, refreshLayout }
+  function setDormant(value: boolean) {
+    if (value) {
+      sleepingFilter = lens.style.backdropFilter
+      position.stop(); pressure.stop(); widthSpring.stop(); heightSpring.stop(); verticalSpring.stop()
+    }
+    controller?.update({ hidden: value })
+    controller?.flush()
+    if (!value && !lens.style.backdropFilter && sleepingFilter) lens.style.backdropFilter = sleepingFilter
+    for (const element of new Set([host, lens])) {
+      if (value) element.setAttribute('data-liquid-glass-dormant', '')
+      else element.removeAttribute('data-liquid-glass-dormant')
+    }
+    if (value) lens.style.visibility = 'hidden'
+    else refreshLayout()
+  }
+  return { destroy, refreshQuality, refreshLayout, setDormant }
 }

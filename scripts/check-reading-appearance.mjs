@@ -10,7 +10,7 @@ const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   .replace(/^import .*glass-(?:settings|defaults).*$/gm, '')
   .replace(/^import .*\.vue'$/gm, '')
-  .replace("import { vExperimentalGlass } from '~/utils/glass-surfaces'", '')
+  .replace("import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'", '')
 const template = panel.match(/<template>([\s\S]*)<\/template>/)[1]
 const css = readFileSync('app/assets/css/main.css', 'utf8')
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { vExperimentalGlass } from '~/utils/glass-surfaces'
+import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'
 const props = defineProps<{ label: string; modelValue: string; options: { value: string; label: string }[]; enabled: boolean; disabled?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const root = ref<HTMLElement | null>(null)
@@ -80,7 +80,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', outside))
       <span :id="`${id}-value`">{{ selected }}</span>
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m7 10 5 5 5-5" /></svg>
     </button>
-    <div ref="popup" popover="manual" class="filter-popup search-popover" :class="{ 'is-open': open }" :inert="!open" :aria-hidden="!open">
+    <div ref="popup" v-glass-presence="open" popover="manual" class="filter-popup search-popover" :class="{ 'is-open': open }" :inert="!open" :aria-hidden="!open">
       <div class="filter-clip">
         <div v-experimental-glass="open" data-glass-module="dropdown" class="filter-surface dropdown-surface">
           <input ref="input" v-model="query" type="search" role="combobox" :aria-label="`搜索${label}选项`" :aria-controls="`${id}-list`" :aria-expanded="open" aria-autocomplete="list" :aria-activedescendant="filtered.length ? `${id}-option-${active}` : undefined" :placeholder="`搜索${label}…`" autocomplete="off" @keydown="keydown">

@@ -1,8 +1,10 @@
 import type { Ref } from 'vue'
+import { afterGlassMotion } from '~/utils/glass-motion'
 
 /** Top-layer positioning avoids the content panel's backdrop-filter boundary. */
 export function useSearchPopover(root: Ref<HTMLElement | null>, popup: Ref<HTMLElement | null>, open: Ref<boolean>, minimumWidth = 0) {
-  let timer: ReturnType<typeof setTimeout> | undefined
+  let cancelClose: (() => void) | undefined
+  let revision = 0
   function position() {
     const anchor = root.value
     const layer = popup.value
@@ -26,13 +28,19 @@ export function useSearchPopover(root: Ref<HTMLElement | null>, popup: Ref<HTMLE
     layer.style.setProperty('--popup-height', `${Math.max(80, flip ? above : below)}px`)
   }
   watch(open, async value => {
-    clearTimeout(timer)
+    const current = ++revision
+    cancelClose?.(); cancelClose = undefined
     await nextTick()
+    if (current !== revision) return
     if (value && open.value) {
       popup.value?.showPopover?.()
       position()
     } else if (!open.value) {
-      timer = setTimeout(() => popup.value?.hidePopover?.(), 190)
+      const layer = popup.value
+      if (layer) cancelClose = afterGlassMotion(layer, () => {
+        cancelClose = undefined
+        if (current === revision && !open.value) layer.hidePopover?.()
+      })
     }
   }, { flush: 'post' })
   onMounted(() => {
@@ -40,7 +48,8 @@ export function useSearchPopover(root: Ref<HTMLElement | null>, popup: Ref<HTMLE
     window.addEventListener('scroll', position, true)
   })
   onBeforeUnmount(() => {
-    clearTimeout(timer)
+    revision++
+    cancelClose?.(); cancelClose = undefined
     popup.value?.hidePopover?.()
     window.removeEventListener('resize', position)
     window.removeEventListener('scroll', position, true)

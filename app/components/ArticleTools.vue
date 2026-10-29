@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { vExperimentalGlass } from '~/utils/glass-surfaces'
+import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'
 import { articleMatches } from '~/utils/article-find'
 import { pageScrollTop, scrollPageTo } from '~/utils/page-scroll'
 import { animateArticleTool } from '~/utils/article-tool-motion'
@@ -182,7 +182,7 @@ async function exportArticle(format: 'pdf' | 'png') {
     <Transition :css="false" mode="out-in" @enter="enterPanel" @leave="leavePanel" @enter-cancelled="cancelPanel" @leave-cancelled="cancelPanel" @before-leave="beforeLeave" @after-enter="afterEnter">
       <div v-if="mode === 'find'" key="find" class="article-tools__reveal">
       <div class="article-tools__clip">
-      <div id="article-find-panel" v-experimental-glass="mode === 'find'" data-glass-module="tools" class="article-tools__panel dropdown-surface" role="search" aria-label="当前正文查找" :inert="mode !== 'find'">
+      <div id="article-find-panel" v-glass-presence="mode === 'find'" v-experimental-glass="mode === 'find'" data-glass-module="tools" class="article-tools__panel dropdown-surface" role="search" aria-label="当前正文查找" :inert="mode !== 'find'">
         <label class="visually-hidden" for="article-find-input">在当前正文中查找</label>
         <input id="article-find-input" ref="field" v-model="query" type="search" placeholder="在这篇正文中查找" @keydown.enter.prevent="move($event.shiftKey ? -1 : 1)">
         <span class="article-tools__count" role="status">{{ count ? `${current + 1} / ${count}` : query.trim() ? '无匹配' : '输入关键词' }}</span>
@@ -194,7 +194,7 @@ async function exportArticle(format: 'pdf' | 'png') {
       </div>
       <div v-else-if="mode === 'export'" key="export" class="article-tools__reveal article-tools__reveal--export">
       <div class="article-tools__clip">
-      <div id="article-export-panel" v-experimental-glass="mode === 'export'" data-glass-module="tools" class="article-tools__panel article-tools__panel--export dropdown-surface" :inert="mode !== 'export'">
+      <div id="article-export-panel" v-glass-presence="mode === 'export'" v-experimental-glass="mode === 'export'" data-glass-module="tools" class="article-tools__panel article-tools__panel--export dropdown-surface" :inert="mode !== 'export'">
         <SearchFilterSelect class="article-tools__scope" label="导出范围" :model-value="String(sectionIndex)" :options="[{value:'-1', label:'整篇正文'}, ...sections.map((section,index) => ({value:String(index),label:section.title}))]" :enabled="mode === 'export'" :disabled="busy" @update:model-value="sectionIndex = Number($event)" />
         <button type="button" :disabled="busy" @click="exportArticle('pdf')">PDF</button>
         <button type="button" :disabled="busy" @click="exportArticle('png')">PNG {{ sectionIndex < 0 ? '长图' : '小节' }}</button>
