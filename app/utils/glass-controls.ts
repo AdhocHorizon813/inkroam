@@ -3,6 +3,97 @@ import { currentGlassQuality } from './glass-quality-dom'
 
 type Engine = typeof import('../vendor/liquidglass/liquid-glass.js')
 
+// Control optics escape the scroll backdrop root and therefore cannot inherit
+// the subpage's translateX motion. Share ONE frame loop per appearance panel,
+// and follow ONLY the incoming subpage; never remeasure all registered controls.
+type PanelMotion = {
+  pages: Map<HTMLElement, Set<() => void>>
+  frame: number
+  active: HTMLElement | null
+  until: number
+  onStart: EventListener
+  onEnd: EventListener
+}
+const panelMotions = new WeakMap<HTMLElement, PanelMotion>()
+
+function findAppearanceSubpage(host: HTMLElement, panel: HTMLElement): HTMLElement | null {
+  let node: HTMLElement | null = host
+  while (node && node !== panel) {
+    if (node.parentElement?.classList.contains('appearance-subpages')) return node
+    node = node.parentElement
+  }
+  return null
+}
+
+function followAppearanceSubpage(panel: HTMLElement, page: HTMLElement, align: () => void) {
+  let motion = panelMotions.get(panel)
+  if (!motion) {
+    const state: PanelMotion = {
+      pages: new Map(), frame: 0, active: null, until: 0,
+      onStart: () => {}, onEnd: () => {},
+    }
+    const active = (candidate: HTMLElement) =>
+      candidate.parentElement?.classList.contains('appearance-subpages') === true
+      && candidate.dataset.glassPageHidden !== 'true' && !candidate.hasAttribute('inert')
+    const stop = () => {
+      if (state.frame) cancelAnimationFrame(state.frame)
+      state.frame = 0
+      state.active = null
+    }
+    const alignActive = () => {
+      const page = state.active
+      if (!page || !active(page)) { stop(); return }
+      for (const update of state.pages.get(page) ?? []) update()
+    }
+    const tick = () => {
+      state.frame = 0
+      alignActive()
+      if (state.active && performance.now() < state.until)
+        state.frame = requestAnimationFrame(tick)
+    }
+    state.onStart = (event: Event) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement)
+        || (event as TransitionEvent).propertyName !== 'transform'
+        || !target.classList.contains('appearance-subpage-enter-active')
+        || !active(target)) return
+      state.active = target
+      state.until = performance.now() + 320 // 260ms transform plus frame margin
+      alignActive() // align on transitionrun, not only after the first frame
+      if (!state.frame) state.frame = requestAnimationFrame(tick)
+    }
+    state.onEnd = (event: Event) => {
+      if (event.target !== state.active
+        || (event as TransitionEvent).propertyName !== 'transform') return
+      alignActive() // exactly one final alignment after transform completes
+      stop()
+    }
+    panel.addEventListener('transitionrun', state.onStart)
+    panel.addEventListener('transitionstart', state.onStart)
+    panel.addEventListener('transitionend', state.onEnd)
+    panel.addEventListener('transitioncancel', state.onEnd)
+    panelMotions.set(panel, state)
+    motion = state
+  }
+  let callbacks = motion.pages.get(page)
+  if (!callbacks) { callbacks = new Set(); motion.pages.set(page, callbacks) }
+  callbacks.add(align)
+  return () => {
+    const state = panelMotions.get(panel)
+    if (!state) return
+    const group = state.pages.get(page)
+    group?.delete(align)
+    if (group?.size === 0) state.pages.delete(page)
+    if (state.pages.size !== 0) return
+    if (state.frame) cancelAnimationFrame(state.frame)
+    panel.removeEventListener('transitionrun', state.onStart)
+    panel.removeEventListener('transitionstart', state.onStart)
+    panel.removeEventListener('transitionend', state.onEnd)
+    panel.removeEventListener('transitioncancel', state.onEnd)
+    panelMotions.delete(panel)
+  }
+}
+
 // Adapted from gentpan/liquidglass LgSegmented/LgNavbar/LgSlider (MIT, pinned
 // 068ad226). Retain spring velocity deformation; optics now sit underneath
 // the original labels, as requested. Original controls own all text and events.
@@ -27,6 +118,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const panel = host.closest<HTMLElement>('.appearance-panel, .music-panel')
   const scroller = panel ? host.closest<HTMLElement>('.appearance-panel__scroll, .music-scroll') : null
   const reveal = host.closest<HTMLElement>('.glass-settings__reveal')
+  const subpage = panel ? findAppearanceSubpage(host, panel) : null
   const portaled = Boolean(panel && scroller)
   const lens = portaled ? document.createElement('span') : host
   if (portaled) {
@@ -45,7 +137,6 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   let dragChoice: HTMLElement | null = null
   let quality = currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme, host)
   let timeout = 0
-  let settle = 0
   let resize: ResizeObserver | undefined
   let state: MutationObserver | undefined
   const cleanups: (() => void)[] = []
@@ -60,23 +151,17 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const heightSpring = engine.createSpring(0, value => { targetHeight = value; render() }, { stiffness: 380, damping: 32 })
   const verticalSpring = engine.createSpring(0, value => { targetY = value; render() }, { stiffness: 380, damping: 32 })
   let alignFrame = 0
-  // While the subpages slide, follow the host every frame instead of waiting for
-  // the motion to end.
-  let followFrame = 0
-  let followUntil = 0
-  const followMotion = () => {
-    followFrame = 0
-    if (disposed) return
-    alignOptics()
-    if (performance.now() < followUntil) followFrame = requestAnimationFrame(followMotion)
-  }
-  const startFollow = () => {
-    followUntil = performance.now() + 400
-    if (!followFrame) followFrame = requestAnimationFrame(followMotion)
-  }
-
   function alignOptics() {
     if (!portaled || disposed) return
+    // The outgoing page's DOM is retained through its exit transition, but
+    // its optical lens is portaled outside the fading/translating subtree.
+    // Hide it immediately rather than showing a detached, ghost indicator.
+    if (subpage?.dataset.glassPageHidden === 'true'
+      || subpage?.hasAttribute('inert')
+      || host.closest('[data-glass-page-hidden="true"]')) {
+      lens.style.visibility = 'hidden'
+      return
+    }
     const box = host.getBoundingClientRect(), frame = panel!.getBoundingClientRect()
     const view = scroller!.getBoundingClientRect()
     // Portaled optics must follow the accordion's clipping as it opens/closes.
@@ -102,17 +187,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   }
   if (portaled) {
     listen(scroller!, 'scroll', queueAlign)
-    // A level-1 / level-2 switch slides the incoming subpage in with translateX
-    // over 260ms. The optics layer lives in panel coordinates, so it must re-read
-    // the host rect on every frame of that motion; aligning only at
-    // transitionend leaves the whole animation visibly misaligned and then snaps.
-    const realign = () => queueAlign()
-    listen(panel!, 'transitionstart', startFollow)
-    listen(panel!, 'transitionrun', startFollow)
-    listen(panel!, 'transitionend', realign)
-    listen(panel!, 'transitioncancel', realign)
-    listen(panel!, 'animationstart', startFollow)
-    listen(panel!, 'animationend', realign)
+    if (subpage) cleanups.push(followAppearanceSubpage(panel!, subpage, alignOptics))
   }
   function render() {
     if (!controller || disposed) return
@@ -299,14 +374,6 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   listen(group, 'focusout', () => release())
   refresh()
   refreshQuality()
-  // Belt and braces for a slide that never reports transitionend: reduced
-  // motion applies the same 12px offset for a single frame, and a rapid switch
-  // can cancel the previous transition.
-  settle = window.setTimeout(() => {
-    if (disposed || !portaled) return
-    refresh()
-    queueAlign()
-  }, 320)
   // A subpage attached while hidden has a zero-size box, so its lens cannot
   // flush and decode yet. Keep waiting instead of killing a surface that the
   // next switch needs; only a *rendered* control that still failed is broken.
@@ -324,12 +391,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     if (disposed) return
     disposed = true
     clearTimeout(timeout)
-    clearTimeout(settle)
     clearTimeout(clickTimer)
     release()
     position.stop(); pressure.stop(); widthSpring.stop(); heightSpring.stop(); verticalSpring.stop()
     if (alignFrame) cancelAnimationFrame(alignFrame)
-    if (followFrame) cancelAnimationFrame(followFrame)
     resize?.disconnect(); state?.disconnect(); decoded.disconnect()
     cleanups.forEach(cleanup => cleanup())
     controller?.destroy()
@@ -345,6 +410,12 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   }
   function refreshLayout() {
     if (disposed) return
+    if (subpage?.dataset.glassPageHidden === 'true'
+      || subpage?.hasAttribute('inert')
+      || host.closest('[data-glass-page-hidden="true"]')) {
+      if (portaled) lens.style.visibility = 'hidden'
+      return
+    }
     if (slider) readRange(true)
     else if (!dragged) target(selected(), true)
     render()

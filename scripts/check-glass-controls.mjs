@@ -170,6 +170,17 @@ failed.timers.get(1)()
 assert(failed.calls[0].destroyed)
 assert.equal(failed.host.getAttribute('data-liquid-glass-control'), null)
 assert.equal(failed.group.children.length, 2, 'Decode timeout retains original native input')
+// Regression contract: the optical portal must follow only the arriving
+// appearance subpage, not every hidden control across both retained pages.
+const controlsSource = fs.readFileSync('app/utils/glass-controls.ts', 'utf8')
+const managerSource = fs.readFileSync('app/utils/experimental-glass.ts', 'utf8')
+assert.match(controlsSource, /const panelMotions = new WeakMap/, 'One scheduler per appearance panel')
+assert.match(controlsSource, /state\.pages\.get\(page\)/, 'Scheduler updates only the entering subpage')
+assert.match(controlsSource, /appearance-subpage-enter-active/, 'Do not chase unrelated transitions')
+assert.match(controlsSource, /dataset\.glassPageHidden === 'true'/, 'Outgoing page optics are hidden immediately')
+assert.doesNotMatch(controlsSource, /followUntil|followFrame|listen\(panel!, 'transitionstart'/,
+  'Individual controls must not install 400ms panel-wide RAF followers')
+assert.match(managerSource, /host\.offsetParent === null\) continue/, 'Do not resync hidden controls')
 const masked = fixture(false, true)
 masked.decode()
 assert.equal(masked.calls[0].el.parentElement, masked.panel, 'Lens escapes the masked scroll backdrop root')
