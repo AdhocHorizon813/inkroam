@@ -133,7 +133,7 @@ assert.equal(nav.springs[0].target, -1, 'Listeners removed')
 // native-input runway for the larger optical thumb at both extreme values.
 // These geometry checks also cover press + spring stretch (28 + 14 + 10px).
 const submenuSource = fs.readFileSync('app/components/GlassSettings.vue', 'utf8')
-const submenuPadding = submenuSource.match(/\\.glass-settings__parameters\\s+:deep\\(\\.glass-range\\)\\s*\\{[^}]*padding-inline:\\s*(\\d+)px/)
+const submenuPadding = submenuSource.match(/\.glass-settings__parameters\s+:deep\(\.glass-range\)\s*\{[^}]*padding-inline:\s*(\d+)px/)
 assert(submenuPadding, 'Submenu glass ranges must provide symmetric end clearance')
 const rangeInset = Number(submenuPadding[1])
 const glassThumbMax = 28 + 14 + 10, nativeThumb = 16, bodyPadding = 2
