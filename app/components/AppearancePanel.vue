@@ -434,7 +434,7 @@ function applyAppearance() {
   // The gate follows the actual per-component/global override and leaves ordinary
   // materials (and browsers without Chromium backdrop optics) unchanged.
   const blink = typeof navigator !== 'undefined'
-    && (/Chrome\\//.test(navigator.userAgent) || (navigator as Navigator & {
+    && (/Chrome\//.test(navigator.userAgent) || (navigator as Navigator & {
       userAgentData?: { brands?: { brand: string }[] }
     }).userAgentData?.brands?.some(brand => /Chromium/.test(brand.brand)) === true)
   const contentGlassEnabled = state.glassGlobal.enabled
