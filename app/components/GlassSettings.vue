@@ -155,7 +155,9 @@ const segments = (index: number, count: number) => ({ '--segment-transform': `tr
 <style scoped>
 .glass-settings__reveal { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 380ms cubic-bezier(.16, 1, .3, 1), opacity 220ms ease; }
 .glass-settings__reveal.expanded { grid-template-rows: 1fr; opacity: 1; }
-.glass-settings__clip { min-height: 0; overflow: hidden; }
+/* Clip the collapsing height while allowing pressed endpoint lenses to grow
+   into the panel padding. The panel/scroll viewport still clips outer edges. */
+.glass-settings__clip { min-height: 0; overflow-x: visible; overflow-y: clip; }
 .glass-settings__body { padding: 4px 2px 14px; }
 .glass-settings__parameters { margin: 0; padding: 0; border: 0; min-width: 0; }
 /* The native range thumb is 16px, but the experimental glass thumb can grow
