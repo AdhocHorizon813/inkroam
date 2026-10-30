@@ -396,9 +396,19 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
         lens.style.width = `${gw}px`; lens.style.height = `${gh}px`
         lens.style.borderRadius = `${parseFloat(getComputedStyle(group!).borderTopLeftRadius) || 14}px`
       }
+      const trackQuality = currentGlassQuality(gw, gh, host.dataset.glassTheme, host)
+      // The previous fixed light tint stayed hazy even at 100% clarity.
+      // Blur controls diffusion; this complementary low-alpha tint controls
+      // the rail's visible frosting without changing the displacement map.
+      // At 0% clarity keep the original tint; at 100% retain only 12% of it.
+      const frost = Math.max(0, Math.min(1, trackQuality.blur / 24))
+      const tintStrength = `${Math.round((.12 + .88 * frost) * 1000) / 10}%`
+      if (lens.style.getPropertyValue('--glass-track-tint-strength') !== tintStrength) {
+        lens.style.setProperty('--glass-track-tint-strength', tintStrength)
+      }
       trackController.update({ width: gw, height: gh,
         radius: parseFloat(getComputedStyle(group!).borderTopLeftRadius) || 14,
-        ...currentGlassQuality(gw, gh, host.dataset.glassTheme, host),
+        ...trackQuality,
       })
     }
     alignAllOptics()
