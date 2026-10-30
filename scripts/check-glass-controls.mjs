@@ -120,10 +120,14 @@ nav.event(nav.group, 'pointerdown', { button: 0, pointerId: 1, clientX: 40, clie
 assert.equal(nav.springs[5].target, 78 / 56, 'Press lifts the lens on a dedicated X spring')
 assert.equal(nav.springs[6].target, 78 / 56, 'Y inflation has its own damping')
 assert.equal(nav.calls[0].updates.at(-1).rimOpacity, 1)
-assert.equal(nav.calls[0].updates.at(-1).height, 56, 'Pressed lens visibly exceeds the 40px track')
+const pressedNav = nav.calls[0].updates.at(-1)
+assert(pressedNav.height > nav.first.offsetHeight && pressedNav.height <= nav.group.offsetHeight,
+  'Pressed navbar lens lifts gently without exceeding its 40px rail')
 assert.equal(nav.calls[0].updates.at(-1).width, 100, 'Width grows by 20px rather than multiplying the label width')
-assert.equal(nav.calls[0].updates.at(-1).refractionHeight, 56 * .48, 'Pressed dome reaches almost to the centre')
-assert.equal(nav.calls[0].updates.at(-1).refraction, 56 * .40)
+assert(Math.abs(pressedNav.refractionHeight - Math.min(pressedNav.width, pressedNav.height) * .22) < 1e-9,
+  'Refraction dome scales to the actual compact indicator height')
+assert(Math.abs(pressedNav.refraction - Math.min(pressedNav.width, pressedNav.height) * .26) < 1e-9,
+  'Refraction strength scales to the actual compact indicator height')
 nav.event(nav.group, 'pointermove', { pointerId: 1, clientX: 125, clientY: 20 })
 assert.equal(nav.springs[2].target, 80, 'Crossing a narrow candidate never changes drag width')
 nav.event(nav.group, 'pointermove', { pointerId: 1, clientX: 400, clientY: 20 })
@@ -235,7 +239,10 @@ assert.equal(masked.calls[1].el.style.left, '24px', 'Portal maps viewport coordi
 assert.equal(masked.calls[1].el.style.top, '49px')
 assert.equal(masked.group.children.length, 3, 'Original labels/hit targets stay in masked scroller')
 masked.event(masked.group, 'pointerdown', { button: 0, pointerId: 1, clientX: 140, clientY: 160, target: masked.first })
-assert(masked.calls[0].updates.at(-1).height > masked.group.offsetHeight + 8, 'Indicator exceeds even the inflated rail')
+const pressedSegment = masked.calls[0].updates.at(-1)
+assert(pressedSegment.height > masked.group.offsetHeight
+  && pressedSegment.height <= masked.group.offsetHeight * 1.1,
+  'Pressed segmented indicator rises slightly above the rail, never excessively')
 masked.cleanup.destroy()
 assert.equal(masked.panel.children.length, 1, 'Portal removed on disable/unmount')
 console.log('PASS: no label copies, center-clamped drag, release-only size morph, range endpoints/RTL/property updates and cleanup. No visual claim.')
