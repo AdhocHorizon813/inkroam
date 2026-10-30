@@ -41,7 +41,7 @@ class Element extends EventTarget {
   getBoundingClientRect() { return { left: 0, width: this.clientWidth } }
   click() { this.clicks = (this.clicks ?? 0) + 1 }
 }
-function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false, withDock = false) {
+function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false, withDock = false, withReveal = false) {
   const host = new Element(), group = new Element('DIV'), window = new EventTarget()
   host.dataset.glassModule = slider ? 'thumb' : 'indicator'
   group.classes.add(slider ? 'glass-range' : portaled ? 'segmented-control' : 'main-nav')
@@ -52,6 +52,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   else first.setAttribute('aria-current', 'page')
   group.appendChild(host); group.appendChild(first); if (!slider) group.appendChild(second)
   const panel = new Element('SECTION'), scroller = new Element('DIV'), subpages = new Element('DIV'), page = new Element('DIV'), dock = new Element('DIV')
+  const reveal = new Element('DIV')
   if (withDock) {
     dock.classes.add('appearance-dock'); dock.appendChild(panel)
     dock.getBoundingClientRect = () => ({ left: 360, top: 740, right: 450, bottom: 784, width: 90, height: 44 })
@@ -62,12 +63,19 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     panel.appendChild(scroller)
     if (withSubpage) {
       subpages.classes.add('appearance-subpages')
-      scroller.appendChild(subpages); subpages.appendChild(page); page.appendChild(group)
+      scroller.appendChild(subpages); subpages.appendChild(page)
+      if (withReveal) {
+        reveal.classes.add('glass-settings__reveal'); page.appendChild(reveal); reveal.appendChild(group)
+      } else page.appendChild(group)
     } else scroller.appendChild(group)
     panel.clientLeft = panel.clientTop = 1; panel.offsetWidth = 350; panel.offsetHeight = 600
     panel.getBoundingClientRect = () => ({ left: 100, top: 100, right: 450, bottom: 700, width: 350, height: 600 })
     scroller.getBoundingClientRect = () => ({ left: 101, top: 101, right: 449, bottom: 699 })
     subpages.getBoundingClientRect = scroller.getBoundingClientRect
+    if (withReveal) {
+      subpages.getBoundingClientRect = () => ({ left: 125, top: 120, right: 365, bottom: 650 })
+      reveal.getBoundingClientRect = () => ({ left: 127, top: 140, right: 363, bottom: 240 })
+    }
     host.getBoundingClientRect = () => ({ left: 125, top: 150, right: 205, bottom: 182, width: 80, height: 32 })
     group.getBoundingClientRect = () => ({ left: 125, top: 150, right: 365, bottom: 190, width: 240, height: 40 })
   }
@@ -100,7 +108,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   const decode = () => { calls.forEach((call, i) => { call.el.style.backdropFilter = `url(#lens-${i})` }); observers[0].fn() }
   const event = (el, name, values = {}) => { const e = new Event(name, { cancelable: true });
     for (const [k, v] of Object.entries(values)) Object.defineProperty(e, k, { value: v }); el.dispatchEvent(e) }
-  return { host, group, first, second, panel, scroller, page, dock, window, springs, calls, observers, timers, cleanup, decode, event, rtl: () => { direction = 'rtl' } }
+  return { host, group, first, second, panel, scroller, page, dock, reveal, window, springs, calls, observers, timers, cleanup, decode, event, rtl: () => { direction = 'rtl' } }
 }
 
 const nav = fixture()
@@ -273,6 +281,35 @@ for (const anchored of [false, true]) {
   assert.notEqual(optic.style.visibility, 'hidden', 'Fixed optical sibling wakes with its retained subpage')
   escaped.cleanup.destroy()
   assert.equal(escaped.dock.children.length, 1, 'Destroy removes only the optical sibling')
+}
+
+// Expanded endpoints may cross the accordion AND subpage content edges. Only
+// the actual panel/scroll viewport should clip them horizontally; vertical
+// reveal clipping must continue to hide optics as the accordion collapses.
+for (const anchored of [false, true]) {
+  const expanded = fixture(false, true, anchored, true, true, true)
+  expanded.decode()
+  const optic = expanded.calls[0].el
+  let rect = { left: 119, top: 150, right: 219, bottom: 190, width: 100, height: 40 }
+  expanded.host.getBoundingClientRect = () => rect
+  expanded.cleanup.refreshLayout()
+  assert.equal(optic.style.clipPath, '', 'Left endpoint grows past content edges inside the panel viewport')
+  rect = { ...rect, left: 273, right: 373 }
+  expanded.cleanup.refreshLayout()
+  assert.equal(optic.style.clipPath, '', 'Right endpoint grows past content edges inside the panel viewport')
+  rect = { ...rect, top: 130, bottom: 170 }
+  expanded.cleanup.refreshLayout()
+  assert.equal(optic.style.clipPath, 'inset(10px 0px 0px 0px round 10px)', 'Accordion still clips the upper reveal edge')
+  rect = { ...rect, top: 220, bottom: 260 }
+  expanded.cleanup.refreshLayout()
+  assert.equal(optic.style.clipPath, 'inset(0px 0px 20px 0px round 10px)', 'Accordion still clips the lower reveal edge')
+  rect = { ...rect, left: 95, right: 195, top: 150, bottom: 190 }
+  expanded.cleanup.refreshLayout()
+  assert.equal(optic.style.clipPath, 'inset(0px 0px 0px 6px round 10px)', 'Actual viewport still clips the outer left edge')
+  rect = { ...rect, left: 355, right: 455 }
+  expanded.cleanup.refreshLayout()
+  assert.equal(optic.style.clipPath, 'inset(0px 6px 0px 0px round 10px)', 'Actual viewport still clips the outer right edge')
+  expanded.cleanup.destroy()
 }
 
 const masked = fixture(false, true)

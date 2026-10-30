@@ -278,14 +278,15 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const view = scroller.getBoundingClientRect()
     const frame = panel.getBoundingClientRect()
     const revealBox = reveal?.getBoundingClientRect()
-    // The subpage carousel and expanding glass-settings section also clip the
-    // original control. Keep the escaped optical surface in those viewports.
+    // Accordion/subpage bounds clip vertically during reveal and page motion.
+    // Their content width is not the horizontal viewport: a pressed endpoint
+    // grows beyond that width and must retain its full rounded optical edge.
     const subpageBox = subpage?.parentElement?.getBoundingClientRect()
-    const bounds = [view, frame, revealBox, subpageBox].filter((box): box is DOMRect => Boolean(box))
-    const left = Math.max(...bounds.map(box => box.left))
-    const top = Math.max(...bounds.map(box => box.top))
-    const right = Math.min(...bounds.map(box => box.right))
-    const bottom = Math.min(...bounds.map(box => box.bottom))
+    const verticalBounds = [view, frame, revealBox, subpageBox].filter((box): box is DOMRect => Boolean(box))
+    const left = Math.max(view.left, frame.left)
+    const top = Math.max(...verticalBounds.map(box => box.top))
+    const right = Math.min(view.right, frame.right)
+    const bottom = Math.min(...verticalBounds.map(box => box.bottom))
     if (!nativeAnchored) {
       // Match the fixed lens's viewport coordinate system, including animated
       // source transforms. The dock only owns stacking/lifetime, not geometry.
