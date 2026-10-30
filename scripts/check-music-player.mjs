@@ -133,12 +133,10 @@ assert.match(readFileSync('app/utils/local-music.ts', 'utf8'), /export async fun
 }
 // A closed but pre-mounted glass panel must not leak its clipped backdrop
 // onto the mobile page underneath the music pill.
-assert.match(descriptor.scriptSetup.content, /const glassDormant = ref\(true\)/, 'Closed panel starts without compositing a glass backdrop')
-assert.match(descriptor.scriptSetup.content, /if \(value\) \{ glassDormant\.value = false; return \}/, 'Reopening re-enables the existing lens immediately')
-assert.match(descriptor.scriptSetup.content, /event\.propertyName !== 'visibility'/, 'Glass sleeps only after close visibility transition')
-assert.match(descriptor.template.content, /'is-glass-dormant': glassDormant/, 'Dormancy is scoped to the panel surface, not the music trigger')
+assert.match(descriptor.template.content, /v-glass-presence="open"/, 'Animated owner controls optical lifetime')
+assert.doesNotMatch(descriptor.scriptSetup.content, /closeGlassTimer/, 'No competing fixed-duration sleep timer')
 const experimentalGlassStyle = readFileSync('app/components/ExperimentalGlass.client.vue', 'utf8')
-assert.match(experimentalGlassStyle, /\.music-panel\.is-glass-dormant\s*\{[^}]*backdrop-filter: none !important;[^}]*-webkit-backdrop-filter: none !important;/s, 'Dormant glass suppresses both backdrop filters')
+assert.match(experimentalGlassStyle, /\[data-liquid-glass-dormant\]\s*\{[^}]*backdrop-filter: none !important;[^}]*-webkit-backdrop-filter: none !important;/s)
 assert.match(descriptor.template.content, /:inert="!open"/)
 assert.match(descriptor.template.content, /v-if="hasPlayed" class="music-quick-play"/)
 for (const style of descriptor.styles) {

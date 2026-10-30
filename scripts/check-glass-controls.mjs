@@ -12,7 +12,7 @@ class Element extends EventTarget {
     this.style = { values: new Map(), setProperty(k, v, p = '') { this.values.set(k, [v, p]) },
       getPropertyValue(k) { return this.values.get(k)?.[0] || '' }, getPropertyPriority(k) { return this.values.get(k)?.[1] || '' },
       removeProperty(k) { this.values.delete(k) } }
-    for (const k of ['left', 'top', 'width', 'height', 'transform', 'marginLeft', 'borderRadius', 'transition', 'filter', 'backdropFilter']) {
+    for (const k of ['left', 'top', 'width', 'height', 'transform', 'marginLeft', 'borderRadius', 'transition', 'filter', 'backdropFilter', 'visibility']) {
       const css = k.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`)
       Object.defineProperty(this.style, k, { get: () => this.style.getPropertyValue(css), set: v => this.style.setProperty(css, v) })
     }
@@ -26,13 +26,14 @@ class Element extends EventTarget {
   replaceChildren(...c) { this.children = []; c.forEach(e => this.appendChild(e)) }
   remove() { this.parentElement.children = this.parentElement.children.filter(c => c !== this) }
   setAttribute(k, v) { this.attrs.set(k, v) }
+  hasAttribute(k) { return this.attrs.has(k) }
   getAttribute(k) { return this.attrs.get(k) ?? null }
   removeAttribute(k) { this.attrs.delete(k) }
   querySelector() { return this.children.find(e => e.tagName === 'INPUT') ?? null }
   querySelectorAll() { return [] }
   closest(selector) {
     const selectors = selector.split(',').map(s => s.trim())
-    if (selectors.some(s => s.startsWith('.') ? this.classes.has(s.slice(1)) : this.tagName === s.toUpperCase())) return this
+    if (selectors.some(s => s === '[data-glass-presence="closed"]' ? this.dataset.glassPresence === 'closed' : s.startsWith('.') ? this.classes.has(s.slice(1)) : this.tagName === s.toUpperCase())) return this
     return this.parentElement?.closest(selector) ?? null
   }
   contains(el) { return el === this || this.children.includes(el) }
@@ -40,7 +41,7 @@ class Element extends EventTarget {
   getBoundingClientRect() { return { left: 0, width: this.clientWidth } }
   click() { this.clicks = (this.clicks ?? 0) + 1 }
 }
-function fixture(slider = false, portaled = false, nativeAnchors = false) {
+function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false) {
   const host = new Element(), group = new Element('DIV'), window = new EventTarget()
   host.dataset.glassModule = slider ? 'thumb' : 'indicator'
   group.classes.add(slider ? 'glass-range' : 'main-nav')
@@ -49,10 +50,14 @@ function fixture(slider = false, portaled = false, nativeAnchors = false) {
   if (slider) { first.min = '0'; first.max = '100'; first.value = '50'; first.offsetHeight = 20 }
   else first.setAttribute('aria-current', 'page')
   group.appendChild(host); group.appendChild(first); if (!slider) group.appendChild(second)
-  const panel = new Element('SECTION'), scroller = new Element('DIV')
+  const panel = new Element('SECTION'), scroller = new Element('DIV'), subpages = new Element('DIV'), page = new Element('DIV')
   if (portaled) {
     panel.classes.add('appearance-panel'); scroller.classes.add('appearance-panel__scroll')
-    panel.appendChild(scroller); scroller.appendChild(group)
+    panel.appendChild(scroller)
+    if (withSubpage) {
+      subpages.classes.add('appearance-subpages')
+      scroller.appendChild(subpages); subpages.appendChild(page); page.appendChild(group)
+    } else scroller.appendChild(group)
     panel.clientLeft = panel.clientTop = 1; panel.offsetWidth = 350; panel.offsetHeight = 600
     panel.getBoundingClientRect = () => ({ left: 100, top: 100, right: 450, bottom: 700, width: 350, height: 600 })
     scroller.getBoundingClientRect = () => ({ left: 101, top: 101, right: 449, bottom: 699 })
@@ -72,22 +77,22 @@ function fixture(slider = false, portaled = false, nativeAnchors = false) {
       springs.push(spring); return spring
     },
     createGlass(el, options) { const call = { el, options, updates: [], destroyed: false,
-      update(o) { this.updates.push(o) }, destroy() { this.destroyed = true } }; calls.push(call); return call },
+      update(o) { this.updates.push(o) }, flush() {}, destroy() { this.destroyed = true } }; calls.push(call); return call },
   }
   window.setTimeout = fn => { timers.set(1, fn); return 1 }
   const source = fs.readFileSync('app/utils/glass-controls.ts', 'utf8').replace(/^import .*$/gm, '').replace(/^type Engine = .*$/m, '')
     .replace('export function attachGlassControl', 'function attachGlassControl')
   const context = vm.createContext({ HTMLElement: Element, document: { createElement: tag => new Element(tag.toUpperCase()) },
-    window, MutationObserver: Observer, ResizeObserver: Observer, clearTimeout: id => timers.delete(id),
+    window, MutationObserver: Observer, ResizeObserver: Observer, clearTimeout: id => timers.delete(id), cancelAnimationFrame() {}, requestAnimationFrame() { return 1 },
     CSS: { supports: () => nativeAnchors },
     currentGlassQuality: () => glassQuality(86, false),
-    getComputedStyle: () => ({ direction, font: '500 12px sans-serif', letterSpacing: '0px', columnGap: '4px', padding: '0px', textTransform: 'none' }) })
+    getComputedStyle: el => ({ opacity: el.opacity ?? '1', direction, font: '500 12px sans-serif', letterSpacing: '0px', columnGap: '4px', padding: '0px', textTransform: 'none' }) })
   vm.runInContext(ts.transpile(source, { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.attach = attachGlassControl;', context)
   const cleanup = context.attach(host, engine)
   const decode = () => { calls[0].el.style.backdropFilter = 'url(#lens)'; observers[0].fn() }
   const event = (el, name, values = {}) => { const e = new Event(name, { cancelable: true });
     for (const [k, v] of Object.entries(values)) Object.defineProperty(e, k, { value: v }); el.dispatchEvent(e) }
-  return { host, group, first, second, panel, scroller, window, springs, calls, observers, timers, cleanup, decode, event, rtl: () => { direction = 'rtl' } }
+  return { host, group, first, second, panel, scroller, page, window, springs, calls, observers, timers, cleanup, decode, event, rtl: () => { direction = 'rtl' } }
 }
 
 const nav = fixture()
@@ -176,12 +181,10 @@ assert.equal(failed.group.children.length, 2, 'Decode timeout retains original n
 const controlsSource = fs.readFileSync('app/utils/glass-controls.ts', 'utf8')
 const managerSource = fs.readFileSync('app/utils/experimental-glass.ts', 'utf8')
 assert.match(controlsSource, /const panelMotions = new WeakMap/, 'One scheduler per appearance panel')
-assert.match(controlsSource, /state\.pages\.get\(page\)/, 'Scheduler updates only the entering subpage')
-assert.match(controlsSource, /appearance-subpage-enter-active/, 'Do not chase unrelated transitions')
-assert.match(controlsSource, /dataset\.glassPageHidden === 'true'/, 'Outgoing page optics are hidden immediately')
-assert.doesNotMatch(controlsSource, /followUntil|followFrame|listen\(panel!, 'transitionstart'/,
-  'Individual controls must not install 400ms panel-wide RAF followers')
-assert.match(managerSource, /surfaces\.get\(host\)\?\.refreshLayout\?\.\(\)/, 'Let hidden controls release stale portal visibility')
+assert.match(controlsSource, /state\.owners\.get\(owner\)/, 'Scheduler updates only moving owners')
+assert.match(controlsSource, /getAnimations/, 'Scheduler ends with actual animations')
+assert.doesNotMatch(controlsSource, /dataset\.glassPageHidden === 'true'/, 'Closing intent cannot hide a visible lens')
+assert.match(managerSource, /surfaces\.get\(host\)\?\.refreshLayout\?\.\(\)/)
 // On supporting Chromium builds, the real control is a CSS anchor. The
 // portaled lens follows its compositor scroll and transform without delayed
 // scroll listeners or geometry polling. The fallback path is tested below.
@@ -196,6 +199,11 @@ assert.equal(tether.style.top, 'anchor(top)')
 assert.equal(tether.style.width, 'anchor-size(width)')
 assert.equal(tether.style.height, 'anchor-size(height)')
 assert.equal(tether.style.getPropertyValue('position-visibility'), 'anchors-visible')
+assert.equal(tether.style.borderRadius, tethered.host.style.borderRadius,
+  'Native-anchor portal must clip its backdrop to the source radius, not a square box')
+tethered.springs[0].tick(50, 500)
+assert.equal(tether.style.borderRadius, tethered.host.style.borderRadius,
+  'Portal radius stays synchronized during spring deformation')
 tethered.event(tethered.scroller, 'scroll') // no JS rAF read/scroll follower
 tethered.cleanup.destroy()
 assert.equal(tethered.host.style.getPropertyValue('anchor-name'), '', 'Restore original anchor-name on unmount')
@@ -266,3 +274,45 @@ const rimOnly = pixels.renderMap({ ...wideShape, specular: 1, specularWidth: 1, 
 const innerTop = (6 * 700 + 350) * 4
 assert.equal(rimOnly[innerTop + 2], 128, 'No broad inward white wash: highlight stays on geometric rim')
 console.log('PASS: bounded bevel removes diagonal corner seam; rim-only highlight leaves inner surface untinted.')
+
+const outgoing = fixture(false, true, false, true)
+outgoing.decode()
+outgoing.page.dataset.glassPresence = 'closing'
+outgoing.page.dataset.glassPageHidden = 'true'
+outgoing.page.setAttribute('inert', '')
+outgoing.page.opacity = '.4'
+outgoing.cleanup.refreshLayout()
+assert.equal(outgoing.calls[0].el.style.opacity, '0.4', 'Escaped lens multiplies outgoing page opacity')
+assert.notEqual(outgoing.calls[0].el.style.visibility, 'hidden', 'Inert outgoing page keeps its lens until fully closed')
+outgoing.page.dataset.glassPresence = 'closed'
+outgoing.cleanup.setDormant(true)
+assert.equal(outgoing.calls[0].el.style.visibility, 'hidden')
+assert.equal(outgoing.calls[0].el.getAttribute('data-liquid-glass-dormant'), '')
+outgoing.page.dataset.glassPresence = 'opening'
+outgoing.page.opacity = '1'
+outgoing.cleanup.setDormant(false)
+assert.equal(outgoing.calls[0].el.getAttribute('data-liquid-glass-dormant'), null)
+assert.equal(outgoing.calls.length, 1, 'Dormancy reuses decoded control')
+outgoing.cleanup.destroy()
+console.log('PASS outgoing inert subpage retains optics/opacity, then sleeps and reopens without rebuilding')
+
+// A panel's masked viewport paints its rail after the external optical portal.
+// Thumbs must remain above their own rail in the original DOM paint order.
+for (const anchored of [false, true]) {
+  const inline = fixture(true, true, anchored)
+  inline.decode()
+  assert.equal(inline.calls[0].el, inline.host, 'Panel slider samples its own rail on the original thumb')
+  assert.equal(inline.panel.children.length, 1, 'No optical thumb underneath the scroll viewport')
+  assert.equal(inline.host.style.getPropertyValue('anchor-name'), '', 'Inline thumb needs no external anchor')
+  inline.springs[1].tick(1, 0)
+  assert.equal(inline.calls[0].updates.at(-1).width, 42)
+  assert.equal(inline.calls[0].updates.at(-1).radius, 14)
+  inline.cleanup.setDormant(true)
+  assert.equal(inline.calls[0].updates.at(-1).hidden, true)
+  inline.cleanup.setDormant(false)
+  assert.equal(inline.calls[0].el, inline.host, 'Wake preserves the original inline optical target')
+  assert.notEqual(inline.host.style.visibility, 'hidden', 'Sleeping inline slider becomes visible on reopen')
+  assert.equal(inline.calls.length, 1)
+  inline.cleanup.destroy()
+}
+console.log('PASS panel slider optics stay above their own rail, preserve press geometry and reuse the inline controller after sleep')

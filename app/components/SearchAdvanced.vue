@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vGlassPresence } from '~/utils/glass-surfaces'
 import { courses } from '~/utils/courses'
 import { emptySearchFilters, type SearchFilters } from '~/utils/search-filters'
 const props = defineProps<{ modelValue: SearchFilters; tags: string[] }>()
@@ -38,7 +39,7 @@ function update(key: keyof SearchFilters, input: Event | string) {
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m10 7 5 5-5 5" /></svg>
       高级搜索<span v-if="activeCount"> · {{ activeCount }} 项</span>
     </button>
-    <div :id="panelId" class="advanced-panel" :class="{ expanded, settled }" :inert="!expanded" :aria-hidden="!expanded" @transitionend="finishExpansion">
+    <div :id="panelId" v-glass-presence="expanded" class="advanced-panel" :class="{ expanded, settled }" :inert="!expanded" :aria-hidden="!expanded" @transitionend="finishExpansion">
       <div class="advanced-clip">
         <div class="advanced-fields">
           <SearchFilterSelect label="内容类型" :model-value="modelValue.type" :options="typeOptions" :enabled="expanded" @update:model-value="update('type', $event)" />

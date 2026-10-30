@@ -24,6 +24,8 @@ class Element {
   constructor(module) { this.dataset = module ? { glassModule: module } : {}; this.style = new Style(); this.attrs = new Map(); this.children = []; this.isConnected = true; this.clientWidth = 380; this.clientHeight = 320 }
   appendChild(el) { this.children.push(el); el.parent = this }
   remove() { this.isConnected = false; if (this.parent) this.parent.children = this.parent.children.filter(el => el !== this) }
+  hasAttribute(key) { return this.attrs.has(key) }
+  closest(selector) { return selector.includes('data-glass-presence="closed"') && this.closed ? this : null }
   getAttribute(key) { return this.attrs.get(key) ?? null }
   setAttribute(key, value) { this.attrs.set(key, value) }
   removeAttribute(key) { this.attrs.delete(key) }
@@ -58,7 +60,7 @@ function setup({ engineName = 'blink', delayed = false, decode = true } = {}) {
   const engine = { engine: engineName, createGlass(target, options) {
     const call = { target, options, updates: [], destroyed: false }; calls.push(call)
     if (decode) queueMicrotask(() => { if (!call.destroyed) { target.style.backdropFilter = 'url(#test-glass)'; emit(target, 'style') } })
-    return { update: value => call.updates.push(value), destroy() { call.destroyed = true; target.style.removeProperty('backdrop-filter'); target.style.removeProperty('-webkit-backdrop-filter'); target.style.removeProperty('filter') } }
+    return { update: value => call.updates.push(value), flush() {}, destroy() { call.destroyed = true; target.style.removeProperty('backdrop-filter'); target.style.removeProperty('-webkit-backdrop-filter'); target.style.removeProperty('filter') } }
   } }
   const pending = delayed ? new Promise(r => { resolve = r }) : Promise.resolve(engine)
   const win = new EventTarget(), media = new EventTarget(); media.matches = false
@@ -161,3 +163,26 @@ focus.root.dataset.displayMode = 'focus'; focus.emit(focus.root, 'data-display-m
 assert(focus.calls.at(-1).destroyed, 'entering focus mode releases navbar optics')
 focus.stop()
 console.log('PASS glass adapter: lazy loading, host ownership, exact restoration, async cancellation, fallback, reduced transparency, focus-mode return and decode timeout. No browser optics measured.')
+
+const sleeping = setup()
+sleeping.enabled(true); await settle()
+const existing = sleeping.calls.find(call => call.target === sleeping.panel)
+const close = () => { sleeping.panel.closed = true; sleeping.registered.delete(sleeping.panel); sleeping.change() }
+const reopen = () => { sleeping.panel.closed = false; sleeping.registered.add(sleeping.panel); sleeping.change() }
+for (let i = 0; i < 25; i++) {
+  close(); await settle()
+  assert.equal(sleeping.panel.getAttribute('data-liquid-glass-dormant'), '')
+  assert.equal(existing.destroyed, false, 'Visited decoded surface sleeps without rebuilding')
+  reopen(); await settle()
+  assert.equal(sleeping.panel.getAttribute('data-liquid-glass-dormant'), null)
+  assert.equal(sleeping.calls.length, 2, 'Close/reopen creates no additional controllers')
+}
+close(); await settle()
+const updates = existing.updates.length
+sleeping.root.dataset.glassClarity = '25'; sleeping.emit(sleeping.root, 'data-glass-clarity'); await settle()
+assert.equal(existing.updates.length, updates, 'Dormant surfaces generate no quality updates')
+sleeping.panel.isConnected = false; sleeping.change(); await settle()
+assert(existing.destroyed, 'Route removal releases sleeping resources')
+sleeping.stop()
+assert.equal(sleeping.observers.size, 0)
+console.log('PASS 25 close/reopen cycles reuse decoded controller; closed quality changes stay idle; detached sleeping host releases resources')

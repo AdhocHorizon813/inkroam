@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppearanceMenuRow from './AppearanceMenuRow.vue'
 import GlassRange from './GlassRange.vue'
-import { vExperimentalGlass } from '~/utils/glass-surfaces'
+import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'
 import { GLASS_GROUPS, type GlassGroup, type GlassPreferences, type GlassPreference, type GlassGlobalOverride } from '~/utils/glass-settings'
 import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '~/utils/glass-defaults'
 
@@ -83,7 +83,7 @@ const segments = (index: number, count: number) => ({ '--segment-transform': `tr
         <AppearanceMenuRow :arrow="false" @click="requestDefaults">采用默认设置</AppearanceMenuRow>
         <div v-for="group in groups" :key="group.id" class="glass-settings__component">
           <AppearanceMenuRow :expanded="expanded === group.id" :aria-expanded="expanded === group.id" :aria-controls="`glass-settings-${group.id}`" @click="expanded = expanded === group.id ? null : group.id">{{ group.label }}</AppearanceMenuRow>
-          <div :id="`glass-settings-${group.id}`" class="glass-settings__reveal" :class="{ expanded: expanded === group.id }" :inert="expanded !== group.id" :aria-hidden="expanded !== group.id" :data-glass-page-hidden="expanded !== group.id ? 'true' : undefined">
+          <div :id="`glass-settings-${group.id}`" v-glass-presence="expanded === group.id" class="glass-settings__reveal" :class="{ expanded: expanded === group.id }" :inert="expanded !== group.id" :aria-hidden="expanded !== group.id" :data-glass-page-hidden="expanded !== group.id ? 'true' : undefined">
             <div class="glass-settings__clip"><div class="glass-settings__body">
               <p v-if="group.id === 'global'" class="setting-hint">覆盖单项设置</p>
               <fieldset class="setting-group" :disabled="!available(group.id)">

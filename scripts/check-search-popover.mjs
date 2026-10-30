@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
 
-const source = readFileSync('app/composables/useSearchPopover.ts', 'utf8').replace(/^import .*$/m, '').replace('export function', 'function')
+const source = readFileSync('app/composables/useSearchPopover.ts', 'utf8').replace(/^import .*$/gm, '').replace('export function', 'function')
 let watchOpen, cleanup
+let finishClose, cancelledClose = 0
 const listeners = {}
 const properties = {}
 const open = { value: true }
@@ -19,7 +20,10 @@ const popup = { value: {
 } }
 const viewport = { innerHeight: 800, addEventListener: (name, cb) => { listeners[name] = cb }, removeEventListener: name => { delete listeners[name] } }
 const doc = { documentElement: { clientWidth: 1200 } }
-const context = vm.createContext({ window: viewport, document: doc, setTimeout, clearTimeout,
+const context = vm.createContext({ afterGlassMotion: (_, callback) => {
+  finishClose = callback
+  return () => { cancelledClose++; finishClose = undefined }
+}, window: viewport, document: doc, setTimeout, clearTimeout,
   nextTick: async () => {}, watch: (_, cb) => { watchOpen = cb }, onMounted: cb => cb(), onBeforeUnmount: cb => { cleanup = cb },
 })
 vm.runInContext(ts.transpile(source, { target: ts.ScriptTarget.ES2022 }), context)
@@ -43,7 +47,8 @@ assert.equal(properties['--popup-width'], '270px')
 assert.equal(properties['--popup-left'], '38px', 'Keep mobile calendar within viewport')
 open.value = false
 await watchOpen(false)
-await new Promise(resolve => setTimeout(resolve, 210))
+assert.equal(hidden, 0, 'Keep top-layer ownership through exit')
+finishClose()
 assert.equal(hidden, 1, 'Finish closing animation before leaving top layer')
 cleanup()
 assert.equal(Object.keys(listeners).length, 0)

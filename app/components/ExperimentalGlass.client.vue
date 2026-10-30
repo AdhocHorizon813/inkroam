@@ -49,13 +49,12 @@ onBeforeUnmount(() => { disposed = true; stopPageFinish(); destroy?.() })
   box-shadow: var(--experiment-glass-shadow) !important;
   color: var(--experiment-control-ink);
 }
-/* Closed music-panel still owns a decoded SVG lens for fast reopening, but
-   its collapsed clip must not composite a rectangular backdrop over the page.
-   Suspend only the backdrop while the panel is fully closed; its original
-   160ms opening/closing transitions and music-pill optics stay intact. */
-:root[data-visual='modern'] .music-panel.is-glass-dormant {
+/* Visited optics keep their decoded map, but no hidden backdrop is composited.
+   Wake removes this gate before paint, without another asynchronous decode. */
+[data-liquid-glass-dormant] {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  visibility: hidden !important;
 }
 /* Disable the legacy directional CSS border ONLY on experimental glass. Rim
    light now comes solely from the lens boundary normal and sampled backdrop. */
@@ -83,14 +82,14 @@ onBeforeUnmount(() => { disposed = true; stopPageFinish(); destroy?.() })
   visibility: hidden;
 }
 .segmented-control--two > .glass-segment-indicator { width: calc((100% - 13px) / 2); }
-.glass-segment-indicator[data-liquid-glass-active] { visibility: visible; }
+.glass-segment-indicator[data-liquid-glass-active] { visibility: inherit; }
 .glass-control-optics {
   position: absolute;
   z-index: 0;
   pointer-events: none;
   visibility: hidden;
 }
-.glass-control-optics[data-liquid-glass-active] { visibility: visible; }
+.glass-control-optics[data-liquid-glass-active] { visibility: inherit; }
 
 /* Keep the card's optical tint constant across the asynchronous lens decode.
    While the true-glass map is pending, paint the same tint directly on the card.

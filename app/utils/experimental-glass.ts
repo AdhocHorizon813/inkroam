@@ -7,7 +7,7 @@ import { attachGlassContent, GLASS_CONTENT_SELECTOR } from './glass-content'
 import { glassSurfaceEnabled, effectiveGlassPreference } from './glass-settings'
 
 type EngineModule = typeof import('../vendor/liquidglass/liquid-glass.js')
-type Surface = { destroy: () => void; refreshQuality?: () => void; refreshLayout?: () => void }
+type Surface = { setDormant?: (value: boolean) => void; destroy: () => void; refreshQuality?: () => void; refreshLayout?: () => void }
 
 // One owner for docks and explicitly registered floating surfaces. No DOM cloning.
 // This function is called only after the app and its persistent docks have mounted.
@@ -25,12 +25,9 @@ export function mountExperimentalGlass() {
   const candidates = () => [...document.querySelectorAll<HTMLElement>(
     `.appearance-trigger, .music-pill.music-surface, .music-pill.is-unplayed > .music-trigger.music-surface, ${GLASS_CONTENT_SELECTOR}`,
   ), ...glassSurfaces].filter(host => host.isConnected && glassSurfaceEnabled(host, root.dataset)
-    // Both appearance subpages are attached up front, while still hidden. Their
-    // wrapper is the only inert ancestor we look through: building a lens on the
-    // incoming page instead meant the native pill showed first and the glass then
-    // slid into place from a stale rect, both visible to the eye. A closed music
-    // panel stays excluded — it renders nothing to align against.
-    && (!host.closest?.('[inert]') || Boolean(host.closest?.('[data-glass-page-hidden]')))
+    // inert controls interaction, not painting: outgoing and modal-background
+    // surfaces remain optical until their animated owner is actually closed.
+    && !host.closest?.('[data-glass-presence="closed"]')
     && !(root.dataset.displayMode === 'focus'
       && (host.dataset.glassModule === 'navbar' || host.closest?.('.site-header'))))
 
@@ -50,6 +47,7 @@ export function mountExperimentalGlass() {
     // No injected flex item, no filtering or duplicating the label itself.
     const lens = host
     let controller: GlassController | undefined
+    let sleepingFilter = ''
     let ready = false
     let destroyed = false
     let timeout = 0
@@ -66,6 +64,7 @@ export function mountExperimentalGlass() {
       readiness.disconnect()
       geometry?.disconnect()
       controller?.destroy()
+      host.removeAttribute('data-liquid-glass-dormant')
       if (originalReady === null) host.removeAttribute('data-liquid-glass-active')
       else host.setAttribute('data-liquid-glass-active', originalReady)
       for (const { property, value, priority } of original) {
@@ -87,7 +86,7 @@ export function mountExperimentalGlass() {
     readiness.observe(lens, { attributes: true, attributeFilter: ['style'] })
 
     function measure() {
-      if (destroyed) return
+      if (destroyed || host.hasAttribute('data-liquid-glass-dormant')) return
       const radius = panel ? parseFloat(getComputedStyle(host).borderTopLeftRadius) || 0 : 999
       controller?.update({ radius, ...currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme, host) })
     }
@@ -110,7 +109,20 @@ export function mountExperimentalGlass() {
       destroy()
       throw error
     }
-    return { destroy, refreshQuality: measure }
+    return { destroy, refreshQuality: measure, setDormant(value) {
+      if (value) {
+        sleepingFilter = host.style.backdropFilter
+        host.setAttribute('data-liquid-glass-dormant', '')
+      }
+      controller?.update({ hidden: value })
+      controller?.flush()
+      if (!value) {
+        // A v-show page may still have a zero cached ResizeObserver box. Restore
+        // its decoded URL synchronously; the next geometry flush refits the map.
+        if (!host.style.backdropFilter && sleepingFilter) host.style.backdropFilter = sleepingFilter
+        host.removeAttribute('data-liquid-glass-dormant'); measure()
+      }
+    } }
   }
 
   async function sync() {
@@ -124,18 +136,28 @@ export function mountExperimentalGlass() {
       if (engine.engine !== 'blink') { detachAll(); return }
       const targets = new Set(candidates())
       for (const [host, surface] of surfaces) {
-        if (!targets.has(host)) { surface.destroy(); surfaces.delete(host) }
+        if (targets.has(host)) {
+          if (host.hasAttribute('data-liquid-glass-dormant')) surface.setDormant?.(false)
+          continue
+        }
+        // Reuse only previously visited, decoded optics. Closed owners do not
+        // paint/filter a backdrop, and never-created hidden controls stay lazy.
+        if (host.isConnected && glassSurfaceEnabled(host, root.dataset)
+          && host.closest?.('[data-glass-presence="closed"]')
+          && host.hasAttribute('data-liquid-glass-active') && surface.setDormant) {
+          if (!host.hasAttribute('data-liquid-glass-dormant')) surface.setDormant(true)
+        } else { surface.destroy(); surfaces.delete(host) }
       }
       for (const host of targets) if (!surfaces.has(host)) surfaces.set(host, attach(host, engine))
-      // Active controls get a geometry refresh; hidden and outgoing controls
-      // still receive their cheap visibility gate (no bounding-box read) so
-      // an external optics portal cannot linger during a subpage transition.
+      // Retained visible controls refresh layout; closing controls keep their
+      // spring geometry and only align escaped optics to the animated owner.
       for (const host of targets) {
         if (host.dataset.glassModule !== 'indicator' && host.dataset.glassModule !== 'thumb') continue
         surfaces.get(host)?.refreshLayout?.()
       }
       // A slider in one group must not refresh every other control's filter.
       surfaces.forEach((surface, host) => {
+        if (host.hasAttribute('data-liquid-glass-dormant')) return
         const stamp = JSON.stringify([root.dataset.colorMode, window.devicePixelRatio, effectiveGlassPreference(host, root.dataset)])
         if (qualityStamps.get(host) === stamp) return
         qualityStamps.set(host, stamp)
@@ -155,13 +177,6 @@ export function mountExperimentalGlass() {
   const pill = document.querySelector('.music-pill')
   // Playback transfers surface ownership from the idle button to the whole pill.
   if (pill) music.observe(pill, { attributes: true, attributeFilter: ['class'] })
-  // Both appearance subpages stay mounted and swap with `inert` plus
-  // `data-glass-page-hidden`; that attribute is the only thing that changes on a
-  // level-1 / level-2 switch. Without re-running the pass here, the hidden page's
-  // portaled control lenses keep their last measured rect and stay visible — a
-  // second shadowed indicator, offset from the real one, survives every switch.
-  const pages = new MutationObserver(() => { void sync() })
-  pages.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-glass-page-hidden', 'inert'] })
   reduceTransparency.addEventListener('change', sync)
   window.addEventListener(GLASS_SURFACES_CHANGED, sync)
   void sync()
@@ -169,7 +184,6 @@ export function mountExperimentalGlass() {
     disposed = true
     sequence++
     preferences.disconnect()
-    pages.disconnect()
     music.disconnect()
     reduceTransparency.removeEventListener('change', sync)
     window.removeEventListener(GLASS_SURFACES_CHANGED, sync)
