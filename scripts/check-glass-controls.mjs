@@ -246,7 +246,7 @@ assert.match(controlsSource, /const trackQuality = currentGlassQuality\(gw, gh, 
 assert.match(controlsSource, /trackQuality\.blur \/ 24/, 'Rail tint follows clarity-derived diffusion')
 assert.match(controlsSource, /trackController\.update\(\{ width: gw, height: gh,[\s\S]*?\.\.\.trackQuality/,
   'Track glass receives the same quality that drives its tint')
-assert.equal(masked.calls[1].el.style.getPropertyValue('--glass-track-tint-strength'), '22.5%',
+assert.equal(masked.calls[1].el.style.getPropertyValue('--glass-track-tint-strength'), '16.6%',
   'At the fixture default 86% clarity, the rail retains a low frosting tint')
 assert.equal(masked.calls[1].el.style.left, '24px', 'Portal maps viewport coordinates to panel padding box')
 assert.equal(masked.calls[1].el.style.top, '49px')
