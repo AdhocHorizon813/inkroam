@@ -177,7 +177,9 @@ onBeforeUnmount(() => { disposed = true; stopPageFinish(); destroy?.() })
 [data-liquid-glass-control][data-glass-module='indicator']:not(.glass-control-optics) { z-index: 3; }
 .glass-track-optics { transform-origin: center; }
 :root[data-visual='modern'] .glass-track-optics[data-liquid-glass-control] {
-  background: var(--experiment-glass-tint) !important;
+  /* Preserve the original light/dark tint hue, but fade its alpha as the
+     indicator clarity rises. The SVG backdrop refraction remains intact. */
+  background: color-mix(in srgb, var(--experiment-glass-tint) var(--glass-track-tint-strength, 100%), transparent) !important;
   box-shadow: var(--experiment-glass-shadow) !important;
 }
 /* The old dark track made a transparent lens look like a sunken black button.
