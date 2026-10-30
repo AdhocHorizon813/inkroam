@@ -116,6 +116,10 @@ assert(nav.calls[0].updates.at(-1).height < 32, 'Velocity squashes height')
 nav.event(nav.group, 'pointerleave')
 assert.equal(nav.springs[0].target, 44, 'Leaving returns to actual selection center')
 nav.second.offsetWidth = 40
+// The velocity left by line 113 would add its (bounded) stretch term to the
+// pressed width. Pressed growth is asserted at rest: 20px of fixed-pixel lift,
+// never a multiple of the label width.
+nav.springs[0].tick(44, 0)
 nav.event(nav.group, 'pointerdown', { button: 0, pointerId: 1, clientX: 40, clientY: 20, target: nav.first })
 assert.equal(nav.springs[5].target, 78 / 56, 'Press lifts the lens on a dedicated X spring')
 assert.equal(nav.springs[6].target, 78 / 56, 'Y inflation has its own damping')
