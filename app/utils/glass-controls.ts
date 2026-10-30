@@ -116,8 +116,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const subpage = panel ? findAppearanceSubpage(host, panel) : null
   // A moving indicator inside the filtered appearance panel cannot see the
   // ambient page: both the panel backdrop-filter and scroll mask isolate it.
-  // A sibling of the panel in the same fixed dock samples the finished panel,
+  // A viewport-positioned sibling of the panel samples the finished panel,
   // track and page without copying background images or moving the real buttons.
+  // The phone panel is fixed, so a dock-relative absolute sibling cannot resolve
+  // its anchors across that containing-block boundary.
   const indicatorDock = !slider && panel?.classList.contains('appearance-panel')
     ? panel.closest<HTMLElement>('.appearance-dock') : null
   // A thumb must sample the rail painted immediately underneath it. Portaling
@@ -156,6 +158,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const movingLens = indicatorDock && portaled ? document.createElement('span') : null
   if (movingLens) {
     movingLens.className = 'glass-control-optics glass-indicator-optics'
+    movingLens.style.position = 'fixed'
     movingLens.dataset.glassModule = 'indicator'
     movingLens.setAttribute('aria-hidden', 'true')
     if (nativeAnchored) {
@@ -284,13 +287,12 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const right = Math.min(...bounds.map(box => box.right))
     const bottom = Math.min(...bounds.map(box => box.bottom))
     if (!nativeAnchored) {
-      const dock = indicatorDock.getBoundingClientRect()
-      const sx = dock.width / Math.max(1, indicatorDock.offsetWidth)
-      const sy = dock.height / Math.max(1, indicatorDock.offsetHeight)
-      movingLens.style.left = `${(source.left - dock.left) / sx}px`
-      movingLens.style.top = `${(source.top - dock.top) / sy}px`
-      movingLens.style.width = `${host.offsetWidth}px`
-      movingLens.style.height = `${host.offsetHeight}px`
+      // Match the fixed lens's viewport coordinate system, including animated
+      // source transforms. The dock only owns stacking/lifetime, not geometry.
+      movingLens.style.left = `${source.left}px`
+      movingLens.style.top = `${source.top}px`
+      movingLens.style.width = `${source.width}px`
+      movingLens.style.height = `${source.height}px`
     }
     if (host.closest('[data-glass-presence="closed"]') || host.offsetParent === null
       || source.width < 1 || source.height < 1

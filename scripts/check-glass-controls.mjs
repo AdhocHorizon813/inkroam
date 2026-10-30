@@ -12,7 +12,7 @@ class Element extends EventTarget {
     this.style = { values: new Map(), setProperty(k, v, p = '') { this.values.set(k, [v, p]) },
       getPropertyValue(k) { return this.values.get(k)?.[0] || '' }, getPropertyPriority(k) { return this.values.get(k)?.[1] || '' },
       removeProperty(k) { this.values.delete(k) } }
-    for (const k of ['left', 'top', 'width', 'height', 'transform', 'marginLeft', 'borderRadius', 'transition', 'filter', 'backdropFilter', 'visibility']) {
+    for (const k of ['position', 'left', 'top', 'width', 'height', 'transform', 'marginLeft', 'borderRadius', 'transition', 'filter', 'backdropFilter', 'visibility']) {
       const css = k.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`)
       Object.defineProperty(this.style, k, { get: () => this.style.getPropertyValue(css), set: v => this.style.setProperty(css, v) })
     }
@@ -41,7 +41,7 @@ class Element extends EventTarget {
   getBoundingClientRect() { return { left: 0, width: this.clientWidth } }
   click() { this.clicks = (this.clicks ?? 0) + 1 }
 }
-function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false) {
+function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false, withDock = false) {
   const host = new Element(), group = new Element('DIV'), window = new EventTarget()
   host.dataset.glassModule = slider ? 'thumb' : 'indicator'
   group.classes.add(slider ? 'glass-range' : portaled ? 'segmented-control' : 'main-nav')
@@ -51,7 +51,12 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   if (slider) { first.min = '0'; first.max = '100'; first.value = '50'; first.offsetHeight = 20 }
   else first.setAttribute('aria-current', 'page')
   group.appendChild(host); group.appendChild(first); if (!slider) group.appendChild(second)
-  const panel = new Element('SECTION'), scroller = new Element('DIV'), subpages = new Element('DIV'), page = new Element('DIV')
+  const panel = new Element('SECTION'), scroller = new Element('DIV'), subpages = new Element('DIV'), page = new Element('DIV'), dock = new Element('DIV')
+  if (withDock) {
+    dock.classes.add('appearance-dock'); dock.appendChild(panel)
+    dock.getBoundingClientRect = () => ({ left: 360, top: 740, right: 450, bottom: 784, width: 90, height: 44 })
+    dock.offsetWidth = 90; dock.offsetHeight = 44
+  }
   if (portaled) {
     panel.classes.add('appearance-panel'); scroller.classes.add('appearance-panel__scroll')
     panel.appendChild(scroller)
@@ -62,6 +67,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     panel.clientLeft = panel.clientTop = 1; panel.offsetWidth = 350; panel.offsetHeight = 600
     panel.getBoundingClientRect = () => ({ left: 100, top: 100, right: 450, bottom: 700, width: 350, height: 600 })
     scroller.getBoundingClientRect = () => ({ left: 101, top: 101, right: 449, bottom: 699 })
+    subpages.getBoundingClientRect = scroller.getBoundingClientRect
     host.getBoundingClientRect = () => ({ left: 125, top: 150, right: 205, bottom: 182, width: 80, height: 32 })
     group.getBoundingClientRect = () => ({ left: 125, top: 150, right: 365, bottom: 190, width: 240, height: 40 })
   }
@@ -94,7 +100,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   const decode = () => { calls.forEach((call, i) => { call.el.style.backdropFilter = `url(#lens-${i})` }); observers[0].fn() }
   const event = (el, name, values = {}) => { const e = new Event(name, { cancelable: true });
     for (const [k, v] of Object.entries(values)) Object.defineProperty(e, k, { value: v }); el.dispatchEvent(e) }
-  return { host, group, first, second, panel, scroller, page, window, springs, calls, observers, timers, cleanup, decode, event, rtl: () => { direction = 'rtl' } }
+  return { host, group, first, second, panel, scroller, page, dock, window, springs, calls, observers, timers, cleanup, decode, event, rtl: () => { direction = 'rtl' } }
 }
 
 const nav = fixture()
@@ -235,6 +241,39 @@ assert.equal(tether.style.borderRadius, '14px', 'Track radius is independent of 
 tethered.event(tethered.scroller, 'scroll') // no JS rAF read/scroll follower
 tethered.cleanup.destroy()
 assert.equal(tethered.group.style.getPropertyValue('anchor-name'), '', 'Restore original anchor-name on unmount')
+
+// The phone panel is fixed to the viewport while the dock remains a small
+// bottom-right box. Both native anchors and measured fallback must use a
+// viewport-positioned optical sibling; dock coordinates cannot reach its source.
+for (const anchored of [false, true]) {
+  const escaped = fixture(false, true, anchored, true, true)
+  escaped.decode()
+  const optic = escaped.calls[0].el
+  assert.notEqual(optic, escaped.host, 'Exercise the real escaped indicator path')
+  assert.equal(optic.parentElement, escaped.dock)
+  assert.equal(optic.style.position, 'fixed', 'Viewport positioning keeps phone anchors in the containing-block chain')
+  if (anchored) {
+    assert.equal(optic.style.getPropertyValue('position-anchor'), escaped.host.style.getPropertyValue('anchor-name'))
+    assert.equal(optic.style.left, 'anchor(left)')
+    assert.equal(optic.style.width, 'anchor-size(width)')
+  } else {
+    assert.equal(optic.style.left, '125px', 'Fallback uses viewport X, not the bottom-right dock X')
+    assert.equal(optic.style.top, '150px', 'Fallback uses viewport Y, not the bottom-right dock Y')
+    assert.equal(optic.style.width, '80px')
+    assert.equal(optic.style.height, '32px')
+  }
+  escaped.page.dataset.glassPresence = 'closing'; escaped.page.opacity = '.4'
+  escaped.cleanup.refreshLayout()
+  assert.equal(optic.style.opacity, '0.4', 'Escaped indicator follows outgoing subpage opacity')
+  escaped.page.dataset.glassPresence = 'closed'
+  escaped.cleanup.setDormant(true)
+  assert.equal(optic.style.visibility, 'hidden')
+  escaped.page.dataset.glassPresence = 'opening'; escaped.page.opacity = '1'
+  escaped.cleanup.setDormant(false)
+  assert.notEqual(optic.style.visibility, 'hidden', 'Fixed optical sibling wakes with its retained subpage')
+  escaped.cleanup.destroy()
+  assert.equal(escaped.dock.children.length, 1, 'Destroy removes only the optical sibling')
+}
 
 const masked = fixture(false, true)
 masked.decode()
