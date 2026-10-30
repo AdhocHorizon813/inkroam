@@ -356,8 +356,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     // Navbar uses Inkroam's existing compact 9px corner, not a half-height pill.
     const radius = slider ? h / 2 : Math.min(navbar ? 9 : 10, h / 2)
     quality = currentGlassQuality(w, h, host.dataset.glassTheme, host)
+    // A sliding indicator refracts button labels as part of its backdrop.
+    // Keep those glyphs legible at every clarity: the pill never frosts.
+    // The separate rail (and actual range thumbs) still follow their clarity.
     controller.update({ x: 0, y: 0, width: w, height: h, radius,
-      blur: quality.blur, mapScale: quality.mapScale,
+      blur: slider ? quality.blur : 0, mapScale: quality.mapScale,
       maxFps: quality.maxFps, settleDelay: quality.settleDelay,
       edgeSoftness: quality.edgeSoftness, rimGlow: 0, boundedBezel: true,
       specular: slider ? quality.specular : .5,
@@ -499,7 +502,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       chroma: 0, specular: slider ? quality.specular : .5, specularAmbient: quality.specularAmbient, specularWidth: 1,
       ...(!slider ? { opticalProfile: 'circular' as const, lightAngle: 45, refraction: 0, refractionHeight: .5, rimOpacity: 0 } : {}),
       rimGlow: 0, boundedBezel: true,
-      blur: quality.blur, mapScale: quality.mapScale, edgeSoftness: quality.edgeSoftness,
+      blur: slider ? quality.blur : 0, mapScale: quality.mapScale, edgeSoftness: quality.edgeSoftness,
       maxFps: quality.maxFps, settleDelay: quality.settleDelay })
     if (hasTrack) trackController = engine.createGlass(lens, {
       mode: 'backdrop', opticalProfile: 'circular', refractionHeight: 8,
