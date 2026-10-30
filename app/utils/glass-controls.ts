@@ -86,8 +86,8 @@ function followOpticalMotion(panel: HTMLElement, owners: HTMLElement[], align: (
 }
 
 // Adapted from gentpan/liquidglass LgSegmented/LgNavbar/LgSlider (MIT, pinned
-// 068ad226). Retain spring velocity deformation; optics now sit underneath
-// the original labels, as requested. Original controls own all text and events.
+// 068ad226). Original controls own all text and events; the pressed lens paints
+// above their labels so it refracts actual pixels, not an empty backdrop.
 export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const slider = host.dataset.glassModule === 'thumb'
   const group = slider ? host.closest<HTMLElement>('.glass-range, .music-progress') : host.parentElement
@@ -95,6 +95,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const input = slider ? group.querySelector<HTMLInputElement>('input[type="range"]') : null
   const musicProgress = group.classList.contains('music-progress')
   const navbar = group.classList.contains('main-nav')
+  // Navigation already sits on the header glass; it needs no second rail.
+  const hasTrack = !slider && !navbar
   const buttons = slider ? [] : Array.from(group.children).filter((child): child is HTMLElement =>
     child instanceof HTMLElement && (child.tagName === 'BUTTON' || child.tagName === 'A')
     && !child.classList.contains('theme-toggle'))
@@ -102,10 +104,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
 
   const oldStyles = ['left', 'top', 'width', 'height', 'transform', 'margin-left', 'border-radius', 'transition', 'filter', 'backdrop-filter', '-webkit-backdrop-filter', 'anchor-name', 'visibility']
     .map(name => [name, host.style.getPropertyValue(name), host.style.getPropertyPriority(name)] as const)
-  // Keep optics underneath the original glyphs; never clone or recolor labels.
-  // A scroll mask is a backdrop root: a lens inside it sees a flat/empty track.
-  // Put only the optics before the masked content, in the panel's coordinate
-  // system. Original labels, rail, focus and hit targets never move or duplicate.
+  const oldGroupStyles = ['anchor-name', 'translate'].map(name =>
+    [name, group.style.getPropertyValue(name), group.style.getPropertyPriority(name)] as const)
+  // Two optical stages
+  // samples the page outside the scroll mask; the pressed indicator stays ABOVE
+  // the real labels inside the mask, so it can actually refract their pixels.
   const panel = host.closest<HTMLElement>('.appearance-panel, .music-panel')
   const scroller = panel ? host.closest<HTMLElement>('.appearance-panel__scroll, .music-scroll') : null
   const reveal = host.closest<HTMLElement>('.glass-settings__reveal')
@@ -115,7 +118,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   // remains active but cannot refract the control it belongs to. Keep thumbs
   // inline, as in the original working slider path; their DOM follows scroll,
   // clipping, opacity and fullscreen motion without any position follower.
-  const portaled = Boolean(panel && scroller && !slider)
+  const portaled = Boolean(panel && scroller && hasTrack)
   // A JavaScript scroll handler + rAF follows one composited frame behind touch
   // scrolling. On Blink, CSS anchor positioning lets the compositor tether an
   // out-of-scroller indicator lens directly to its real source.
@@ -125,14 +128,14 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     && CSS.supports('position-anchor: --inkroam-optic-probe')
     && CSS.supports('top: anchor(top)')
     && CSS.supports('position-visibility: anchors-visible')
-  const lens = portaled ? document.createElement('span') : host
-  if (portaled) {
-    lens.className = 'glass-control-optics'
-    lens.dataset.glassModule = 'indicator'
+  const lens = hasTrack ? document.createElement('span') : host
+  if (hasTrack) {
+    lens.className = 'glass-control-optics glass-track-optics'
+    lens.dataset.glassModule = 'track'
     lens.setAttribute('aria-hidden', 'true')
     if (nativeAnchored) {
       const anchor = `--inkroam-optic-${++nextOpticAnchor}`
-      host.style.setProperty('anchor-name', anchor)
+      group.style.setProperty('anchor-name', anchor)
       lens.style.setProperty('position-anchor', anchor)
       lens.style.setProperty('left', 'anchor(left)')
       lens.style.setProperty('top', 'anchor(top)')
@@ -140,17 +143,22 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       lens.style.setProperty('height', 'anchor-size(height)')
       lens.style.setProperty('position-visibility', 'anchors-visible')
     }
-    panel!.insertBefore(lens, panel!.firstChild)
+    if (portaled) panel!.insertBefore(lens, panel!.firstChild)
+    else group.insertBefore(lens, group.firstChild)
   }
 
   let controller: GlassController | undefined
-  let sleepingFilter = ''
+  let trackController: GlassController | undefined
+  let sleepingFilter = '', sleepingTrackFilter = ''
+  let trackOrigin = 0
   let ready = false, disposed = false, initialized = false
   let x = 0, velocity = 0, press = 0, targetWidth = 0, targetHeight = 0, targetY = 0
   let pressedPointer: number | null = null
   let dragStartX = 0, dragStartY = 0, dragged = false, suppressClick = false
   let clickTimer = 0
   let dragChoice: HTMLElement | null = null
+  let releasePending = false, releaseFrame = 0
+  let inflationX = 1, inflationY = 1
   let quality = currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme, host)
   let timeout = 0
   let resize: ResizeObserver | undefined
@@ -160,19 +168,40 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     el.addEventListener(name, fn)
     cleanups.push(() => el.removeEventListener(name, fn))
   }
-  const position = engine.createSpring(0, (value, speed) => { x = value; velocity = speed; render() },
-    { stiffness: slider ? 900 : 380, damping: slider ? 50 : 28 })
-  const pressure = engine.createSpring(0, value => { press = value; render() }, { stiffness: 520, damping: 32 })
+  const position = engine.createSpring(0, (value, speed) => { x = value; velocity = speed; render(); finishRelease() },
+    { stiffness: slider ? 900 : 1000, damping: slider ? 50 : 2 * Math.sqrt(1000) })
+  const pressure = engine.createSpring(0, value => { press = value; render() },
+    { stiffness: slider ? 520 : 1000, damping: slider ? 32 : 2 * Math.sqrt(1000) })
   const widthSpring = engine.createSpring(0, value => { targetWidth = value; render() }, { stiffness: 380, damping: 32 })
   const heightSpring = engine.createSpring(0, value => { targetHeight = value; render() }, { stiffness: 380, damping: 32 })
   const verticalSpring = engine.createSpring(0, value => { targetY = value; render() }, { stiffness: 380, damping: 32 })
+  // Separate underdamped axes reproduce the lifted, soft lens
+  // DampedDragAnimation. Stiffness/damping ratios converted to unit-mass springs.
+  const inflationSpringX = engine.createSpring(1, value => { inflationX = value; render() }, { stiffness: 250, damping: 2 * .6 * Math.sqrt(250) })
+  const inflationSpringY = engine.createSpring(1, value => { inflationY = value; render() }, { stiffness: 250, damping: 2 * .7 * Math.sqrt(250) })
+  function pressIndicator() {
+    if (pressedPointer === null || press < .01) trackOrigin = x
+    releasePending = false
+    pressure.set(1)
+    if (!slider) { inflationSpringX.set(78 / 56); inflationSpringY.set(78 / 56) }
+  }
+  function finishRelease() {
+    if (!releasePending || disposed || pressedPointer !== null) return
+    const centers = buttons.map(button => button.offsetLeft + button.offsetWidth / 2)
+    const threshold = Math.max(1, (Math.max(...centers) - Math.min(...centers)) * .025)
+    if (Math.abs(x - position.target) > threshold) return
+    releasePending = false
+    pressure.set(0)
+    inflationSpringX.set(1); inflationSpringY.set(1)
+  }
   let alignFrame = 0
   function alignOptics() {
     if (!portaled || disposed) return
     // Native anchors transfer bounds, not paint geometry. Without the same
     // CSS radius, Blink composites a pale rectangular backdrop outside the
     // rounded source even though the SVG displacement map itself is rounded.
-    lens.style.borderRadius = host.style.borderRadius
+    const trackRadius = parseFloat(getComputedStyle(group!).borderTopLeftRadius) || 14
+    lens.style.borderRadius = `${trackRadius}px`
     // inert and data-glass-page-hidden express intent, not optical absence.
     // Only the completed lifecycle may hide a portaled lens.
     if (host.closest('[data-glass-presence="closed"]') || host.offsetParent === null) {
@@ -194,7 +223,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       lens.style.clipPath = ''
       return
     }
-    const box = host.getBoundingClientRect(), frame = panel!.getBoundingClientRect()
+    const box = group!.getBoundingClientRect(), frame = panel!.getBoundingClientRect()
     const view = scroller!.getBoundingClientRect()
     // Portaled optics must follow the accordion's clipping as it opens/closes.
     const revealBox = reveal?.getBoundingClientRect()
@@ -205,15 +234,15 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     if (!nativeAnchored) {
       lens.style.left = `${(box.left - frame.left) / sx - panel!.clientLeft}px`
       lens.style.top = `${(box.top - frame.top) / sy - panel!.clientTop}px`
-      lens.style.width = host.style.width
-      lens.style.height = host.style.height
+      lens.style.width = `${group!.clientWidth}px`
+      lens.style.height = `${group!.offsetHeight}px`
     }
     // `v-show` keeps the other appearance subpage mounted but not rendered, so a
     // lens that was visible a moment ago must not keep painting at its stale rect.
     const rendered = host.offsetParent !== null && box.width >= 1 && box.height >= 1
     lens.style.visibility = !rendered || box.bottom <= viewTop || box.top >= viewBottom ? 'hidden' : ''
     // Respect the scroll viewport without inheriting its backdrop-root mask.
-    lens.style.clipPath = `inset(${Math.max(0, viewTop - box.top) / sy}px ${Math.max(0, box.right - view.right) / sx}px ${Math.max(0, box.bottom - viewBottom) / sy}px ${Math.max(0, view.left - box.left) / sx}px round ${host.style.borderRadius})`
+    lens.style.clipPath = `inset(${Math.max(0, viewTop - box.top) / sy}px ${Math.max(0, box.right - view.right) / sx}px ${Math.max(0, box.bottom - viewBottom) / sy}px ${Math.max(0, view.left - box.left) / sx}px round ${trackRadius}px)`
   }
   const queueAlign = () => {
     if (!alignFrame) alignFrame = requestAnimationFrame(() => { alignFrame = 0; alignOptics() })
@@ -230,8 +259,22 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     // Motion stretches the lens, never the original text or hit targets.
     const stretch = quality.deform === false || (!slider && dragged) ? 0 : Math.min(slider ? 10 : 14, Math.abs(velocity) * .02)
     const deformation = quality.deform !== false ? press : 0
-    const w = slider ? 28 + deformation * 14 + stretch : targetWidth + stretch + deformation * 4
-    const h = slider ? 18 + deformation * 10 - stretch * .2 : Math.max(16, targetHeight - stretch * .23 - deformation * 2)
+    const progress = Math.max(0, Math.min(1, press))
+    const speed = velocity / Math.max(1, group!.clientWidth) / 10
+    const clampSpeed = (v: number) => Math.max(-.2, Math.min(.2, v))
+    // Lift slightly past the rail, without a fixed 24px vertical expansion.
+    // Use fixed-pixel
+    // horizontal growth so wide labels do not create an excessively wide lens.
+    const liftX = (inflationX - 1) / (78 / 56 - 1)
+    const liftY = (inflationY - 1) / (78 / 56 - 1)
+    const extraWidth = quality.deform === false ? 0 : Math.max(-2, Math.min(26,
+      20 * liftX + 16 * clampSpeed(speed * .75)))
+    const verticalLift = navbar ? targetHeight * .22 : Math.min(targetHeight * .34,
+      Math.max(targetHeight * .22, group!.offsetHeight - targetHeight + 4))
+    const extraHeight = quality.deform === false ? 0 : verticalLift * liftY
+    const sy = quality.deform === false ? 1 : 1 - clampSpeed(speed * .25)
+    const w = slider ? 28 + deformation * 14 + stretch : Math.max(1, targetWidth + extraWidth)
+    const h = slider ? 18 + deformation * 10 - stretch * .2 : Math.max(16, (targetHeight + extraHeight) * sy)
     const left = x - w / 2
     const top = targetY - h / 2
     // Navbar uses Inkroam's existing compact 9px corner, not a half-height pill.
@@ -241,7 +284,16 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       blur: quality.blur, mapScale: quality.mapScale,
       maxFps: quality.maxFps, settleDelay: quality.settleDelay,
       edgeSoftness: quality.edgeSoftness, rimGlow: 0, boundedBezel: true,
-      specular: quality.specular * (slider ? 1 : .75), specularAmbient: quality.specularAmbient })
+      specular: slider ? quality.specular : .5,
+      specularAmbient: quality.specularAmbient,
+      ...(!slider ? {
+        opticalProfile: 'circular' as const,
+        // Relative to the current short side, never a fixed-pixel depth or a
+        // half-height dome on small controls. Pressure gradually forms the rim.
+        refractionHeight: Math.max(.5, Math.min(w, h) * .22 * progress),
+        refraction: Math.min(w, h) * .26 * progress,
+        rimOpacity: progress,
+      } : {}) })
     // Transform on the old host is replaced only while the experiment owns it.
     // Positioning still uses its original containing block (music ball is nested).
     const nested = musicProgress
@@ -253,7 +305,25 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     host.style.transform = nested ? 'translate(-50%, -50%)' : 'none'
     host.style.marginLeft = '0'
     host.style.transition = 'none'
-    host.style.setProperty('--glass-press', String(press))
+    host.style.setProperty('--glass-press', String(progress))
+    if (trackController) {
+      const fraction = Math.max(-1, Math.min(1, (x - trackOrigin) / Math.max(1, group!.clientWidth)))
+      const shift = quality.deform === false ? 0 : Math.sign(fraction) * 4 * (1 - (1 - Math.abs(fraction)) ** 3) * progress
+      group!.style.setProperty('translate', `${shift}px 0`)
+      const growth = quality.deform === false ? 0 : 2 * progress
+      const gw = group!.clientWidth, gh = group!.offsetHeight
+      // A small lift of the whole rail, independent of the selected tab width.
+      lens.style.transform = `scale(${1 + growth / Math.max(1, gw)}, ${1 + growth / Math.max(1, gh)})`
+      if (!portaled) {
+        lens.style.left = '0'; lens.style.top = '0'
+        lens.style.width = `${gw}px`; lens.style.height = `${gh}px`
+        lens.style.borderRadius = `${parseFloat(getComputedStyle(group!).borderTopLeftRadius) || 14}px`
+      }
+      trackController.update({ width: gw, height: gh,
+        radius: parseFloat(getComputedStyle(group!).borderTopLeftRadius) || 14,
+        ...currentGlassQuality(gw, gh, host.dataset.glassTheme, host),
+      })
+    }
     alignOptics()
   }
 
@@ -264,10 +334,15 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       || b.classList.contains('router-link-active')) ?? buttons[0]!
   }
   function target(button: HTMLElement, immediate = false) {
+    const center = button.offsetLeft + button.offsetWidth / 2
+    if (!slider && initialized && !immediate && Math.abs(center - position.target) > .5) {
+      pressIndicator()
+      releasePending = pressedPointer === null
+    }
     widthSpring.set(button.offsetWidth, { immediate })
     heightSpring.set(button.offsetHeight, { immediate })
     verticalSpring.set(button.offsetTop + button.offsetHeight / 2, { immediate })
-    position.set(button.offsetLeft + button.offsetWidth / 2, { immediate })
+    position.set(center, { immediate })
   }
   function readRange(immediate = false) {
     if (!input || host.hasAttribute('data-liquid-glass-dormant')) return
@@ -292,39 +367,53 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   }
   function release() {
     if (pressedPointer !== null && group!.hasPointerCapture?.(pressedPointer)) group!.releasePointerCapture(pressedPointer)
-    pressedPointer = null; dragged = false; dragChoice = null; pressure.set(0)
+    pressedPointer = null; dragged = false; dragChoice = null
+    if (disposed) return
+    if (slider) pressure.set(0)
+    else {
+      releasePending = true
+      cancelAnimationFrame(releaseFrame)
+      // Native click selection lands after pointerup. Wait one frame before
+      // checking arrival; do not deflate while still travelling to the new tab.
+      releaseFrame = requestAnimationFrame(() => { releaseFrame = 0; finishRelease() })
+    }
   }
   function refreshQuality() {
     if (host.hasAttribute('data-liquid-glass-dormant')) return
     quality = currentGlassQuality(host.offsetWidth, host.offsetHeight, host.dataset.glassTheme, host)
-    // Frost the sampled backdrop, not the selectable foreground labels.
-
     render()
   }
 
   const decoded = new MutationObserver(() => {
-    if (ready || disposed || !lens.style.backdropFilter.includes('url(')) return
+    if (disposed || !host.style.backdropFilter.includes('url(')) return
     ready = true
     clearTimeout(timeout)
     host.setAttribute('data-liquid-glass-control', '')
     host.setAttribute('data-liquid-glass-active', '')
-    if (portaled) {
+    if (hasTrack && lens.style.backdropFilter.includes('url(')) {
       lens.setAttribute('data-liquid-glass-control', '')
       lens.setAttribute('data-liquid-glass-active', '')
+      group!.setAttribute('data-glass-track-active', '')
     }
 
-    decoded.disconnect()
+    if (!hasTrack || lens.style.backdropFilter.includes('url(')) decoded.disconnect()
   })
-  decoded.observe(lens, { attributes: true, attributeFilter: ['style'] })
-  // Refract presentation without a fixed white fill. Frost belongs to the real
-  // backdrop, so clarity affects the lens while foreground labels stay sharp.
+  decoded.observe(host, { attributes: true, attributeFilter: ['style'] })
+  if (hasTrack) decoded.observe(lens, { attributes: true, attributeFilter: ['style'] })
+  // The inline lens samples the labels; the rail samples the page underneath.
   try {
-    controller = engine.createGlass(lens, { mode: 'backdrop', refraction: slider ? 6 : navbar ? 8 : 5,
+    controller = engine.createGlass(host, { mode: 'backdrop', refraction: slider ? 6 : navbar ? 8 : 5,
       bezel: slider ? .9 : navbar ? .6 : .35, curvature: slider || navbar ? 3 : 4,
-      chroma: 0, specular: quality.specular * (slider ? 1 : .75), specularAmbient: quality.specularAmbient, specularWidth: 1,
+      chroma: 0, specular: slider ? quality.specular : .5, specularAmbient: quality.specularAmbient, specularWidth: 1,
+      ...(!slider ? { opticalProfile: 'circular' as const, lightAngle: 45, refraction: 0, refractionHeight: .5, rimOpacity: 0 } : {}),
       rimGlow: 0, boundedBezel: true,
       blur: quality.blur, mapScale: quality.mapScale, edgeSoftness: quality.edgeSoftness,
       maxFps: quality.maxFps, settleDelay: quality.settleDelay })
+    if (hasTrack) trackController = engine.createGlass(lens, {
+      mode: 'backdrop', opticalProfile: 'circular', refractionHeight: 8,
+      refraction: 12, chroma: 0, lightAngle: 45, rimGlow: 0, boundedBezel: true,
+      ...quality,
+    })
   } catch (error) { destroy(); throw error }
   resize = new ResizeObserver(() => { refresh(); queueAlign() })
   resize.observe(group)
@@ -351,7 +440,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const control = (event.target as Element)?.closest('input, button, a')
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || !control || control.matches(':disabled')) return
     suppressClick = false
-    pressedPointer = event.pointerId; pressure.set(1)
+    pressedPointer = event.pointerId; pressIndicator()
     if (!slider && buttons.includes(control as HTMLElement)) {
       dragStartX = event.clientX; dragStartY = event.clientY; dragged = false
     }
@@ -405,7 +494,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   listen(window, 'blur', () => { release(); if (!slider) target(selected()) })
   listen(group, 'keydown', e => {
     if ([' ', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes((e as KeyboardEvent).key)
-      && !(e.target as Element).matches(':disabled')) pressure.set(1)
+      && !(e.target as Element).matches(':disabled')) pressIndicator()
   })
   listen(group, 'keyup', () => release())
   listen(group, 'focusout', () => release())
@@ -431,11 +520,18 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     clearTimeout(clickTimer)
     release()
     position.stop(); pressure.stop(); widthSpring.stop(); heightSpring.stop(); verticalSpring.stop()
+    inflationSpringX.stop(); inflationSpringY.stop(); cancelAnimationFrame(releaseFrame)
     if (alignFrame) cancelAnimationFrame(alignFrame)
     resize?.disconnect(); state?.disconnect(); decoded.disconnect()
     cleanups.forEach(cleanup => cleanup())
     controller?.destroy()
-    if (portaled) lens.remove()
+    trackController?.destroy()
+    if (hasTrack) lens.remove()
+    group!.removeAttribute('data-glass-track-active')
+    for (const [name, value, priority] of oldGroupStyles) {
+      if (value) group!.style.setProperty(name, value, priority)
+      else group!.style.removeProperty(name)
+    }
 
     host.removeAttribute('data-liquid-glass-dormant')
     host.removeAttribute('data-liquid-glass-active')
@@ -459,19 +555,29 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   }
   function setDormant(value: boolean) {
     if (value) {
-      sleepingFilter = lens.style.backdropFilter
+      sleepingFilter = host.style.backdropFilter
+      sleepingTrackFilter = lens.style.backdropFilter
       position.stop(); pressure.stop(); widthSpring.stop(); heightSpring.stop(); verticalSpring.stop()
+      inflationSpringX.stop(); inflationSpringY.stop(); cancelAnimationFrame(releaseFrame)
+      releasePending = false
     }
     controller?.update({ hidden: value })
     controller?.flush()
-    if (!value && !lens.style.backdropFilter && sleepingFilter) lens.style.backdropFilter = sleepingFilter
+    trackController?.update({ hidden: value }); trackController?.flush()
+    if (!value && !host.style.backdropFilter && sleepingFilter) host.style.backdropFilter = sleepingFilter
+    if (!value && !lens.style.backdropFilter && sleepingTrackFilter) lens.style.backdropFilter = sleepingTrackFilter
     for (const element of new Set([host, lens])) {
       if (value) element.setAttribute('data-liquid-glass-dormant', '')
       else element.removeAttribute('data-liquid-glass-dormant')
     }
-    if (value) lens.style.visibility = 'hidden'
+    if (value) {
+      lens.style.visibility = 'hidden'
+      velocity = 0
+      pressure.set(0, { immediate: true })
+      inflationSpringX.set(1, { immediate: true }); inflationSpringY.set(1, { immediate: true })
+    }
     else {
-      const originalVisibility = portaled ? undefined : oldStyles.find(([name]) => name === 'visibility')
+      const originalVisibility = hasTrack ? undefined : oldStyles.find(([name]) => name === 'visibility')
       if (originalVisibility?.[1]) lens.style.setProperty('visibility', originalVisibility[1], originalVisibility[2])
       else lens.style.removeProperty('visibility')
       refreshLayout()

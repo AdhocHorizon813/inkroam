@@ -44,7 +44,7 @@ export function normalizeGlassPreferences(raw?: unknown, clarity = 86, antialias
       clarity: bounded(p.clarity, 0, 100, bounded(clarity, 0, 100, 86)),
       antialias: typeof p.antialias === 'boolean' ? p.antialias : antialias,
       aaScale: [1, 1.5, 2].includes(p.aaScale!) ? p.aaScale! : 1,
-      resolution: [0, .5, .75, 1, 1.5, 2].includes(p.resolution!) ? p.resolution! : 0,
+      resolution: [0, .25, .5, .75, 1, 1.5, 2].includes(p.resolution!) ? p.resolution! : 0,
       pixelBudget: [.5, 1.5, 3].includes(p.pixelBudget!) ? p.pixelBudget! : 1.5,
       maxSide: [1024, 2048, 4096].includes(p.maxSide!) ? p.maxSide! : 4096,
       maxFps: [0, 15, 30, 60].includes(p.maxFps!) ? p.maxFps! : 0,

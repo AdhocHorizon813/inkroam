@@ -24,6 +24,9 @@ export interface GlassOptions {
   specularAmbient?: number
   rimGlow?: number
   boundedBezel?: boolean
+  opticalProfile?: 'snell' | 'circular'
+  refractionHeight?: number
+  rimOpacity?: number
   bleedTop?: number
   bleedBottom?: number
   hidden?: boolean

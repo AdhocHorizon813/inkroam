@@ -49,6 +49,9 @@ export const DEFAULTS = Object.freeze({
   rimGlow: 0.3,
   // Keep the bevel before the rounded rectangle's medial-axis normal seam.
   boundedBezel: false,
+  opticalProfile: 'snell',
+  refractionHeight: 0,
+  rimOpacity: 1, // animated uniform; does not regenerate the displacement map
   // Viewport-sized slices of a long card: extend optical edges outside the
   // visible tile, so scrolling never introduces a false horizontal rim.
   bleedTop: 0,
@@ -57,7 +60,7 @@ export const DEFAULTS = Object.freeze({
 
 // Keys that change the displacement map itself. Everything else (position, strength) is a cheap
 // attribute update on an existing filter.
-const MAP_KEYS = ['width', 'height', 'radius', 'bezel', 'curvature', 'ior', 'invert', 'specular', 'specularWidth', 'lightAngle', 'edgeSoftness', 'rimGlow', 'boundedBezel'];
+const MAP_KEYS = ['width', 'height', 'radius', 'bezel', 'curvature', 'ior', 'invert', 'specular', 'specularWidth', 'lightAngle', 'edgeSoftness', 'rimGlow', 'boundedBezel', 'opticalProfile', 'refractionHeight'];
 
 export const engine = detectEngine();
 
@@ -128,8 +131,9 @@ export function renderLensMap(options = {}, scale = 1) {
   // A wide panel can have a 50px bevel but a 12px corner. At inset > radius,
   // its SDF normal switches axes on a diagonal: nonzero displacement there
   // produces a torn corner. Finish refraction before that seam, not after it.
-  const bezel = Math.max(0.5, Math.min(p.bezel * Math.min(hw, hh),
-    p.boundedBezel && r > 0 ? r : Infinity));
+  const circular = p.opticalProfile === 'circular';
+  const bezel = Math.max(0.5, Math.min(circular ? p.refractionHeight : p.bezel * Math.min(hw, hh),
+    circular ? Math.min(hw, hh) : p.boundedBezel && r > 0 ? r : Infinity));
   const table = profileTable(p.curvature, p.ior);
   const N = table.length - 1;
   const rimWidth = Math.max(0.5, p.specularWidth);
@@ -172,9 +176,23 @@ export function renderLensMap(options = {}, scale = 1) {
         ny = 1;
       }
 
+      if (circular) {
+        // silhouette, rounding the transition between straight rim and corner.
+        // A pressed indicator has a broader dome than its CSS corner. Extend
+        // the normal field with that dome so its axis switch remains in the
+        // neutral interior rather than tearing the widened refractive band.
+        const gradRadius = Math.min(Math.max(r * 1.5, bezel), hw, hh);
+        const gx = -x - (hw - gradRadius), gy = -y - (hh - gradRadius);
+        const ax = Math.max(gx, 0), ay = Math.max(gy, 0), length = Math.hypot(ax, ay);
+        if (length > 0) { nx = ax / length; ny = ay / length; }
+        else { nx = gx >= gy ? 1 : 0; ny = 1 - nx; }
+      }
+
       const inset = Math.max(0, -dist);
       const s = inset / bezel;
-      const m = s >= 1 ? 0 : table[Math.min(N, Math.round(s * N))];
+      const m = s >= 1 ? 0 : circular
+        ? 1 - Math.sqrt(Math.max(0, 1 - (1 - s) ** 2))
+        : table[Math.min(N, Math.round(s * N))];
       // Convex glass samples from further inside (towards the centre) near the rim.
       const bx = Math.round(127 * m * nx * dir);
       const by = Math.round(127 * m * ny * dir);
@@ -189,10 +207,10 @@ export function renderLensMap(options = {}, scale = 1) {
       const i2 = w - 1 - i;
       const j2 = h - 1 - j;
       // top-left: outward normal (-nx, -ny); sample towards +x/+y (inward)
-      write(px, (j * w + i) * 4, NEUTRAL + bx, NEUTRAL + by, rimLight(rim, -nx * lx - ny * ly), a);
-      if (i2 !== i) write(px, (j * w + i2) * 4, NEUTRAL - bx, NEUTRAL + by, rimLight(rim, nx * lx - ny * ly), a);
-      if (j2 !== j) write(px, (j2 * w + i) * 4, NEUTRAL + bx, NEUTRAL - by, rimLight(rim, -nx * lx + ny * ly), a);
-      if (i2 !== i && j2 !== j) write(px, (j2 * w + i2) * 4, NEUTRAL - bx, NEUTRAL - by, rimLight(rim, nx * lx + ny * ly), a);
+      write(px, (j * w + i) * 4, NEUTRAL + bx, NEUTRAL + by, rimLight(rim, -nx * lx - ny * ly, circular), a);
+      if (i2 !== i) write(px, (j * w + i2) * 4, NEUTRAL - bx, NEUTRAL + by, rimLight(rim, nx * lx - ny * ly, circular), a);
+      if (j2 !== j) write(px, (j2 * w + i) * 4, NEUTRAL + bx, NEUTRAL - by, rimLight(rim, -nx * lx + ny * ly, circular), a);
+      if (i2 !== i && j2 !== j) write(px, (j2 * w + i2) * 4, NEUTRAL - bx, NEUTRAL - by, rimLight(rim, nx * lx + ny * ly, circular), a);
     }
   }
   ctx.putImageData(image, 0, 0);
@@ -200,8 +218,8 @@ export function renderLensMap(options = {}, scale = 1) {
 }
 
 // Blue channel for a rim pixel: `facing` is n·L for its outward normal.
-function rimLight(rim, facing) {
-  const shade = 0.12 + 0.88 * (facing > 0 ? facing : -0.4 * facing);
+function rimLight(rim, facing, symmetric = false) {
+  const shade = symmetric ? Math.abs(facing) : 0.12 + 0.88 * (facing > 0 ? facing : -0.4 * facing);
   return NEUTRAL + Math.round(127 * Math.min(1, rim * shade));
 }
 
@@ -525,8 +543,9 @@ export function createGlass(target, options = {}) {
     for (const n of graph.lensRect) setRect(n, x / W, y / H, w / W, h / H);
     if (graph.rimMix) {
       const ambient = Math.min(1, Math.max(0, p.specularAmbient));
-      graph.rimMix.setAttribute('k2', 1 - ambient);
-      graph.rimMix.setAttribute('k3', ambient);
+      const opacity = Math.min(1, Math.max(0, p.rimOpacity));
+      graph.rimMix.setAttribute('k2', (1 - ambient) * opacity);
+      graph.rimMix.setAttribute('k3', ambient * opacity);
     }
     const { scale: k, kx, ky } = bendScale(p.refraction, W, H);
     const scales = graph.displace.length === 3 ? [k, k * (1 + p.chroma / 2), k * (1 + p.chroma)] : [k];

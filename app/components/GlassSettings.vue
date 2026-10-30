@@ -21,7 +21,7 @@ const defaultsDialog = ref<HTMLDialogElement | null>(null)
 const defaultsOpen = ref(false)
 const defaultsGlobal = ref(false)
 const choices = [
-  { key: 'resolution', label: '折射贴图精度', hint: '较低的精度可减少开销，折射边缘可能更粗糙。', options: [{ value: 0, label: '自动' }, { value: .5, label: '0.5×' }, { value: .75, label: '0.75×' }, { value: 1, label: '1×' }, { value: 1.5, label: '1.5×' }, { value: 2, label: '2×' }] },
+  { key: 'resolution', label: '折射贴图精度', hint: '较低的精度可减少开销，折射边缘可能更粗糙。', options: [{ value: 0, label: '自动' }, { value: .25, label: '0.25×' }, { value: .5, label: '0.5×' }, { value: .75, label: '0.75×' }, { value: 1, label: '1×' }, { value: 1.5, label: '1.5×' }, { value: 2, label: '2×' }] },
   { key: 'pixelBudget', label: '单层贴图预算', hint: '限制最终贴图精度，不代表背景分辨率。', options: [{ value: .5, label: '50 万' }, { value: 1.5, label: '150 万' }, { value: 3, label: '300 万' }] },
   { key: 'maxSide', label: '贴图边长上限', hint: '限制贴图最长边，较低的值可减少生成开销。', options: [{ value: 1024, label: '1024' }, { value: 2048, label: '2048' }, { value: 4096, label: '4096' }] },
   { key: 'maxFps', label: '滤镜更新频率', hint: '仅限制滤镜更新，不限制页面操作。', options: [{ value: 0, label: '不限' }, { value: 15, label: '15 Hz' }, { value: 30, label: '30 Hz' }, { value: 60, label: '60 Hz' }] },

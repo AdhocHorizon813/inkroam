@@ -38,6 +38,11 @@ assert(glassSurfaceEnabled(host('navbar'), overridden))
 assert.equal(normalizeGlassGlobal({ enabled: 'true' }).enabled, false)
 
 const p = { ...legacy.navbar, resolution: 1, antialias: false, aaScale: 2, pixelBudget: 1.5 }
+const quarter = normalizeGlassPreferences({ indicator: { resolution: .25 } }).indicator
+assert.equal(quarter.resolution, .25, 'Quarter-resolution preference survives normalization')
+assert.equal(normalizeGlassGlobal({ settings: { resolution: .25 } }).settings.resolution, .25)
+assert.equal(componentGlassQuality(quarter, 100, 32, false, 2).mapScale, .25, 'Explicit quarter scale is not replaced with DPR')
+assert.equal(componentGlassQuality({ ...quarter, antialias: true, aaScale: 2 }, 100, 32, false, 2).mapScale, .5, 'AA multiplies quarter scale')
 assert.equal(componentGlassQuality(p, 100, 50, false, 2).mapScale, 1, 'AA multiplier has no effect when off')
 const aa = componentGlassQuality({ ...p, antialias: true }, 100, 50, false, 2)
 assert.equal(aa.mapScale, 2)

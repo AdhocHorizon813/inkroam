@@ -44,7 +44,8 @@ class Element extends EventTarget {
 function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false) {
   const host = new Element(), group = new Element('DIV'), window = new EventTarget()
   host.dataset.glassModule = slider ? 'thumb' : 'indicator'
-  group.classes.add(slider ? 'glass-range' : 'main-nav')
+  group.classes.add(slider ? 'glass-range' : portaled ? 'segmented-control' : 'main-nav')
+  if (!slider) group.offsetHeight = 40
   const first = new Element(slider ? 'INPUT' : 'A'), second = new Element('A')
   first.offsetLeft = 4; second.offsetLeft = 89
   if (slider) { first.min = '0'; first.max = '100'; first.value = '50'; first.offsetHeight = 20 }
@@ -62,6 +63,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     panel.getBoundingClientRect = () => ({ left: 100, top: 100, right: 450, bottom: 700, width: 350, height: 600 })
     scroller.getBoundingClientRect = () => ({ left: 101, top: 101, right: 449, bottom: 699 })
     host.getBoundingClientRect = () => ({ left: 125, top: 150, right: 205, bottom: 182, width: 80, height: 32 })
+    group.getBoundingClientRect = () => ({ left: 125, top: 150, right: 365, bottom: 190, width: 240, height: 40 })
   }
   const observers = [], springs = [], calls = [], timers = new Map()
   let direction = 'ltr'
@@ -89,7 +91,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     getComputedStyle: el => ({ opacity: el.opacity ?? '1', direction, font: '500 12px sans-serif', letterSpacing: '0px', columnGap: '4px', padding: '0px', textTransform: 'none' }) })
   vm.runInContext(ts.transpile(source, { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.attach = attachGlassControl;', context)
   const cleanup = context.attach(host, engine)
-  const decode = () => { calls[0].el.style.backdropFilter = 'url(#lens)'; observers[0].fn() }
+  const decode = () => { calls.forEach((call, i) => { call.el.style.backdropFilter = `url(#lens-${i})` }); observers[0].fn() }
   const event = (el, name, values = {}) => { const e = new Event(name, { cancelable: true });
     for (const [k, v] of Object.entries(values)) Object.defineProperty(e, k, { value: v }); el.dispatchEvent(e) }
   return { host, group, first, second, panel, scroller, page, window, springs, calls, observers, timers, cleanup, decode, event, rtl: () => { direction = 'rtl' } }
@@ -97,9 +99,12 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
 
 const nav = fixture()
 assert.equal(nav.calls[0].options.mode, 'backdrop')
-assert.equal(nav.calls[0].el, nav.host, 'Lens sits under original text; no duplicate labels')
+assert.equal(nav.calls[0].el, nav.host, 'Inline lens samples original text; no duplicate labels')
+assert.equal(nav.calls.length, 1, 'Navbar has only the indicator, never an extra optical track')
 assert.equal(nav.group.children.length, 3)
-assert.equal(nav.springs[0].config.stiffness, 380)
+assert.equal(nav.springs[0].config.stiffness, 1000)
+assert.equal(nav.calls[0].options.opticalProfile, 'circular')
+assert.equal(nav.calls[0].updates.at(-1).rimOpacity, 0, 'Idle indicator has no raised optical rim')
 assert.equal(nav.host.getAttribute('data-liquid-glass-active'), null, 'No visual override before decode')
 nav.decode()
 assert.equal(nav.host.getAttribute('data-liquid-glass-control'), '')
@@ -112,6 +117,13 @@ nav.event(nav.group, 'pointerleave')
 assert.equal(nav.springs[0].target, 44, 'Leaving returns to actual selection center')
 nav.second.offsetWidth = 40
 nav.event(nav.group, 'pointerdown', { button: 0, pointerId: 1, clientX: 40, clientY: 20, target: nav.first })
+assert.equal(nav.springs[5].target, 78 / 56, 'Press lifts the lens on a dedicated X spring')
+assert.equal(nav.springs[6].target, 78 / 56, 'Y inflation has its own damping')
+assert.equal(nav.calls[0].updates.at(-1).rimOpacity, 1)
+assert.equal(nav.calls[0].updates.at(-1).height, 56, 'Pressed lens visibly exceeds the 40px track')
+assert.equal(nav.calls[0].updates.at(-1).width, 100, 'Width grows by 20px rather than multiplying the label width')
+assert.equal(nav.calls[0].updates.at(-1).refractionHeight, 56 * .48, 'Pressed dome reaches almost to the centre')
+assert.equal(nav.calls[0].updates.at(-1).refraction, 56 * .40)
 nav.event(nav.group, 'pointermove', { pointerId: 1, clientX: 125, clientY: 20 })
 assert.equal(nav.springs[2].target, 80, 'Crossing a narrow candidate never changes drag width')
 nav.event(nav.group, 'pointermove', { pointerId: 1, clientX: 400, clientY: 20 })
@@ -190,31 +202,33 @@ assert.match(managerSource, /surfaces\.get\(host\)\?\.refreshLayout\?\.\(\)/)
 // scroll listeners or geometry polling. The fallback path is tested below.
 const tethered = fixture(false, true, true)
 tethered.decode()
-const tether = tethered.calls[0].el
-assert.match(tethered.host.style.getPropertyValue('anchor-name'), /^--inkroam-optic-\d+$/)
+const tether = tethered.calls[1].el
+assert.match(tethered.group.style.getPropertyValue('anchor-name'), /^--inkroam-optic-\d+$/)
 assert.equal(tether.style.getPropertyValue('position-anchor'),
-  tethered.host.style.getPropertyValue('anchor-name'))
+  tethered.group.style.getPropertyValue('anchor-name'))
 assert.equal(tether.style.left, 'anchor(left)')
 assert.equal(tether.style.top, 'anchor(top)')
 assert.equal(tether.style.width, 'anchor-size(width)')
 assert.equal(tether.style.height, 'anchor-size(height)')
 assert.equal(tether.style.getPropertyValue('position-visibility'), 'anchors-visible')
-assert.equal(tether.style.borderRadius, tethered.host.style.borderRadius,
-  'Native-anchor portal must clip its backdrop to the source radius, not a square box')
+assert.equal(tether.style.borderRadius, '14px', 'Track keeps its own rounded silhouette')
 tethered.springs[0].tick(50, 500)
-assert.equal(tether.style.borderRadius, tethered.host.style.borderRadius,
-  'Portal radius stays synchronized during spring deformation')
+assert.equal(tether.style.borderRadius, '14px', 'Track radius is independent of indicator deformation')
 tethered.event(tethered.scroller, 'scroll') // no JS rAF read/scroll follower
 tethered.cleanup.destroy()
-assert.equal(tethered.host.style.getPropertyValue('anchor-name'), '', 'Restore original anchor-name on unmount')
+assert.equal(tethered.group.style.getPropertyValue('anchor-name'), '', 'Restore original anchor-name on unmount')
 
 const masked = fixture(false, true)
 masked.decode()
-assert.equal(masked.calls[0].el.parentElement, masked.panel, 'Lens escapes the masked scroll backdrop root')
-assert.equal(masked.panel.firstChild, masked.calls[0].el, 'Optics paint before original labels, not over their glyphs')
-assert.equal(masked.calls[0].el.style.left, '24px', 'Portal maps viewport coordinates to panel padding box')
-assert.equal(masked.calls[0].el.style.top, '49px')
+assert.equal(masked.calls[0].el, masked.host, 'Indicator stays inline to sample actual glyphs')
+assert.equal(masked.calls[1].el.parentElement, masked.panel, 'Track escapes the masked scroll backdrop root')
+assert.equal(masked.panel.firstChild, masked.calls[1].el, 'Track paints before labels, indicator paints above them')
+assert.equal(masked.calls[1].options.refraction, 12, 'Track refracts even with no press')
+assert.equal(masked.calls[1].el.style.left, '24px', 'Portal maps viewport coordinates to panel padding box')
+assert.equal(masked.calls[1].el.style.top, '49px')
 assert.equal(masked.group.children.length, 3, 'Original labels/hit targets stay in masked scroller')
+masked.event(masked.group, 'pointerdown', { button: 0, pointerId: 1, clientX: 140, clientY: 160, target: masked.first })
+assert(masked.calls[0].updates.at(-1).height > masked.group.offsetHeight + 8, 'Indicator exceeds even the inflated rail')
 masked.cleanup.destroy()
 assert.equal(masked.panel.children.length, 1, 'Portal removed on disable/unmount')
 console.log('PASS: no label copies, center-clamped drag, release-only size morph, range endpoints/RTL/property updates and cleanup. No visual claim.')
@@ -282,17 +296,17 @@ outgoing.page.dataset.glassPageHidden = 'true'
 outgoing.page.setAttribute('inert', '')
 outgoing.page.opacity = '.4'
 outgoing.cleanup.refreshLayout()
-assert.equal(outgoing.calls[0].el.style.opacity, '0.4', 'Escaped lens multiplies outgoing page opacity')
-assert.notEqual(outgoing.calls[0].el.style.visibility, 'hidden', 'Inert outgoing page keeps its lens until fully closed')
+assert.equal(outgoing.calls[1].el.style.opacity, '0.4', 'Escaped track multiplies outgoing page opacity')
+assert.notEqual(outgoing.calls[1].el.style.visibility, 'hidden', 'Inert outgoing page keeps its track until fully closed')
 outgoing.page.dataset.glassPresence = 'closed'
 outgoing.cleanup.setDormant(true)
-assert.equal(outgoing.calls[0].el.style.visibility, 'hidden')
+assert.equal(outgoing.calls[1].el.style.visibility, 'hidden')
 assert.equal(outgoing.calls[0].el.getAttribute('data-liquid-glass-dormant'), '')
 outgoing.page.dataset.glassPresence = 'opening'
 outgoing.page.opacity = '1'
 outgoing.cleanup.setDormant(false)
 assert.equal(outgoing.calls[0].el.getAttribute('data-liquid-glass-dormant'), null)
-assert.equal(outgoing.calls.length, 1, 'Dormancy reuses decoded control')
+assert.equal(outgoing.calls.length, 2, 'Dormancy reuses both decoded optical stages')
 outgoing.cleanup.destroy()
 console.log('PASS outgoing inert subpage retains optics/opacity, then sleeps and reopens without rebuilding')
 
