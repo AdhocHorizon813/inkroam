@@ -493,7 +493,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       maxFps: quality.maxFps, settleDelay: quality.settleDelay })
     if (hasTrack) trackController = engine.createGlass(lens, {
       mode: 'backdrop', opticalProfile: 'circular', refractionHeight: 8,
-      refraction: 12, chroma: 0, lightAngle: 45, rimGlow: 0, boundedBezel: true,
+      refraction: 12, chroma: 0, lightAngle: 45,
+      // quality already supplies rimGlow: 0 and boundedBezel: true.
       ...quality,
     })
   } catch (error) { destroy(); throw error }
