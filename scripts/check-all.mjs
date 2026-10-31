@@ -11,6 +11,7 @@ const suites = [
   'check-glass-surfaces',
   'check-glass-adapter',
   'check-glass-controls',
+  'check-glass-boundary',
   'check-music-player',
   'check-article-tools',
   'check-c2-note',
