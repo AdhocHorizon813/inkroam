@@ -516,34 +516,48 @@ for (const anchored of [false, true]) {
 }
 console.log('PASS panel slider optics stay above their own rail, preserve press geometry and reuse the inline controller after sleep')
 
-// Range thumbs belong to the rail's DOM and animation subtree throughout
-// loading, opening, closing and dormancy. No viewport sibling can drift away.
+// The real thumb/cap stays inline. A cap-free projection samples the finished
+// panel outside its backdrop root and has no independent entry motion.
 for (const anchored of [false, true]) for (const music of [false, true]) {
   const inline = fixture(true, true, anchored, true, true, true, music, true)
   const optic = inline.calls[0].el
-  assert.equal(optic, inline.host, 'The real inline thumb owns its glass and cap')
-  assert.equal(optic.parentElement, inline.group, 'Thumb stays on the native rail')
-  assert.equal(inline.dock.children.length, 1, 'No out-of-panel thumb exists during opening')
-  assert.equal(optic.style.getPropertyValue('anchor-name'), '', 'No viewport anchor or independent position follower')
+  assert.notEqual(optic, inline.host, 'Sampling must escape the filtered/masked panel')
+  assert.equal(optic.parentElement, inline.dock)
+  assert.equal(inline.host.parentElement, inline.group, 'The actual thumb and white cap stay on the rail')
+  assert.equal(optic.dataset.glassModule, 'thumb-optics', 'Projection cannot match the white-thumb cap selector')
+  assert.equal(optic.style.transition, 'none', 'No independent vertical entry transition')
+  assert.equal(optic.style.opacity, '0', 'No extra glass shape is visible during loading')
+  assert.equal(optic.style.top, '150px', 'Projection starts at the source position, never below the rail')
   inline.decode()
-  assert(optic.hasAttribute('data-liquid-glass-active'), 'Decode activates the existing inline surface immediately')
+  assert(inline.host.hasAttribute('data-liquid-glass-active'))
+  assert.equal(optic.style.opacity, '0', 'Decoding alone cannot reveal an external capsule')
   inline.springs[1].tick(1, 0)
+  assert.equal(optic.style.opacity, '1')
   assert.equal(optic.style.getPropertyValue('--glass-press'), '1')
   assert.equal(inline.calls[0].updates.at(-1).refraction, 6)
+  inline.host.getBoundingClientRect = () => ({ left: 130, top: 174, right: 172, bottom: 202, width: 42, height: 28 })
+  inline.cleanup.refreshLayout()
+  assert.equal(optic.style.top, '174px', 'Projection copies the current source position without a Y spring')
+  assert.equal(optic.style.height, '28px')
   inline.page.dataset.glassPresence = 'closing'
   inline.cleanup.refreshLayout()
-  assert.equal(optic.parentElement, inline.group, 'Closing clips/transforms the thumb together with its rail')
+  assert.equal(inline.host.parentElement, inline.group, 'Closing keeps the painted cap within the panel')
+  inline.page.dataset.glassPresence = 'closed'
+  inline.cleanup.refreshLayout()
+  assert.equal(optic.style.visibility, 'hidden', 'No projected glass survives a closed subpage')
   inline.cleanup.setDormant(true)
   assert.equal(optic.style.visibility, 'hidden')
+  inline.page.dataset.glassPresence = 'opening'
   inline.cleanup.setDormant(false)
-  assert.equal(inline.calls.length, 1, 'Reopen reuses the inline filter')
-  assert.equal(inline.dock.children.length, 1, 'No cap is left outside a closing panel')
+  assert.equal(inline.calls.length, 1, 'Reopen reuses the decoded projection')
+  assert.equal(optic.style.opacity, '0', 'Reopen does not expose a stale pressed projection')
   inline.cleanup.destroy()
+  assert.equal(inline.dock.children.length, 1, 'No cap is left outside a closing panel')
   assert.equal(inline.frames.size, 0)
 }
 assert.match(railCss, /\[data-glass-module='thumb'\]::after/,
-  'The inline thumb keeps the cap and optical paint in one element')
-console.log('PASS: all range thumbs stay inside their rail/panel during loading and exit; no external surface or alignment wait.')
+  'Only the inline thumb paints the white cap')
+console.log('PASS: range caps remain inline; cap-free refraction samples outside the panel, starts aligned and follows closing/dormancy.')
 
 const delayedTrack = fixture(false, true, true, true, true)
 delayedTrack.calls[0].el.style.backdropFilter = 'url(#indicator-first)'

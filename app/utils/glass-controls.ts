@@ -138,16 +138,16 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const opticalDock = articleToolbar ? document.body
     : panel?.closest<HTMLElement>('.appearance-dock, .music-dock')
       ?? navbarSurface?.parentElement ?? null
-  // Range thumbs must remain inside their rail: the panel's transform, clip
-  // and scrolling then apply to both together, including every opening/exit
-  // frame. Only selection indicators use an external optical surface.
+  // The real thumb and its white cap remain on the rail. Only its transparent
+  // optical projection escapes the panel's backdrop root; it must never paint
+  // a second cap or run an independent position/entry animation.
   const portaled = Boolean(panel && scroller && hasTrack)
-  const movingPortaled = !slider && Boolean(opticalDock && (scroller || navbarSurface || articleToolbar))
+  const movingPortaled = Boolean(opticalDock && (scroller || navbarSurface || articleToolbar))
   // A JavaScript scroll handler + rAF follows one composited frame behind touch
   // scrolling. On Blink, CSS anchor positioning lets the compositor tether an
   // out-of-scroller indicator lens directly to its real source.
   // Keep the measured-position path for browsers without native anchors.
-  const nativeAnchored = !articleToolbar && (portaled || movingPortaled) && typeof CSS !== 'undefined'
+  const nativeAnchored = !slider && !articleToolbar && (portaled || movingPortaled) && typeof CSS !== 'undefined'
     && CSS.supports('anchor-name: --inkroam-optic-probe')
     && CSS.supports('position-anchor: --inkroam-optic-probe')
     && CSS.supports('top: anchor(top)')
@@ -172,11 +172,15 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   }
   const movingLens = movingPortaled ? document.createElement('span') : null
   if (movingLens) {
-    movingLens.className = 'glass-control-optics glass-indicator-optics'
+    movingLens.className = `glass-control-optics ${slider ? 'glass-thumb-optics' : 'glass-indicator-optics'}`
     movingLens.style.position = 'fixed'
+    movingLens.style.transition = 'none'
+    if (slider) movingLens.style.opacity = '0'
     const stackingOwner = articleToolbar ? group.closest<HTMLElement>('.article-tools') ?? group : opticalOwner!
     movingLens.style.zIndex = String((Number(getComputedStyle(stackingOwner).zIndex) || 0) + 1)
-    movingLens.dataset.glassModule = 'indicator'
+    // Deliberately distinct from thumb: the white ::after belongs exclusively
+    // to the original inline element, never this sampling projection.
+    movingLens.dataset.glassModule = slider ? 'thumb-optics' : 'indicator'
     movingLens.setAttribute('aria-hidden', 'true')
     if (nativeAnchored) {
       const anchor = `--inkroam-optic-${++nextOpticAnchor}`
@@ -329,7 +333,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     for (let owner: HTMLElement | null = host; owner && owner !== opticalDock; owner = owner.parentElement) {
       opacity *= Number(getComputedStyle(owner).opacity || 1)
     }
-    movingLens.style.opacity = String(opacity)
+    movingLens.style.opacity = String(opacity * (slider ? Math.max(0, Math.min(1, press)) : 1))
     movingLens.style.visibility = ''
     const insetTop = Math.max(0, top - source.top)
     const insetRight = Math.max(0, source.right - right)
@@ -512,6 +516,9 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
 
   function activateDecodedControl() {
     if (disposed || (ready && !hasTrack) || !opticalTarget.style.backdropFilter.includes('url(')) return
+    // Geometry must already match the inline source on the first visible
+    // frame. A decoded filter must not reveal a stale/default fixed position.
+    alignAllOptics()
     ready = true
     clearTimeout(timeout)
     host.setAttribute('data-liquid-glass-control', '')
@@ -531,8 +538,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const decoded = new MutationObserver(activateDecodedControl)
   decoded.observe(opticalTarget, { attributes: true, attributeFilter: ['style'] })
   if (hasTrack) decoded.observe(lens, { attributes: true, attributeFilter: ['style'] })
-  // Selection indicators can sample the completed owner through a sibling.
-  // Range thumbs always render on their original inline element.
+  // The sampling projection sees the completed panel, rail and page. The
+  // inline range thumb alone owns its hit target, white cap and motion.
   try {
     controller = engine.createGlass(opticalTarget, { mode: 'backdrop', refraction: slider ? 6 : navbar ? 8 : 5,
       bezel: slider ? .9 : navbar ? .6 : .35, curvature: slider || navbar ? 3 : 4,
