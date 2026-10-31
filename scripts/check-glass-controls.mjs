@@ -8,7 +8,7 @@ import { glassQuality } from '../app/utils/glass-quality.ts'
 // motion inputs and cleanup, not rendered pixels or a browser performance claim.
 class Element extends EventTarget {
   constructor(tag = 'SPAN') {
-    super(); this.tagName = tag; this.children = []; this.dataset = {}; this.attrs = new Map()
+    super(); this.tagName = tag; this.children = []; this.dataset = {}; this.attrs = new Map(); this.isConnected = true
     this.style = { values: new Map(), setProperty(k, v, p = '') { this.values.set(k, [v, p]) },
       getPropertyValue(k) { return this.values.get(k)?.[0] || '' }, getPropertyPriority(k) { return this.values.get(k)?.[1] || '' },
       removeProperty(k) { this.values.delete(k) } }
@@ -39,9 +39,10 @@ class Element extends EventTarget {
   contains(el) { return el === this || this.children.includes(el) }
   matches() { return Boolean(this.disabled) }
   getBoundingClientRect() { return { left: 0, width: this.clientWidth } }
+  getAnimations() { return this.animations ?? [] }
   click() { this.clicks = (this.clicks ?? 0) + 1 }
 }
-function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false, withDock = false, withReveal = false, musicPanel = false) {
+function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false, withDock = false, withReveal = false, musicPanel = false, startAnimating = false, articleToolbar = false) {
   const host = new Element(), group = new Element('DIV'), window = new EventTarget()
   window.innerWidth = 1000; window.innerHeight = 800
   host.dataset.glassModule = slider ? 'thumb' : 'indicator'
@@ -54,16 +55,25 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   group.appendChild(host); group.appendChild(first); if (!slider) group.appendChild(second)
   const panel = new Element('SECTION'), scroller = new Element('DIV'), subpages = new Element('DIV'), page = new Element('DIV'), dock = new Element('DIV')
   const reveal = new Element('DIV')
+  const body = new Element('BODY'), pageScroll = new Element('DIV')
+  if (articleToolbar) {
+    group.classes.delete('main-nav'); group.classes.add('article-tools__actions')
+    pageScroll.classes.add('page-scroll'); body.appendChild(pageScroll); pageScroll.appendChild(dock)
+    pageScroll.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1000, bottom: 800, width: 1000, height: 800 })
+    dock.classes.add('article-page')
+  }
+  if (startAnimating) panel.animations = [{ playState: 'running' }]
   if (withDock) {
     dock.classes.add(musicPanel ? 'music-dock' : 'appearance-dock'); dock.appendChild(panel)
     dock.getBoundingClientRect = () => ({ left: 360, top: 740, right: 450, bottom: 784, width: 90, height: 44 })
     dock.offsetWidth = 90; dock.offsetHeight = 44
   }
   if (withDock && !portaled) {
-    panel.classes.add('site-header'); panel.appendChild(group); panel.zIndex = '30'
+    panel.classes.add(articleToolbar ? 'article-tools' : 'site-header'); panel.appendChild(group); panel.zIndex = articleToolbar ? '24' : '30'
     panel.getBoundingClientRect = () => ({ left: 100, top: 100, right: 450, bottom: 200, width: 350, height: 100 })
     host.getBoundingClientRect = () => ({ left: 125, top: 150, right: 205, bottom: 182, width: 80, height: 32 })
   }
+  if (articleToolbar) dock.getBoundingClientRect = () => ({ left: 100, top: 100, right: 700, bottom: 900, width: 600, height: 800 })
   if (portaled) {
     panel.classes.add(musicPanel ? 'music-panel' : 'appearance-panel'); scroller.classes.add(musicPanel ? 'music-scroll' : 'appearance-panel__scroll')
     panel.appendChild(scroller)
@@ -85,7 +95,8 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     host.getBoundingClientRect = () => ({ left: 125, top: 150, right: 205, bottom: 182, width: 80, height: 32 })
     group.getBoundingClientRect = () => ({ left: 125, top: 150, right: 365, bottom: 190, width: 240, height: 40 })
   }
-  const observers = [], springs = [], calls = [], timers = new Map()
+  const observers = [], springs = [], calls = [], timers = new Map(), frames = new Map()
+  let frameId = 0, layoutLag = 0, anchorLag = 0
   let direction = 'ltr'
   class Observer {
     constructor(fn) { this.fn = fn; this.targets = []; observers.push(this) }
@@ -104,8 +115,22 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   window.setTimeout = fn => { timers.set(1, fn); return 1 }
   const source = fs.readFileSync('app/utils/glass-controls.ts', 'utf8').replace(/^import .*$/gm, '').replace(/^type Engine = .*$/m, '')
     .replace('export function attachGlassControl', 'function attachGlassControl')
-  const context = vm.createContext({ HTMLElement: Element, document: { createElement: tag => new Element(tag.toUpperCase()) },
-    window, MutationObserver: Observer, ResizeObserver: Observer, clearTimeout: id => timers.delete(id), cancelAnimationFrame() {}, requestAnimationFrame() { return 1 },
+  const createElement = tag => {
+    const el = new Element(tag.toUpperCase())
+    el.getBoundingClientRect = () => {
+      const anchored = el.style.left === 'anchor(left)'
+      const source = (el.style.getPropertyValue('position-anchor') === host.style.getPropertyValue('anchor-name') ? host : group).getBoundingClientRect()
+      const left = anchored ? source.left : parseFloat(el.style.left) || 0
+      const top = (anchored ? source.top + anchorLag : parseFloat(el.style.top) || 0) + layoutLag
+      const width = anchored ? source.width : parseFloat(el.style.width) || el.offsetWidth
+      const height = anchored ? source.height : parseFloat(el.style.height) || el.offsetHeight
+      return { left, top, width, height, right: left + width, bottom: top + height }
+    }
+    return el
+  }
+  const context = vm.createContext({ HTMLElement: Element, document: { createElement, body },
+    window, MutationObserver: Observer, ResizeObserver: Observer, clearTimeout: id => timers.delete(id),
+    cancelAnimationFrame: id => frames.delete(id), requestAnimationFrame(fn) { frames.set(++frameId, fn); return frameId },
     CSS: { supports: () => nativeAnchors },
     currentGlassQuality: () => glassQuality(86, false),
     getComputedStyle: el => ({ opacity: el.opacity ?? '1', zIndex: el.zIndex ?? 'auto', direction, font: '500 12px sans-serif', letterSpacing: '0px', columnGap: '4px', padding: '0px', textTransform: 'none' }) })
@@ -114,7 +139,10 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   const decode = () => { calls.forEach((call, i) => { call.el.style.backdropFilter = `url(#lens-${i})` }); observers[0].fn() }
   const event = (el, name, values = {}) => { const e = new Event(name, { cancelable: true });
     for (const [k, v] of Object.entries(values)) Object.defineProperty(e, k, { value: v }); el.dispatchEvent(e) }
-  return { host, group, first, second, panel, scroller, page, dock, reveal, window, springs, calls, observers, timers, cleanup, decode, event, rtl: () => { direction = 'rtl' } }
+  return { host, group, first, second, panel, scroller, page, dock, body, pageScroll, reveal, window, springs, calls, observers, timers, frames, cleanup, decode, event,
+    layoutLag: value => { layoutLag = value }, anchorLag: value => { anchorLag = value },
+    flushFrame: () => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(fn => fn(0)) },
+    rtl: () => { direction = 'rtl' } }
 }
 
 const nav = fixture()
@@ -501,7 +529,8 @@ for (const anchored of [false, true]) for (const music of [false, true]) {
   assert(escaped.dock.children.indexOf(optic) > escaped.dock.children.indexOf(escaped.panel),
     'Optical lens samples the finished panel and rail instead of painting underneath them')
   assert.equal(optic.style.zIndex, '1')
-  assert.equal(escaped.host.parentElement, escaped.group, 'Original thumb/cap and native input stay inline')
+  assert.equal(escaped.host.parentElement, escaped.group, 'Original input/geometry anchor stays inline')
+  assert(escaped.host.hasAttribute('data-glass-optical-source'), 'Inline anchor cannot paint a second cap/shadow')
   assert.equal(escaped.calls.length, 1, 'No second filter bends the rail twice')
   if (anchored) {
     assert.equal(optic.style.getPropertyValue('position-anchor'), escaped.host.style.getPropertyValue('anchor-name'))
@@ -510,6 +539,7 @@ for (const anchored of [false, true]) for (const music of [false, true]) {
     assert.equal(optic.style.top, '150px')
   }
   escaped.springs[1].tick(1, 0)
+  assert.equal(optic.style.getPropertyValue('--glass-press'), '1', 'The single optical surface owns cap pressure')
   assert.equal(optic.style.borderRadius, '14px', 'Escaped thumb preserves its pressed capsule')
   escaped.page.opacity = '.4'; escaped.host.opacity = '.5'
   escaped.cleanup.refreshLayout()
@@ -520,11 +550,66 @@ for (const anchored of [false, true]) for (const music of [false, true]) {
   assert.notEqual(optic.style.visibility, 'hidden')
   assert.equal(escaped.calls.length, 1, 'Wake reuses the decoded external filter')
   escaped.cleanup.destroy()
+  assert(!escaped.host.hasAttribute('data-glass-optical-source'), 'Destroy restores original thumb painting')
   assert.equal(escaped.dock.children.length, 1, 'Destroy removes the external thumb lens')
 }
-assert.match(railCss, /\[data-glass-module='thumb'\]:not\(\.glass-control-optics\)::after/,
-  'Only the original thumb owns the white cap; it cannot hide the escaped backdrop lens')
+assert.match(railCss, /\[data-glass-module='thumb'\]:not\(\[data-glass-optical-source\]\)::after/,
+  'A portaled thumb cap belongs to the optical surface, not the inline anchor')
 console.log('PASS: appearance/music thumbs escape backdrop and mask roots, sample above the real rail and retain anchoring, opacity, dormancy and cleanup.')
+
+for (const music of [false, true]) {
+  const loading = fixture(true, true, true, true, true, true, music, true)
+  const optic = loading.calls[0].el
+  loading.layoutLag(18)
+  loading.decode()
+  assert(!loading.host.hasAttribute('data-liquid-glass-active'), 'Keep native paint until decoded optics is aligned')
+  assert(!optic.hasAttribute('data-liquid-glass-active'), 'A decoded but offset lens must not appear below the thumb')
+  loading.layoutLag(0); loading.flushFrame()
+  assert(loading.host.hasAttribute('data-glass-optical-source'))
+  assert(optic.hasAttribute('data-liquid-glass-active'), 'Hand off both visibility flags only after alignment')
+  loading.anchorLag(18)
+  assert.equal(optic.style.top, '150px', 'Animated panel uses transformed viewport coordinates instead of a stale anchor')
+  loading.host.getBoundingClientRect = () => ({ left: 125, top: 170, right: 205, bottom: 202, width: 80, height: 32 })
+  loading.flushFrame()
+  assert.equal(optic.style.top, '170px', 'Follower catches an animation that started before glass attached')
+  loading.panel.animations = []; loading.anchorLag(0)
+  loading.flushFrame()
+  assert.equal(optic.style.top, 'anchor(top)', 'Steady state resumes native compositor anchoring')
+  loading.cleanup.destroy()
+  assert.equal(loading.frames.size, 0)
+}
+console.log('PASS: all range thumbs wait for alignment, use one painted cap/optical surface and measure owner motion before returning to native anchors.')
+
+const delayedTrack = fixture(false, true, true, true, true)
+delayedTrack.calls[0].el.style.backdropFilter = 'url(#indicator-first)'
+delayedTrack.observers[0].fn()
+assert(!delayedTrack.group.hasAttribute('data-glass-track-active'))
+delayedTrack.calls[1].el.style.backdropFilter = 'url(#track-later)'
+delayedTrack.observers[0].fn()
+assert(delayedTrack.group.hasAttribute('data-glass-track-active'), 'A later rail decode still completes indicator readiness')
+delayedTrack.cleanup.destroy()
+
+// A glass toolbar already owns its border and background. Its indicator must
+// sample outside that backdrop root, without adding another full-row rail.
+const article = fixture(false, false, true, false, true, false, false, false, true)
+article.decode()
+const articleOptic = article.calls[0].el
+assert.equal(article.calls.length, 1, 'Article toolbar must not get a duplicate track filter/bottom rim')
+assert.equal(article.group.children.length, 3, 'Keep only the original indicator and controls in the toolbar')
+assert.equal(articleOptic.parentElement, article.body, 'Sample toolbar, card and image outside card containment')
+assert.equal(articleOptic.style.zIndex, '25', 'Moving lens follows the sticky toolbar stacking level')
+assert.equal(articleOptic.style.top, '150px', 'Document-level lens uses viewport coordinates')
+article.host.getBoundingClientRect = () => ({ left: 125, top: 140, right: 225, bottom: 200, width: 100, height: 60 })
+article.cleanup.refreshLayout()
+assert.equal(articleOptic.style.clipPath, '', 'The full upper/lower rounded rim can extend beyond the row')
+article.host.getBoundingClientRect = () => ({ left: 180, top: 130, right: 280, bottom: 190, width: 100, height: 60 })
+article.event(article.pageScroll, 'scroll')
+assert.equal(articleOptic.style.left, '180px', 'Sticky movement aligns during the scroll event without a queued-frame offset')
+assert.equal(articleOptic.style.top, '130px')
+assert.equal(article.calls[0].updates.at(-1).blur, 0, 'Indicator glyphs remain clear')
+article.cleanup.destroy()
+assert.equal(article.body.children.length, 1, 'Remove the document-level optical surface on teardown')
+console.log('PASS: article indicator samples outside toolbar/card roots, retains upper/lower rims and adds no duplicate bottom rail.')
 
 for (const anchored of [false, true]) {
   const header = fixture(false, false, anchored, false, true)

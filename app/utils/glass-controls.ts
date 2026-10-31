@@ -9,6 +9,7 @@ type PanelMotion = {
   owners: Map<HTMLElement, Set<() => void>>
   moving: Set<HTMLElement>
   frame: number
+  tick: () => void
   onStart: EventListener
   onEnd: EventListener
 }
@@ -27,7 +28,7 @@ function findAppearanceSubpage(host: HTMLElement, panel: HTMLElement): HTMLEleme
 function followOpticalMotion(panel: HTMLElement, owners: HTMLElement[], align: () => void) {
   let motion = panelMotions.get(panel)
   if (!motion) {
-    const state: PanelMotion = { owners: new Map(), moving: new Set(), frame: 0,
+    const state: PanelMotion = { owners: new Map(), moving: new Set(), frame: 0, tick: () => {},
       onStart: () => {}, onEnd: () => {} }
     const alignMoving = () => {
       const callbacks = new Set<() => void>()
@@ -45,6 +46,7 @@ function followOpticalMotion(panel: HTMLElement, owners: HTMLElement[], align: (
       }
       if (state.moving.size) state.frame = requestAnimationFrame(tick)
     }
+    state.tick = tick
     state.onStart = event => {
       const owner = event.target as HTMLElement
       if (!state.owners.has(owner)) return
@@ -68,7 +70,12 @@ function followOpticalMotion(panel: HTMLElement, owners: HTMLElement[], align: (
     let callbacks = motion.owners.get(owner)
     if (!callbacks) { callbacks = new Set(); motion.owners.set(owner, callbacks) }
     callbacks.add(align)
+    // Lazy glass can attach after transitionstart, including a running WAAPI
+    // panel morph. Seed the shared follower instead of waiting for a new event.
+    if ((owner.getAnimations?.() ?? []).some(animation =>
+      animation.playState === 'running' || animation.pending)) motion.moving.add(owner)
   }
+  if (motion.moving.size && !motion.frame) motion.frame = requestAnimationFrame(motion.tick)
   return () => {
     const state = panelMotions.get(panel)
     if (!state) return
@@ -96,8 +103,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const input = slider ? group.querySelector<HTMLInputElement>('input[type="range"]') : null
   const musicProgress = group.classList.contains('music-progress')
   const navbar = group.classList.contains('main-nav')
-  // Navigation already sits on the header glass; it needs no second rail.
-  const hasTrack = !slider && !navbar
+  const articleToolbar = group.classList.contains('article-tools__actions')
+  // These owners already paint their own glass. A second full-size rail adds
+  // another refractive/shadow edge below the toolbar's existing bottom edge.
+  const hasTrack = !slider && !navbar && !articleToolbar
   const buttons = slider ? [] : Array.from(group.children).filter((child): child is HTMLElement =>
     child instanceof HTMLElement && (child.tagName === 'BUTTON' || child.tagName === 'A')
     && !child.classList.contains('theme-toggle'))
@@ -111,8 +120,9 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   // above the completed owner without moving labels or native hit targets.
   const panel = host.closest<HTMLElement>('.appearance-panel, .music-panel')
   const navbarSurface = navbar ? host.closest<HTMLElement>('.site-header') : null
-  const opticalOwner = panel ?? navbarSurface
-  const scroller = panel ? host.closest<HTMLElement>('.appearance-panel__scroll, .music-scroll') : null
+  const opticalOwner = panel ?? navbarSurface ?? (articleToolbar ? group : null)
+  const scroller = panel ? host.closest<HTMLElement>('.appearance-panel__scroll, .music-scroll')
+    : articleToolbar ? host.closest<HTMLElement>('.page-scroll') : null
   const opticalScroller = scroller ?? navbarSurface?.closest<HTMLElement>('.page-scroll')
   const reveal = host.closest<HTMLElement>('.glass-settings__reveal')
   const subpage = panel ? findAppearanceSubpage(host, panel) : null
@@ -122,20 +132,24 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   // track and page without copying background images or moving the real buttons.
   // The phone panel is fixed, so a dock-relative absolute sibling cannot resolve
   // its anchors across that containing-block boundary.
-  const opticalDock = panel?.closest<HTMLElement>('.appearance-dock, .music-dock')
-    ?? navbarSurface?.parentElement ?? null
+  // Article cards can establish a fixed containing block via contain:layout.
+  // Put their moving lens at the document root so viewport coordinates and
+  // the backdrop include the finished toolbar, card and page image together.
+  const opticalDock = articleToolbar ? document.body
+    : panel?.closest<HTMLElement>('.appearance-dock, .music-dock')
+      ?? navbarSurface?.parentElement ?? null
   // The stationary rail can paint below the scroller, but the moving lens must
   // paint ABOVE the completed panel and rail. Inline thumbs are trapped by the
   // scroll mask / panel backdrop root and cannot refract page images or cards.
   // Keep the real thumb inline for its anchor, cap, input and lifecycle; only
   // its optical surface escapes, just like the existing indicator lens.
   const portaled = Boolean(panel && scroller && hasTrack)
-  const movingPortaled = Boolean(opticalDock && (scroller || navbarSurface))
+  const movingPortaled = Boolean(opticalDock && (scroller || navbarSurface || articleToolbar))
   // A JavaScript scroll handler + rAF follows one composited frame behind touch
   // scrolling. On Blink, CSS anchor positioning lets the compositor tether an
   // out-of-scroller indicator lens directly to its real source.
   // Keep the measured-position path for browsers without native anchors.
-  const nativeAnchored = (portaled || movingPortaled) && typeof CSS !== 'undefined'
+  const nativeAnchored = !articleToolbar && (portaled || movingPortaled) && typeof CSS !== 'undefined'
     && CSS.supports('anchor-name: --inkroam-optic-probe')
     && CSS.supports('position-anchor: --inkroam-optic-probe')
     && CSS.supports('top: anchor(top)')
@@ -162,7 +176,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   if (movingLens) {
     movingLens.className = `glass-control-optics ${slider ? 'glass-thumb-optics' : 'glass-indicator-optics'}`
     movingLens.style.position = 'fixed'
-    movingLens.style.zIndex = String((Number(getComputedStyle(opticalOwner!).zIndex) || 0) + 1)
+    const stackingOwner = articleToolbar ? group.closest<HTMLElement>('.article-tools') ?? group : opticalOwner!
+    movingLens.style.zIndex = String((Number(getComputedStyle(stackingOwner).zIndex) || 0) + 1)
     movingLens.dataset.glassModule = slider ? 'thumb' : 'indicator'
     movingLens.setAttribute('aria-hidden', 'true')
     if (nativeAnchored) {
@@ -281,7 +296,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const source = host.getBoundingClientRect()
     const view = scroller?.getBoundingClientRect()
       ?? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
-    const frame = opticalOwner.getBoundingClientRect()
+    // A raised article indicator extends above/below the row. Clipping it to
+    // that row cuts off exactly the curved rim that must refract other layers.
+    const frame = articleToolbar
+      ? host.closest<HTMLElement>('.article-page, .standard-page')?.getBoundingClientRect() ?? view
+      : opticalOwner.getBoundingClientRect()
     const revealBox = reveal?.getBoundingClientRect()
     // Accordion/subpage bounds clip vertically during reveal and page motion.
     // Their content width is not the horizontal viewport: a pressed endpoint
@@ -292,13 +311,24 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const top = Math.max(...verticalBounds.map(box => box.top))
     const right = Math.min(view.right, frame.right)
     const bottom = Math.min(...verticalBounds.map(box => box.bottom))
-    if (!nativeAnchored) {
+    // Native anchors remain the steady scroll path. During owner animation,
+    // use the same transformed viewport rect as the real thumb; an external
+    // anchor can otherwise lag behind the panel's composited transform.
+    const measuredThumb = slider && (!ready || [opticalOwner, subpage, reveal].some(owner =>
+      (owner?.getAnimations?.() ?? []).some(animation =>
+        animation.playState === 'running' || animation.pending)))
+    if (!nativeAnchored || measuredThumb) {
       // Match the fixed lens's viewport coordinate system, including animated
       // source transforms. The dock only owns stacking/lifetime, not geometry.
       movingLens.style.left = `${source.left}px`
       movingLens.style.top = `${source.top}px`
       movingLens.style.width = `${source.width}px`
       movingLens.style.height = `${source.height}px`
+    } else if (slider) {
+      movingLens.style.left = 'anchor(left)'
+      movingLens.style.top = 'anchor(top)'
+      movingLens.style.width = 'anchor-size(width)'
+      movingLens.style.height = 'anchor-size(height)'
     }
     if (host.closest('[data-glass-presence="closed"]') || host.offsetParent === null
       || source.width < 1 || source.height < 1
@@ -328,13 +358,20 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     alignMovingOptics()
   }
   const queueAlign = () => {
-    if (!alignFrame) alignFrame = requestAnimationFrame(() => { alignFrame = 0; alignAllOptics() })
+    if (!alignFrame) alignFrame = requestAnimationFrame(() => {
+      alignFrame = 0
+      alignAllOptics()
+      if (!ready) activateDecodedControl()
+    })
   }
   if (opticalScroller && (movingLens || (portaled && !nativeAnchored))) {
     // Native CSS anchors follow scrolling without a JS position follower.
     // The escaped indicator still needs a scroll-time CLIP update.
-    listen(opticalScroller, 'scroll', queueAlign)
+    // One article indicator follows the sticky row before the next paint;
+    // other controls retain native anchors and the shared queued clip update.
+    listen(opticalScroller, 'scroll', articleToolbar ? alignAllOptics : queueAlign)
   }
+  if (articleToolbar && movingLens) listen(window, 'resize', queueAlign)
   if (portaled || movingLens) cleanups.push(followOpticalMotion(opticalOwner!,
     [movingLens ? opticalOwner : null, subpage, reveal].filter((owner): owner is HTMLElement => Boolean(owner)),
     alignAllOptics))
@@ -398,7 +435,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     host.style.marginLeft = '0'
     host.style.transition = 'none'
     host.style.setProperty('--glass-press', String(progress))
-    if (movingLens) movingLens.style.borderRadius = `${radius}px`
+    if (movingLens) {
+      movingLens.style.borderRadius = `${radius}px`
+      movingLens.style.setProperty('--glass-press', String(progress))
+    }
     if (trackController) {
       const fraction = Math.max(-1, Math.min(1, (x - trackOrigin) / Math.max(1, group!.clientWidth)))
       const shift = quality.deform === false ? 0 : Math.sign(fraction) * 4 * (1 - (1 - Math.abs(fraction)) ** 3) * progress
@@ -487,8 +527,22 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     render()
   }
 
-  const decoded = new MutationObserver(() => {
-    if (disposed || !opticalTarget.style.backdropFilter.includes('url(')) return
+  function activateDecodedControl() {
+    if (disposed || (ready && !hasTrack) || !opticalTarget.style.backdropFilter.includes('url(')) return
+    if (slider && movingLens) {
+      // Decode alone is not readiness. Align while still hidden, then switch
+      // off the native thumb and reveal the single painted surface atomically.
+      decoded.disconnect()
+      alignAllOptics()
+      const source = host.getBoundingClientRect(), optic = movingLens.getBoundingClientRect()
+      if (host.offsetParent === null || source.width < 1 || source.height < 1) return
+      if ((['left', 'top', 'width', 'height'] as const).some(edge =>
+        !Number.isFinite(optic[edge]) || Math.abs(source[edge] - optic[edge]) > .75)) {
+        queueAlign()
+        return
+      }
+      host.setAttribute('data-glass-optical-source', '')
+    }
     ready = true
     clearTimeout(timeout)
     host.setAttribute('data-liquid-glass-control', '')
@@ -504,7 +558,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     }
 
     if (!hasTrack || lens.style.backdropFilter.includes('url(')) decoded.disconnect()
-  })
+  }
+  const decoded = new MutationObserver(activateDecodedControl)
   decoded.observe(opticalTarget, { attributes: true, attributeFilter: ['style'] })
   if (hasTrack) decoded.observe(lens, { attributes: true, attributeFilter: ['style'] })
   // The sibling samples the already-painted owner, real rail and ambient
@@ -647,6 +702,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     host.removeAttribute('data-liquid-glass-dormant')
     host.removeAttribute('data-liquid-glass-active')
     host.removeAttribute('data-liquid-glass-control')
+    host.removeAttribute('data-glass-optical-source')
     host.style.removeProperty('--glass-press')
     for (const [name, value, priority] of oldStyles) {
       if (value) host.style.setProperty(name, value, priority)
