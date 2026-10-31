@@ -132,8 +132,12 @@ export function renderLensMap(options = {}, scale = 1) {
   // its SDF normal switches axes on a diagonal: nonzero displacement there
   // produces a torn corner. Finish refraction before that seam, not after it.
   const circular = p.opticalProfile === 'circular';
-  const bezel = Math.max(0.5, Math.min(circular ? p.refractionHeight : p.bezel * Math.min(hw, hh),
-    circular ? Math.min(hw, hh) : p.boundedBezel && r > 0 ? r : Infinity));
+  const requestedBezel = circular ? p.refractionHeight : p.bezel * Math.min(hw, hh);
+  // The circular profile changes the bend magnitude, not the silhouette.
+  // Stop before the rounded rectangle's medial axis: its normal is undefined
+  // there. Use the same radius for coverage, refraction and rim lighting.
+  const bezelLimit = (circular || p.boundedBezel) && r > 0 ? r : Infinity;
+  const bezel = Math.min(Math.max(0.5, requestedBezel), bezelLimit);
   const table = profileTable(p.curvature, p.ior);
   const N = table.length - 1;
   const rimWidth = Math.max(0.5, p.specularWidth);
@@ -174,18 +178,6 @@ export function renderLensMap(options = {}, scale = 1) {
       } else {
         nx = 0;
         ny = 1;
-      }
-
-      if (circular) {
-        // silhouette, rounding the transition between straight rim and corner.
-        // A pressed indicator has a broader dome than its CSS corner. Extend
-        // the normal field with that dome so its axis switch remains in the
-        // neutral interior rather than tearing the widened refractive band.
-        const gradRadius = Math.min(Math.max(r * 1.5, bezel), hw, hh);
-        const gx = -x - (hw - gradRadius), gy = -y - (hh - gradRadius);
-        const ax = Math.max(gx, 0), ay = Math.max(gy, 0), length = Math.hypot(ax, ay);
-        if (length > 0) { nx = ax / length; ny = ay / length; }
-        else { nx = gx >= gy ? 1 : 0; ny = 1 - nx; }
       }
 
       const inset = Math.max(0, -dist);

@@ -366,13 +366,17 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       blur: slider ? quality.blur : 0, mapScale: quality.mapScale,
       maxFps: quality.maxFps, settleDelay: quality.settleDelay,
       edgeSoftness: quality.edgeSoftness, rimGlow: 0, boundedBezel: true,
+      // Both controls bend along the actual rounded silhouette. Keep the
+      // slider's existing 0.9 * half-height band, with a circular falloff so
+      // the whole curved rim participates instead of a steep, narrow fringe.
+      opticalProfile: 'circular' as const,
+      refractionHeight: slider ? Math.min(w, h) * .45
+        : Math.max(.5, Math.min(w, h) * .22 * progress),
       specular: slider ? quality.specular : .5,
       specularAmbient: quality.specularAmbient,
       ...(!slider ? {
-        opticalProfile: 'circular' as const,
         // Relative to the current short side, never a fixed-pixel depth or a
         // half-height dome on small controls. Pressure gradually forms the rim.
-        refractionHeight: Math.max(.5, Math.min(w, h) * .22 * progress),
         refraction: Math.min(w, h) * .26 * progress,
         rimOpacity: progress,
       } : {}) })
@@ -503,7 +507,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     controller = engine.createGlass(opticalTarget, { mode: 'backdrop', refraction: slider ? 6 : navbar ? 8 : 5,
       bezel: slider ? .9 : navbar ? .6 : .35, curvature: slider || navbar ? 3 : 4,
       chroma: 0, specular: slider ? quality.specular : .5, specularAmbient: quality.specularAmbient, specularWidth: 1,
-      ...(!slider ? { opticalProfile: 'circular' as const, lightAngle: 45, refraction: 0, refractionHeight: .5, rimOpacity: 0 } : {}),
+      opticalProfile: 'circular', refractionHeight: slider ? 18 * .45 : .5,
+      ...(!slider ? { lightAngle: 45, refraction: 0, rimOpacity: 0 } : {}),
       rimGlow: 0, boundedBezel: true,
       blur: slider ? quality.blur : 0, mapScale: quality.mapScale, edgeSoftness: quality.edgeSoftness,
       maxFps: quality.maxFps, settleDelay: quality.settleDelay })
