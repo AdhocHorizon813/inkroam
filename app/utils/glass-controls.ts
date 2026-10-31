@@ -86,9 +86,9 @@ function followOpticalMotion(panel: HTMLElement, owners: HTMLElement[], align: (
 }
 
 // Adapted from gentpan/liquidglass LgSegmented/LgNavbar/LgSlider (MIT, pinned
-// 068ad226). Original controls keep all text and hit targets. Appearance-panel
-// indicators use a sibling optical lens outside the panel backdrop root so the
-// moving pill samples the actual composited track AND page, not just glyphs.
+// 068ad226). Original controls keep all text and hit targets. Moving lenses
+// escape filtered panels/headers so their backdrop includes the completed
+// owner, real controls and underlying page instead of isolated glyphs/rails.
 export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const slider = host.dataset.glassModule === 'thumb'
   const group = slider ? host.closest<HTMLElement>('.glass-range, .music-progress') : host.parentElement
@@ -107,11 +107,13 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     .map(name => [name, host.style.getPropertyValue(name), host.style.getPropertyPriority(name)] as const)
   const oldGroupStyles = ['anchor-name', 'translate'].map(name =>
     [name, group.style.getPropertyValue(name), group.style.getPropertyPriority(name)] as const)
-  // Two optical stages
-  // samples the page outside the scroll mask; the pressed indicator stays ABOVE
-  // the real labels inside the mask, so it can actually refract their pixels.
+  // The rail paints below the controls; the moving optical stage samples
+  // above the completed owner without moving labels or native hit targets.
   const panel = host.closest<HTMLElement>('.appearance-panel, .music-panel')
+  const navbarSurface = navbar ? host.closest<HTMLElement>('.site-header') : null
+  const opticalOwner = panel ?? navbarSurface
   const scroller = panel ? host.closest<HTMLElement>('.appearance-panel__scroll, .music-scroll') : null
+  const opticalScroller = scroller ?? navbarSurface?.closest<HTMLElement>('.page-scroll')
   const reveal = host.closest<HTMLElement>('.glass-settings__reveal')
   const subpage = panel ? findAppearanceSubpage(host, panel) : null
   // A moving indicator inside the filtered appearance panel cannot see the
@@ -120,19 +122,20 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   // track and page without copying background images or moving the real buttons.
   // The phone panel is fixed, so a dock-relative absolute sibling cannot resolve
   // its anchors across that containing-block boundary.
-  const indicatorDock = !slider && panel?.classList.contains('appearance-panel')
-    ? panel.closest<HTMLElement>('.appearance-dock') : null
-  // A thumb must sample the rail painted immediately underneath it. Portaling
-  // it before the masked scroller puts that rail ABOVE the lens, so its SVG URL
-  // remains active but cannot refract the control it belongs to. Keep thumbs
-  // inline, as in the original working slider path; their DOM follows scroll,
-  // clipping, opacity and fullscreen motion without any position follower.
+  const opticalDock = panel?.closest<HTMLElement>('.appearance-dock, .music-dock')
+    ?? navbarSurface?.parentElement ?? null
+  // The stationary rail can paint below the scroller, but the moving lens must
+  // paint ABOVE the completed panel and rail. Inline thumbs are trapped by the
+  // scroll mask / panel backdrop root and cannot refract page images or cards.
+  // Keep the real thumb inline for its anchor, cap, input and lifecycle; only
+  // its optical surface escapes, just like the existing indicator lens.
   const portaled = Boolean(panel && scroller && hasTrack)
+  const movingPortaled = Boolean(opticalDock && (scroller || navbarSurface))
   // A JavaScript scroll handler + rAF follows one composited frame behind touch
   // scrolling. On Blink, CSS anchor positioning lets the compositor tether an
   // out-of-scroller indicator lens directly to its real source.
   // Keep the measured-position path for browsers without native anchors.
-  const nativeAnchored = portaled && typeof CSS !== 'undefined'
+  const nativeAnchored = (portaled || movingPortaled) && typeof CSS !== 'undefined'
     && CSS.supports('anchor-name: --inkroam-optic-probe')
     && CSS.supports('position-anchor: --inkroam-optic-probe')
     && CSS.supports('top: anchor(top)')
@@ -155,11 +158,12 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     if (portaled) panel!.insertBefore(lens, panel!.firstChild)
     else group.insertBefore(lens, group.firstChild)
   }
-  const movingLens = indicatorDock && portaled ? document.createElement('span') : null
+  const movingLens = movingPortaled ? document.createElement('span') : null
   if (movingLens) {
-    movingLens.className = 'glass-control-optics glass-indicator-optics'
+    movingLens.className = `glass-control-optics ${slider ? 'glass-thumb-optics' : 'glass-indicator-optics'}`
     movingLens.style.position = 'fixed'
-    movingLens.dataset.glassModule = 'indicator'
+    movingLens.style.zIndex = String((Number(getComputedStyle(opticalOwner!).zIndex) || 0) + 1)
+    movingLens.dataset.glassModule = slider ? 'thumb' : 'indicator'
     movingLens.setAttribute('aria-hidden', 'true')
     if (nativeAnchored) {
       const anchor = `--inkroam-optic-${++nextOpticAnchor}`
@@ -171,7 +175,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       movingLens.style.setProperty('height', 'anchor-size(height)')
       movingLens.style.setProperty('position-visibility', 'anchors-visible')
     }
-    indicatorDock!.appendChild(movingLens)
+    opticalDock!.appendChild(movingLens)
   }
   const opticalTarget = movingLens ?? host
 
@@ -273,10 +277,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     lens.style.clipPath = `inset(${Math.max(0, viewTop - box.top) / sy}px ${Math.max(0, box.right - view.right) / sx}px ${Math.max(0, box.bottom - viewBottom) / sy}px ${Math.max(0, view.left - box.left) / sx}px round ${trackRadius}px)`
   }
   function alignMovingOptics() {
-    if (!movingLens || !indicatorDock || !scroller || !panel || disposed) return
+    if (!movingLens || !opticalDock || !opticalOwner || disposed) return
     const source = host.getBoundingClientRect()
-    const view = scroller.getBoundingClientRect()
-    const frame = panel.getBoundingClientRect()
+    const view = scroller?.getBoundingClientRect()
+      ?? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
+    const frame = opticalOwner.getBoundingClientRect()
     const revealBox = reveal?.getBoundingClientRect()
     // Accordion/subpage bounds clip vertically during reveal and page motion.
     // Their content width is not the horizontal viewport: a pressed endpoint
@@ -301,11 +306,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       movingLens.style.visibility = 'hidden'
       return
     }
-    // The overlay is a sibling of the panel, so it must explicitly follow
-    // panel/subpage/reveal opacity during exit and return transitions.
+    // Follow every escaped ancestor, including disabled groups, only once.
+    // The dock's own opacity is inherited by the sibling lens already.
     let opacity = 1
-    for (const owner of [panel, subpage, reveal]) {
-      if (owner) opacity *= Number(getComputedStyle(owner).opacity || 1)
+    for (let owner: HTMLElement | null = host; owner && owner !== opticalDock; owner = owner.parentElement) {
+      opacity *= Number(getComputedStyle(owner).opacity || 1)
     }
     movingLens.style.opacity = String(opacity)
     movingLens.style.visibility = ''
@@ -325,13 +330,13 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const queueAlign = () => {
     if (!alignFrame) alignFrame = requestAnimationFrame(() => { alignFrame = 0; alignAllOptics() })
   }
-  if (portaled && (!nativeAnchored || movingLens)) {
+  if (opticalScroller && (movingLens || (portaled && !nativeAnchored))) {
     // Native CSS anchors follow scrolling without a JS position follower.
     // The escaped indicator still needs a scroll-time CLIP update.
-    listen(scroller!, 'scroll', queueAlign)
+    listen(opticalScroller, 'scroll', queueAlign)
   }
-  if (portaled) cleanups.push(followOpticalMotion(panel!,
-    [movingLens ? panel : null, subpage, reveal].filter((owner): owner is HTMLElement => Boolean(owner)),
+  if (portaled || movingLens) cleanups.push(followOpticalMotion(opticalOwner!,
+    [movingLens ? opticalOwner : null, subpage, reveal].filter((owner): owner is HTMLElement => Boolean(owner)),
     alignAllOptics))
   function render() {
     if (!controller || disposed || host.hasAttribute('data-liquid-glass-dormant')) return
@@ -372,12 +377,13 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       opticalProfile: 'circular' as const,
       refractionHeight: slider ? Math.min(w, h) * .45
         : Math.max(.5, Math.min(w, h) * .22 * progress),
+      // Keep the original restrained optical reach. Ambient page sampling is
+      // fixed by the escaped backdrop layer, not by dragging central labels
+      // or the rail into the outer rim and producing duplicate content.
+      refraction: slider ? 6 : Math.min(w, h) * .26 * progress,
       specular: slider ? quality.specular : .5,
       specularAmbient: quality.specularAmbient,
       ...(!slider ? {
-        // Relative to the current short side, never a fixed-pixel depth or a
-        // half-height dome on small controls. Pressure gradually forms the rim.
-        refraction: Math.min(w, h) * .26 * progress,
         rimOpacity: progress,
       } : {}) })
     // Transform on the old host is replaced only while the experiment owns it.
@@ -501,8 +507,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   })
   decoded.observe(opticalTarget, { attributes: true, attributeFilter: ['style'] })
   if (hasTrack) decoded.observe(lens, { attributes: true, attributeFilter: ['style'] })
-  // The dock sibling samples the already-painted panel, real rail and ambient
-  // page. Other indicators and range thumbs retain their original inline path.
+  // The sibling samples the already-painted owner, real rail and ambient
+  // page. Controls without a filtered owner retain their inline path.
   try {
     controller = engine.createGlass(opticalTarget, { mode: 'backdrop', refraction: slider ? 6 : navbar ? 8 : 5,
       bezel: slider ? .9 : navbar ? .6 : .35, curvature: slider || navbar ? 3 : 4,
@@ -522,7 +528,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   resize = new ResizeObserver(() => { refresh(); queueAlign() })
   resize.observe(group)
   if (reveal) resize.observe(reveal)
-  if (portaled) resize.observe(panel!)
+  if (portaled || movingLens) resize.observe(opticalOwner!)
   buttons.forEach(button => resize.observe(button))
   state = new MutationObserver(refresh)
   if (input) {

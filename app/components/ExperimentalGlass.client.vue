@@ -190,7 +190,7 @@ onBeforeUnmount(() => { disposed = true; stopPageFinish(); destroy?.() })
 :root[data-visual='modern'] .segmented-control[data-glass-track-active] { background: transparent; }
 /* Upstream slider behavior: solid white at rest, glass while held. This cap is
    only for range thumbs, never for sliding selection indicators. */
-[data-liquid-glass-control][data-glass-module='thumb']::after {
+[data-liquid-glass-control][data-glass-module='thumb']:not(.glass-control-optics)::after {
   content: '';
   position: absolute;
   inset: 0;
