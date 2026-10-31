@@ -377,13 +377,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       opticalProfile: 'circular' as const,
       refractionHeight: slider ? Math.min(w, h) * .45
         : Math.max(.5, Math.min(w, h) * .22 * progress),
-      // A 6px bend on a raised 28px thumb never reaches the central rail
-      // from its upper/lower rim. The indicator's old 0.26h bend likewise
-      // samples only blank label padding. Scale the full normal vector (not
-      // either axis) so a raised lens can actually refract that central detail.
-      // Preserve the quiet slider at rest; pressure grows its optical reach.
-      refraction: slider ? 6 + (Math.min(w, h) * .85 - 6) * progress
-        : Math.min(w, h) * .85 * progress,
+      // Keep the original restrained optical reach. Ambient page sampling is
+      // fixed by the escaped backdrop layer, not by dragging central labels
+      // or the rail into the outer rim and producing duplicate content.
+      refraction: slider ? 6 : Math.min(w, h) * .26 * progress,
       specular: slider ? quality.specular : .5,
       specularAmbient: quality.specularAmbient,
       ...(!slider ? {

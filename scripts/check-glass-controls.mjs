@@ -152,7 +152,7 @@ assert(pressedNav.height > nav.first.offsetHeight && pressedNav.height <= nav.gr
 assert.equal(nav.calls[0].updates.at(-1).width, 100, 'Width grows by 20px rather than multiplying the label width')
 assert(Math.abs(pressedNav.refractionHeight - Math.min(pressedNav.width, pressedNav.height) * .22) < 1e-9,
   'Refraction dome scales to the actual compact indicator height')
-assert(Math.abs(pressedNav.refraction - Math.min(pressedNav.width, pressedNav.height) * .85) < 1e-9,
+assert(Math.abs(pressedNav.refraction - Math.min(pressedNav.width, pressedNav.height) * .26) < 1e-9,
   'Refraction strength scales to the actual compact indicator height')
 nav.event(nav.group, 'pointermove', { pointerId: 1, clientX: 125, clientY: 20 })
 assert.equal(nav.springs[2].target, 80, 'Crossing a narrow candidate never changes drag width')
@@ -208,6 +208,7 @@ range.first.value = '25'; range.event(range.group, 'inkroam:range-update')
 assert.equal(range.springs[0].target, 180, 'Property-only updates resync')
 range.springs[1].tick(1, 0)
 const pressedThumb = range.calls[0].updates.at(-1)
+assert.equal(pressedThumb.refraction, 6, 'Press must not increase the thumb bend into an exaggerated rim copy')
 assert.equal(range.calls[0].updates.at(-1).width, 42, 'Press expands thumb')
 assert.equal(range.calls[0].updates.at(-1).height, 28)
 assert.equal(range.calls[0].updates.at(-1).refractionHeight, 28 * .45, 'Pressed thumb keeps a proportional refractive band')
@@ -396,8 +397,9 @@ console.log('PASS: actual lens-map boundary alpha changes, interior pixels uncha
 
 // Follow the sampled background, not just the existence/direction of G.
 // SVG first composites the lens map over neutral grey, then displaces the
-// source. A thin central rail / label has to reach BOTH upper and lower rims.
-// Disable highlights here so a bright outline cannot satisfy this regression.
+// source. Central labels/rails must not be pulled into a second copy at the
+// upper/lower rims. Ambient background access is covered by the portal checks.
+// Disable highlights so this guard measures sampled content only.
 function centralDetailAtRims(options, detailHeight) {
   const shape = { ...options, width: Math.round(options.width), height: Math.round(options.height),
     edgeSoftness: .8, specular: 0 }
@@ -417,18 +419,19 @@ function centralDetailAtRims(options, detailHeight) {
   }
   return hit
 }
-for (const [name, options, detailHeight, previousRefraction] of [
-  ['slider', pressedThumb, 4, 6],
-  ['indicator', pressedSegment, 12, Math.min(pressedSegment.width, pressedSegment.height) * .26],
+for (const [name, options, detailHeight] of [
+  ['slider', pressedThumb, 4],
+  ['indicator', pressedSegment, 12],
 ]) {
-  const before = centralDetailAtRims({ ...options, refraction: previousRefraction }, detailHeight)
-  const after = centralDetailAtRims(options, detailHeight)
-  assert.equal(before.top, 0, `${name}: reproduce the blank upper surface`)
-  assert.equal(before.bottom, 0, `${name}: reproduce the blank lower surface`)
-  assert(after.top >= 1 && after.bottom >= 1,
-    `${name}: actual background detail must be refracted into both curved rim bands`)
+  const current = centralDetailAtRims(options, detailHeight)
+  const excessive = centralDetailAtRims({ ...options,
+    refraction: Math.min(options.width, options.height) * .85 }, detailHeight)
+  assert.equal(current.top, 0, `${name}: central detail must not duplicate at the upper rim`)
+  assert.equal(current.bottom, 0, `${name}: central detail must not duplicate at the lower rim`)
+  assert(excessive.top >= 1 && excessive.bottom >= 1,
+    `${name}: the rejected 0.85h strength reproduces duplicate rim content`)
 }
-console.log('PASS: central rail/label detail reaches upper and lower rim bands; previous strengths sample only blank padding. Highlights disabled.')
+console.log('PASS: restrained refraction avoids duplicate central labels/rails at the rims; rejected 0.85h strength reproduces the defect.')
 
 // A broad bezel must not reach the medial-axis discontinuity inside a tight
 // corner. These are actual generated map pixels, not a source-string assertion.
