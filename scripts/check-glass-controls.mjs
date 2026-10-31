@@ -41,8 +41,9 @@ class Element extends EventTarget {
   getBoundingClientRect() { return { left: 0, width: this.clientWidth } }
   click() { this.clicks = (this.clicks ?? 0) + 1 }
 }
-function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false, withDock = false, withReveal = false) {
+function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false, withDock = false, withReveal = false, musicPanel = false) {
   const host = new Element(), group = new Element('DIV'), window = new EventTarget()
+  window.innerWidth = 1000; window.innerHeight = 800
   host.dataset.glassModule = slider ? 'thumb' : 'indicator'
   group.classes.add(slider ? 'glass-range' : portaled ? 'segmented-control' : 'main-nav')
   if (!slider) group.offsetHeight = 40
@@ -54,12 +55,17 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   const panel = new Element('SECTION'), scroller = new Element('DIV'), subpages = new Element('DIV'), page = new Element('DIV'), dock = new Element('DIV')
   const reveal = new Element('DIV')
   if (withDock) {
-    dock.classes.add('appearance-dock'); dock.appendChild(panel)
+    dock.classes.add(musicPanel ? 'music-dock' : 'appearance-dock'); dock.appendChild(panel)
     dock.getBoundingClientRect = () => ({ left: 360, top: 740, right: 450, bottom: 784, width: 90, height: 44 })
     dock.offsetWidth = 90; dock.offsetHeight = 44
   }
+  if (withDock && !portaled) {
+    panel.classes.add('site-header'); panel.appendChild(group); panel.zIndex = '30'
+    panel.getBoundingClientRect = () => ({ left: 100, top: 100, right: 450, bottom: 200, width: 350, height: 100 })
+    host.getBoundingClientRect = () => ({ left: 125, top: 150, right: 205, bottom: 182, width: 80, height: 32 })
+  }
   if (portaled) {
-    panel.classes.add('appearance-panel'); scroller.classes.add('appearance-panel__scroll')
+    panel.classes.add(musicPanel ? 'music-panel' : 'appearance-panel'); scroller.classes.add(musicPanel ? 'music-scroll' : 'appearance-panel__scroll')
     panel.appendChild(scroller)
     if (withSubpage) {
       subpages.classes.add('appearance-subpages')
@@ -102,7 +108,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     window, MutationObserver: Observer, ResizeObserver: Observer, clearTimeout: id => timers.delete(id), cancelAnimationFrame() {}, requestAnimationFrame() { return 1 },
     CSS: { supports: () => nativeAnchors },
     currentGlassQuality: () => glassQuality(86, false),
-    getComputedStyle: el => ({ opacity: el.opacity ?? '1', direction, font: '500 12px sans-serif', letterSpacing: '0px', columnGap: '4px', padding: '0px', textTransform: 'none' }) })
+    getComputedStyle: el => ({ opacity: el.opacity ?? '1', zIndex: el.zIndex ?? 'auto', direction, font: '500 12px sans-serif', letterSpacing: '0px', columnGap: '4px', padding: '0px', textTransform: 'none' }) })
   vm.runInContext(ts.transpile(source, { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.attach = attachGlassControl;', context)
   const cleanup = context.attach(host, engine)
   const decode = () => { calls.forEach((call, i) => { call.el.style.backdropFilter = `url(#lens-${i})` }); observers[0].fn() }
@@ -146,7 +152,7 @@ assert(pressedNav.height > nav.first.offsetHeight && pressedNav.height <= nav.gr
 assert.equal(nav.calls[0].updates.at(-1).width, 100, 'Width grows by 20px rather than multiplying the label width')
 assert(Math.abs(pressedNav.refractionHeight - Math.min(pressedNav.width, pressedNav.height) * .22) < 1e-9,
   'Refraction dome scales to the actual compact indicator height')
-assert(Math.abs(pressedNav.refraction - Math.min(pressedNav.width, pressedNav.height) * .26) < 1e-9,
+assert(Math.abs(pressedNav.refraction - Math.min(pressedNav.width, pressedNav.height) * .85) < 1e-9,
   'Refraction strength scales to the actual compact indicator height')
 nav.event(nav.group, 'pointermove', { pointerId: 1, clientX: 125, clientY: 20 })
 assert.equal(nav.springs[2].target, 80, 'Crossing a narrow candidate never changes drag width')
@@ -201,6 +207,7 @@ assert.equal(range.springs[0].target, 12, 'RTL reverses travel')
 range.first.value = '25'; range.event(range.group, 'inkroam:range-update')
 assert.equal(range.springs[0].target, 180, 'Property-only updates resync')
 range.springs[1].tick(1, 0)
+const pressedThumb = range.calls[0].updates.at(-1)
 assert.equal(range.calls[0].updates.at(-1).width, 42, 'Press expands thumb')
 assert.equal(range.calls[0].updates.at(-1).height, 28)
 assert.equal(range.calls[0].updates.at(-1).refractionHeight, 28 * .45, 'Pressed thumb keeps a proportional refractive band')
@@ -219,8 +226,8 @@ assert.equal(failed.group.children.length, 2, 'Decode timeout retains original n
 // appearance subpage, not every hidden control across both retained pages.
 const controlsSource = fs.readFileSync('app/utils/glass-controls.ts', 'utf8')
 const managerSource = fs.readFileSync('app/utils/experimental-glass.ts', 'utf8')
-assert.match(controlsSource, /const movingLens = indicatorDock && portaled/, 'Appearance indicator gets independent optical lens')
-assert.match(controlsSource, /indicatorDock!\.appendChild\(movingLens\)/, 'Moving lens escapes the panel backdrop root')
+assert.match(controlsSource, /const movingLens = movingPortaled/, 'Moving controls get an independent optical lens')
+assert.match(controlsSource, /opticalDock!\.appendChild\(movingLens\)/, 'Moving lens escapes the panel backdrop root')
 assert.match(controlsSource, /engine\.createGlass\(opticalTarget,/, 'Indicator refraction uses escaped lens')
 assert.match(controlsSource, /host\.style\.setProperty\('anchor-name', anchor\)/, 'Moving optics follows real host via compositor CSS anchor')
 assert.match(controlsSource, /movingLens\?\.remove\(\)/, 'Destroy removes the escaped optical lens')
@@ -387,6 +394,42 @@ assert.deepEqual(softened.slice(center, center + 4), original.slice(center, cent
 assert.deepEqual(pixels.renderMap({ ...shape, edgeSoftness: 0 }, 2).canvas.data, original, 'Off preserves upstream map pixels')
 console.log('PASS: actual lens-map boundary alpha changes, interior pixels unchanged, AA-off retains upstream output.')
 
+// Follow the sampled background, not just the existence/direction of G.
+// SVG first composites the lens map over neutral grey, then displaces the
+// source. A thin central rail / label has to reach BOTH upper and lower rims.
+// Disable highlights here so a bright outline cannot satisfy this regression.
+function centralDetailAtRims(options, detailHeight) {
+  const shape = { ...options, width: Math.round(options.width), height: Math.round(options.height),
+    edgeSoftness: .8, specular: 0 }
+  const map = pixels.renderMap(shape, 1)
+  const middle = Math.floor(map.width / 2)
+  const inkTop = shape.height / 2 - detailHeight / 2
+  const inkBottom = shape.height / 2 + detailHeight / 2
+  const hit = { top: 0, bottom: 0 }
+  for (let row = 0; row < map.height; row++) {
+    const y = row + .5, at = (row * map.width + middle) * 4
+    const alpha = map.canvas.data[at + 3] / 255
+    const green = 128 + (map.canvas.data[at + 1] - 128) * alpha
+    const sourceY = y + 2 * shape.refraction * (green / 255 - .5)
+    if (sourceY < inkTop || sourceY >= inkBottom) continue
+    if (y < shape.height / 4) hit.top += alpha
+    if (y > shape.height * .75) hit.bottom += alpha
+  }
+  return hit
+}
+for (const [name, options, detailHeight, previousRefraction] of [
+  ['slider', pressedThumb, 4, 6],
+  ['indicator', pressedSegment, 12, Math.min(pressedSegment.width, pressedSegment.height) * .26],
+]) {
+  const before = centralDetailAtRims({ ...options, refraction: previousRefraction }, detailHeight)
+  const after = centralDetailAtRims(options, detailHeight)
+  assert.equal(before.top, 0, `${name}: reproduce the blank upper surface`)
+  assert.equal(before.bottom, 0, `${name}: reproduce the blank lower surface`)
+  assert(after.top >= 1 && after.bottom >= 1,
+    `${name}: actual background detail must be refracted into both curved rim bands`)
+}
+console.log('PASS: central rail/label detail reaches upper and lower rim bands; previous strengths sample only blank padding. Highlights disabled.')
+
 // A broad bezel must not reach the medial-axis discontinuity inside a tight
 // corner. These are actual generated map pixels, not a source-string assertion.
 const wideShape = { width: 350, height: 600, radius: 12, bezel: .3, specular: 0, boundedBezel: true }
@@ -442,3 +485,55 @@ for (const anchored of [false, true]) {
   inline.cleanup.destroy()
 }
 console.log('PASS panel slider optics stay above their own rail, preserve press geometry and reuse the inline controller after sleep')
+
+// Ambient page images/cards lie outside the panel backdrop root and its
+// masked scroller. Both moving controls must sample ABOVE the completed panel,
+// not an isolated inline source or a portal underneath the real rail.
+for (const anchored of [false, true]) for (const music of [false, true]) {
+  const escaped = fixture(true, true, anchored, true, true, true, music)
+  escaped.decode()
+  const optic = escaped.calls[0].el
+  assert.notEqual(optic, escaped.host, 'Thumb optics escapes the masked scroller')
+  assert.equal(optic.parentElement, escaped.dock, 'Page images/cards remain in the optical backdrop')
+  assert(escaped.dock.children.indexOf(optic) > escaped.dock.children.indexOf(escaped.panel),
+    'Optical lens samples the finished panel and rail instead of painting underneath them')
+  assert.equal(optic.style.zIndex, '1')
+  assert.equal(escaped.host.parentElement, escaped.group, 'Original thumb/cap and native input stay inline')
+  assert.equal(escaped.calls.length, 1, 'No second filter bends the rail twice')
+  if (anchored) {
+    assert.equal(optic.style.getPropertyValue('position-anchor'), escaped.host.style.getPropertyValue('anchor-name'))
+  } else {
+    assert.equal(optic.style.left, '125px')
+    assert.equal(optic.style.top, '150px')
+  }
+  escaped.springs[1].tick(1, 0)
+  assert.equal(optic.style.borderRadius, '14px', 'Escaped thumb preserves its pressed capsule')
+  escaped.page.opacity = '.4'; escaped.host.opacity = '.5'
+  escaped.cleanup.refreshLayout()
+  assert.equal(optic.style.opacity, '0.2', 'Escaped lens follows source and page opacity exactly once')
+  escaped.cleanup.setDormant(true)
+  assert.equal(optic.style.visibility, 'hidden')
+  escaped.cleanup.setDormant(false)
+  assert.notEqual(optic.style.visibility, 'hidden')
+  assert.equal(escaped.calls.length, 1, 'Wake reuses the decoded external filter')
+  escaped.cleanup.destroy()
+  assert.equal(escaped.dock.children.length, 1, 'Destroy removes the external thumb lens')
+}
+assert.match(railCss, /\[data-glass-module='thumb'\]:not\(\.glass-control-optics\)::after/,
+  'Only the original thumb owns the white cap; it cannot hide the escaped backdrop lens')
+console.log('PASS: appearance/music thumbs escape backdrop and mask roots, sample above the real rail and retain anchoring, opacity, dormancy and cleanup.')
+
+for (const anchored of [false, true]) {
+  const header = fixture(false, false, anchored, false, true)
+  header.decode()
+  const optic = header.calls[0].el
+  assert.equal(optic.parentElement, header.dock, 'Navbar lens escapes the filtered header to sample page/cards')
+  assert.equal(optic.style.zIndex, '31', 'Ambient optics paints above the header stacking context')
+  assert.equal(header.host.parentElement, header.group, 'Original navigation remains in place')
+  if (!anchored) {
+    assert.equal(optic.style.left, '125px')
+    assert.equal(optic.style.top, '150px')
+  }
+  header.cleanup.destroy()
+  assert.equal(header.dock.children.length, 1)
+}
