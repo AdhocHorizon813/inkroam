@@ -138,13 +138,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const opticalDock = articleToolbar ? document.body
     : panel?.closest<HTMLElement>('.appearance-dock, .music-dock')
       ?? navbarSurface?.parentElement ?? null
-  // The stationary rail can paint below the scroller, but the moving lens must
-  // paint ABOVE the completed panel and rail. Inline thumbs are trapped by the
-  // scroll mask / panel backdrop root and cannot refract page images or cards.
-  // Keep the real thumb inline for its anchor, cap, input and lifecycle; only
-  // its optical surface escapes, just like the existing indicator lens.
+  // Range thumbs must remain inside their rail: the panel's transform, clip
+  // and scrolling then apply to both together, including every opening/exit
+  // frame. Only selection indicators use an external optical surface.
   const portaled = Boolean(panel && scroller && hasTrack)
-  const movingPortaled = Boolean(opticalDock && (scroller || navbarSurface || articleToolbar))
+  const movingPortaled = !slider && Boolean(opticalDock && (scroller || navbarSurface || articleToolbar))
   // A JavaScript scroll handler + rAF follows one composited frame behind touch
   // scrolling. On Blink, CSS anchor positioning lets the compositor tether an
   // out-of-scroller indicator lens directly to its real source.
@@ -174,11 +172,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   }
   const movingLens = movingPortaled ? document.createElement('span') : null
   if (movingLens) {
-    movingLens.className = `glass-control-optics ${slider ? 'glass-thumb-optics' : 'glass-indicator-optics'}`
+    movingLens.className = 'glass-control-optics glass-indicator-optics'
     movingLens.style.position = 'fixed'
     const stackingOwner = articleToolbar ? group.closest<HTMLElement>('.article-tools') ?? group : opticalOwner!
     movingLens.style.zIndex = String((Number(getComputedStyle(stackingOwner).zIndex) || 0) + 1)
-    movingLens.dataset.glassModule = slider ? 'thumb' : 'indicator'
+    movingLens.dataset.glassModule = 'indicator'
     movingLens.setAttribute('aria-hidden', 'true')
     if (nativeAnchored) {
       const anchor = `--inkroam-optic-${++nextOpticAnchor}`
@@ -311,24 +309,13 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const top = Math.max(...verticalBounds.map(box => box.top))
     const right = Math.min(view.right, frame.right)
     const bottom = Math.min(...verticalBounds.map(box => box.bottom))
-    // Native anchors remain the steady scroll path. During owner animation,
-    // use the same transformed viewport rect as the real thumb; an external
-    // anchor can otherwise lag behind the panel's composited transform.
-    const measuredThumb = slider && (!ready || [opticalOwner, subpage, reveal].some(owner =>
-      (owner?.getAnimations?.() ?? []).some(animation =>
-        animation.playState === 'running' || animation.pending)))
-    if (!nativeAnchored || measuredThumb) {
+    if (!nativeAnchored) {
       // Match the fixed lens's viewport coordinate system, including animated
       // source transforms. The dock only owns stacking/lifetime, not geometry.
       movingLens.style.left = `${source.left}px`
       movingLens.style.top = `${source.top}px`
       movingLens.style.width = `${source.width}px`
       movingLens.style.height = `${source.height}px`
-    } else if (slider) {
-      movingLens.style.left = 'anchor(left)'
-      movingLens.style.top = 'anchor(top)'
-      movingLens.style.width = 'anchor-size(width)'
-      movingLens.style.height = 'anchor-size(height)'
     }
     if (host.closest('[data-glass-presence="closed"]') || host.offsetParent === null
       || source.width < 1 || source.height < 1
@@ -358,11 +345,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     alignMovingOptics()
   }
   const queueAlign = () => {
-    if (!alignFrame) alignFrame = requestAnimationFrame(() => {
-      alignFrame = 0
-      alignAllOptics()
-      if (!ready) activateDecodedControl()
-    })
+    if (!alignFrame) alignFrame = requestAnimationFrame(() => { alignFrame = 0; alignAllOptics() })
   }
   if (opticalScroller && (movingLens || (portaled && !nativeAnchored))) {
     // Native CSS anchors follow scrolling without a JS position follower.
@@ -529,20 +512,6 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
 
   function activateDecodedControl() {
     if (disposed || (ready && !hasTrack) || !opticalTarget.style.backdropFilter.includes('url(')) return
-    if (slider && movingLens) {
-      // Decode alone is not readiness. Align while still hidden, then switch
-      // off the native thumb and reveal the single painted surface atomically.
-      decoded.disconnect()
-      alignAllOptics()
-      const source = host.getBoundingClientRect(), optic = movingLens.getBoundingClientRect()
-      if (host.offsetParent === null || source.width < 1 || source.height < 1) return
-      if ((['left', 'top', 'width', 'height'] as const).some(edge =>
-        !Number.isFinite(optic[edge]) || Math.abs(source[edge] - optic[edge]) > .75)) {
-        queueAlign()
-        return
-      }
-      host.setAttribute('data-glass-optical-source', '')
-    }
     ready = true
     clearTimeout(timeout)
     host.setAttribute('data-liquid-glass-control', '')
@@ -562,8 +531,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const decoded = new MutationObserver(activateDecodedControl)
   decoded.observe(opticalTarget, { attributes: true, attributeFilter: ['style'] })
   if (hasTrack) decoded.observe(lens, { attributes: true, attributeFilter: ['style'] })
-  // The sibling samples the already-painted owner, real rail and ambient
-  // page. Controls without a filtered owner retain their inline path.
+  // Selection indicators can sample the completed owner through a sibling.
+  // Range thumbs always render on their original inline element.
   try {
     controller = engine.createGlass(opticalTarget, { mode: 'backdrop', refraction: slider ? 6 : navbar ? 8 : 5,
       bezel: slider ? .9 : navbar ? .6 : .35, curvature: slider || navbar ? 3 : 4,
@@ -702,7 +671,6 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     host.removeAttribute('data-liquid-glass-dormant')
     host.removeAttribute('data-liquid-glass-active')
     host.removeAttribute('data-liquid-glass-control')
-    host.removeAttribute('data-glass-optical-source')
     host.style.removeProperty('--glass-press')
     for (const [name, value, priority] of oldStyles) {
       if (value) host.style.setProperty(name, value, priority)

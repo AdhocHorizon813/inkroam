@@ -5,6 +5,7 @@ export const GLASS_GROUPS = [
   { id: 'appearance', label: '阅读外观面板', material: 'navMaterial', owner: '导航材质' },
   { id: 'music', label: '音乐面板', material: 'musicMaterial', owner: '音乐材质' },
   { id: 'tools', label: '正文工具', material: 'dropdownMaterial', owner: '下拉材质' },
+  { id: 'tools-track', label: '正文工具轨道', material: 'dropdownMaterial', owner: '下拉材质' },
   { id: 'dropdown', label: '下拉菜单与日历', material: 'dropdownMaterial', owner: '下拉材质' },
   { id: 'confirm', label: '确认弹窗', material: 'navMaterial', owner: '导航材质' },
   { id: 'toolbar', label: 'PDF 工具栏', material: 'material', owner: '内容材质' },
@@ -37,7 +38,9 @@ const bounded = (value: unknown, min: number, max: number, fallback: number) =>
 export function normalizeGlassPreferences(raw?: unknown, clarity = 86, antialias = false): GlassPreferences {
   const source = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
   return Object.fromEntries(GLASS_GROUPS.map(({ id }) => {
-    const item = source[id]
+    // The toolbar previously shared tools preferences. Preserve that exact
+    // appearance once, then persist its independently editable track settings.
+    const item = source[id] ?? (id === 'tools-track' ? source.tools : undefined)
     const p = item && typeof item === 'object' ? item as Partial<GlassPreference> : {}
     return [id, {
       enabled: p.enabled !== false,

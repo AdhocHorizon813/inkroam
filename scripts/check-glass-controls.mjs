@@ -96,7 +96,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     group.getBoundingClientRect = () => ({ left: 125, top: 150, right: 365, bottom: 190, width: 240, height: 40 })
   }
   const observers = [], springs = [], calls = [], timers = new Map(), frames = new Map()
-  let frameId = 0, layoutLag = 0, anchorLag = 0
+  let frameId = 0
   let direction = 'ltr'
   class Observer {
     constructor(fn) { this.fn = fn; this.targets = []; observers.push(this) }
@@ -121,7 +121,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
       const anchored = el.style.left === 'anchor(left)'
       const source = (el.style.getPropertyValue('position-anchor') === host.style.getPropertyValue('anchor-name') ? host : group).getBoundingClientRect()
       const left = anchored ? source.left : parseFloat(el.style.left) || 0
-      const top = (anchored ? source.top + anchorLag : parseFloat(el.style.top) || 0) + layoutLag
+      const top = anchored ? source.top : parseFloat(el.style.top) || 0
       const width = anchored ? source.width : parseFloat(el.style.width) || el.offsetWidth
       const height = anchored ? source.height : parseFloat(el.style.height) || el.offsetHeight
       return { left, top, width, height, right: left + width, bottom: top + height }
@@ -140,7 +140,6 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   const event = (el, name, values = {}) => { const e = new Event(name, { cancelable: true });
     for (const [k, v] of Object.entries(values)) Object.defineProperty(e, k, { value: v }); el.dispatchEvent(e) }
   return { host, group, first, second, panel, scroller, page, dock, body, pageScroll, reveal, window, springs, calls, observers, timers, frames, cleanup, decode, event,
-    layoutLag: value => { layoutLag = value }, anchorLag: value => { anchorLag = value },
     flushFrame: () => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(fn => fn(0)) },
     rtl: () => { direction = 'rtl' } }
 }
@@ -517,68 +516,34 @@ for (const anchored of [false, true]) {
 }
 console.log('PASS panel slider optics stay above their own rail, preserve press geometry and reuse the inline controller after sleep')
 
-// Ambient page images/cards lie outside the panel backdrop root and its
-// masked scroller. Both moving controls must sample ABOVE the completed panel,
-// not an isolated inline source or a portal underneath the real rail.
+// Range thumbs belong to the rail's DOM and animation subtree throughout
+// loading, opening, closing and dormancy. No viewport sibling can drift away.
 for (const anchored of [false, true]) for (const music of [false, true]) {
-  const escaped = fixture(true, true, anchored, true, true, true, music)
-  escaped.decode()
-  const optic = escaped.calls[0].el
-  assert.notEqual(optic, escaped.host, 'Thumb optics escapes the masked scroller')
-  assert.equal(optic.parentElement, escaped.dock, 'Page images/cards remain in the optical backdrop')
-  assert(escaped.dock.children.indexOf(optic) > escaped.dock.children.indexOf(escaped.panel),
-    'Optical lens samples the finished panel and rail instead of painting underneath them')
-  assert.equal(optic.style.zIndex, '1')
-  assert.equal(escaped.host.parentElement, escaped.group, 'Original input/geometry anchor stays inline')
-  assert(escaped.host.hasAttribute('data-glass-optical-source'), 'Inline anchor cannot paint a second cap/shadow')
-  assert.equal(escaped.calls.length, 1, 'No second filter bends the rail twice')
-  if (anchored) {
-    assert.equal(optic.style.getPropertyValue('position-anchor'), escaped.host.style.getPropertyValue('anchor-name'))
-  } else {
-    assert.equal(optic.style.left, '125px')
-    assert.equal(optic.style.top, '150px')
-  }
-  escaped.springs[1].tick(1, 0)
-  assert.equal(optic.style.getPropertyValue('--glass-press'), '1', 'The single optical surface owns cap pressure')
-  assert.equal(optic.style.borderRadius, '14px', 'Escaped thumb preserves its pressed capsule')
-  escaped.page.opacity = '.4'; escaped.host.opacity = '.5'
-  escaped.cleanup.refreshLayout()
-  assert.equal(optic.style.opacity, '0.2', 'Escaped lens follows source and page opacity exactly once')
-  escaped.cleanup.setDormant(true)
+  const inline = fixture(true, true, anchored, true, true, true, music, true)
+  const optic = inline.calls[0].el
+  assert.equal(optic, inline.host, 'The real inline thumb owns its glass and cap')
+  assert.equal(optic.parentElement, inline.group, 'Thumb stays on the native rail')
+  assert.equal(inline.dock.children.length, 1, 'No out-of-panel thumb exists during opening')
+  assert.equal(optic.style.getPropertyValue('anchor-name'), '', 'No viewport anchor or independent position follower')
+  inline.decode()
+  assert(optic.hasAttribute('data-liquid-glass-active'), 'Decode activates the existing inline surface immediately')
+  inline.springs[1].tick(1, 0)
+  assert.equal(optic.style.getPropertyValue('--glass-press'), '1')
+  assert.equal(inline.calls[0].updates.at(-1).refraction, 6)
+  inline.page.dataset.glassPresence = 'closing'
+  inline.cleanup.refreshLayout()
+  assert.equal(optic.parentElement, inline.group, 'Closing clips/transforms the thumb together with its rail')
+  inline.cleanup.setDormant(true)
   assert.equal(optic.style.visibility, 'hidden')
-  escaped.cleanup.setDormant(false)
-  assert.notEqual(optic.style.visibility, 'hidden')
-  assert.equal(escaped.calls.length, 1, 'Wake reuses the decoded external filter')
-  escaped.cleanup.destroy()
-  assert(!escaped.host.hasAttribute('data-glass-optical-source'), 'Destroy restores original thumb painting')
-  assert.equal(escaped.dock.children.length, 1, 'Destroy removes the external thumb lens')
+  inline.cleanup.setDormant(false)
+  assert.equal(inline.calls.length, 1, 'Reopen reuses the inline filter')
+  assert.equal(inline.dock.children.length, 1, 'No cap is left outside a closing panel')
+  inline.cleanup.destroy()
+  assert.equal(inline.frames.size, 0)
 }
-assert.match(railCss, /\[data-glass-module='thumb'\]:not\(\[data-glass-optical-source\]\)::after/,
-  'A portaled thumb cap belongs to the optical surface, not the inline anchor')
-console.log('PASS: appearance/music thumbs escape backdrop and mask roots, sample above the real rail and retain anchoring, opacity, dormancy and cleanup.')
-
-for (const music of [false, true]) {
-  const loading = fixture(true, true, true, true, true, true, music, true)
-  const optic = loading.calls[0].el
-  loading.layoutLag(18)
-  loading.decode()
-  assert(!loading.host.hasAttribute('data-liquid-glass-active'), 'Keep native paint until decoded optics is aligned')
-  assert(!optic.hasAttribute('data-liquid-glass-active'), 'A decoded but offset lens must not appear below the thumb')
-  loading.layoutLag(0); loading.flushFrame()
-  assert(loading.host.hasAttribute('data-glass-optical-source'))
-  assert(optic.hasAttribute('data-liquid-glass-active'), 'Hand off both visibility flags only after alignment')
-  loading.anchorLag(18)
-  assert.equal(optic.style.top, '150px', 'Animated panel uses transformed viewport coordinates instead of a stale anchor')
-  loading.host.getBoundingClientRect = () => ({ left: 125, top: 170, right: 205, bottom: 202, width: 80, height: 32 })
-  loading.flushFrame()
-  assert.equal(optic.style.top, '170px', 'Follower catches an animation that started before glass attached')
-  loading.panel.animations = []; loading.anchorLag(0)
-  loading.flushFrame()
-  assert.equal(optic.style.top, 'anchor(top)', 'Steady state resumes native compositor anchoring')
-  loading.cleanup.destroy()
-  assert.equal(loading.frames.size, 0)
-}
-console.log('PASS: all range thumbs wait for alignment, use one painted cap/optical surface and measure owner motion before returning to native anchors.')
+assert.match(railCss, /\[data-glass-module='thumb'\]::after/,
+  'The inline thumb keeps the cap and optical paint in one element')
+console.log('PASS: all range thumbs stay inside their rail/panel during loading and exit; no external surface or alignment wait.')
 
 const delayedTrack = fixture(false, true, true, true, true)
 delayedTrack.calls[0].el.style.backdropFilter = 'url(#indicator-first)'
