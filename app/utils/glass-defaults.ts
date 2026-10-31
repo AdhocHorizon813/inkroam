@@ -2,7 +2,7 @@ import type { GlassGlobalOverride, GlassPreferences } from './glass-settings'
 
 // User-tuned in Edge on 2026-10-29. Exact capture is archived in docs.
 // Factories return independent objects; applying defaults must not mutate them.
-const COMPONENT_DEFAULTS: GlassPreferences = {
+const COMPONENT_DEFAULTS: Omit<GlassPreferences, 'tools-track'> = {
   "navbar": {
     "aaScale": 1,
     "antialias": true,
@@ -162,7 +162,9 @@ const GLOBAL_DEFAULTS = {
 }
 
 export function createDefaultGlassPreferences(): GlassPreferences {
-  return Object.fromEntries(Object.entries(COMPONENT_DEFAULTS).map(([id, value]) => [id, { ...value }])) as GlassPreferences
+  const components = Object.fromEntries(Object.entries(COMPONENT_DEFAULTS).map(([id, value]) => [id, { ...value }])) as Omit<GlassPreferences, 'tools-track'>
+  // Start the new track item at the existing toolbar's captured parameters.
+  return { ...components, 'tools-track': { ...components.tools } }
 }
 
 export function createDefaultGlassGlobal(): GlassGlobalOverride {

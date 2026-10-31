@@ -3,6 +3,7 @@ import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '../app/
 import assert from 'node:assert/strict'
 import { GLASS_GROUPS, normalizeGlassPreferences, normalizeGlassGlobal, effectiveGlassPreference, glassSurfaceEnabled, glassMaterialKey } from '../app/utils/glass-settings.ts'
 import { componentGlassQuality } from '../app/utils/glass-quality.ts'
+import { glassOptics } from '../app/utils/glass-optics.ts'
 
 const legacy = normalizeGlassPreferences(undefined, 42, true)
 assert.equal(Object.keys(legacy).length, GLASS_GROUPS.length)
@@ -37,6 +38,29 @@ assert(!glassSurfaceEnabled(host('indicator'), overridden), 'Disabling global re
 assert(glassSurfaceEnabled(host('navbar'), overridden))
 assert.equal(normalizeGlassGlobal({ enabled: 'true' }).enabled, false)
 
+// Splitting the article toolbar from its panels must preserve both old storage
+// and its optical recipe, while allowing independent/global changes afterward.
+const previousTools = { ...createDefaultGlassPreferences().tools, clarity: 29, antialias: false, resolution: .25, enabled: false }
+const migrated = normalizeGlassPreferences({ tools: previousTools })
+assert.deepEqual(migrated['tools-track'], previousTools)
+assert.notEqual(migrated['tools-track'], migrated.tools)
+assert.deepEqual(glassOptics('tools-track'), glassOptics('tools'), 'Track retains the previous refraction profile')
+migrated['tools-track'].enabled = true
+migrated['tools-track'].clarity = 62
+assert.equal(migrated.tools.clarity, 29, 'Track controls cannot alter find/export panels')
+const trackData = { ...data, dropdownMaterial: 'liquid', glassComponents: JSON.stringify(migrated) }
+assert.equal(glassMaterialKey(host('tools-track')), 'dropdownMaterial')
+assert(glassSurfaceEnabled(host('tools-track'), trackData))
+assert(!glassSurfaceEnabled(host('tools'), trackData))
+assert.equal(effectiveGlassPreference(host('tools-track'), trackData).clarity, 62)
+assert.equal(normalizeGlassPreferences(migrated)['tools-track'].clarity, 62, 'Explicit track settings survive reload')
+trackData.glassGlobal = JSON.stringify({ enabled: true, settings: { clarity: 18, enabled: false } })
+assert.equal(effectiveGlassPreference(host('tools-track'), trackData).clarity, 18)
+assert(!glassSurfaceEnabled(host('tools-track'), trackData), 'Global off includes the article toolbar track')
+trackData.glassGlobal = JSON.stringify({ enabled: false })
+assert(glassSurfaceEnabled(host('tools-track'), trackData))
+assert.equal(effectiveGlassPreference(host('tools-track'), trackData).clarity, 62, 'Global override preserves the saved track preference')
+
 const p = { ...legacy.navbar, resolution: 1, antialias: false, aaScale: 2, pixelBudget: 1.5 }
 const quarter = normalizeGlassPreferences({ indicator: { resolution: .25 } }).indicator
 assert.equal(quarter.resolution, .25, 'Quarter-resolution preference survives normalization')
@@ -59,7 +83,11 @@ assert.equal(throttle.deform, false)
 assert(componentGlassQuality({ ...p, clarity: 0 }, 100, 50, false, 1).blur > componentGlassQuality({ ...p, clarity: 100 }, 100, 50, false, 1).blur)
 
 const capture = JSON.parse(readFileSync(new URL('../docs/liquid-glass-tuned-2026-10-29.json', import.meta.url), 'utf8'))
-assert.deepEqual(createDefaultGlassPreferences(), capture.components)
+assert.deepEqual(createDefaultGlassPreferences(), { ...capture.components, 'tools-track': capture.components.tools })
+const trackDefaults = createDefaultGlassPreferences()
+trackDefaults['tools-track'].clarity = 0
+assert.equal(trackDefaults.tools.clarity, 75)
+assert.deepEqual(createDefaultGlassPreferences()['tools-track'], capture.components.tools, 'Track defaults retain the existing toolbar parameters')
 assert.deepEqual(createDefaultGlassGlobal().settings, capture.global.settings)
 assert.equal(createDefaultGlassGlobal().enabled, false, 'New visitors still opt into global override')
 const customized = createDefaultGlassPreferences()
@@ -73,6 +101,10 @@ assert.equal(createDefaultGlassGlobal().settings.clarity, 100)
 const panelSource = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 const glassCss = readFileSync('app/components/ExperimentalGlass.client.vue', 'utf8')
 const appSource = readFileSync('app/app.vue', 'utf8')
+const articleToolsSource = readFileSync('app/components/ArticleTools.vue', 'utf8')
+assert.match(articleToolsSource, /data-glass-module="tools-track" class="article-tools__actions"/)
+assert.match(articleToolsSource, /id="article-find-panel"[^>]+data-glass-module="tools"/)
+assert.match(articleToolsSource, /id="article-export-panel"[^>]+data-glass-module="tools"/)
 assert.match(panelSource, /root\.dataset\.glassContentPreview = root\.dataset\.experimentalLiquidGlass === 'on'/)
 assert.match(panelSource, /state\.contentMaterial === 'liquid' && contentGlassEnabled && blink/)
 assert.match(glassCss, /data-glass-content-preview='on'/)
