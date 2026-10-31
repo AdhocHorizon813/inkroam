@@ -98,6 +98,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   const observers = [], springs = [], calls = [], timers = new Map(), frames = new Map()
   let frameId = 0
   let direction = 'ltr'
+  let articleTrackDeform = true
   class Observer {
     constructor(fn) { this.fn = fn; this.targets = []; observers.push(this) }
     observe(el) { this.targets.push(el) }
@@ -132,7 +133,8 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     window, MutationObserver: Observer, ResizeObserver: Observer, clearTimeout: id => timers.delete(id),
     cancelAnimationFrame: id => frames.delete(id), requestAnimationFrame(fn) { frames.set(++frameId, fn); return frameId },
     CSS: { supports: () => nativeAnchors },
-    currentGlassQuality: () => glassQuality(86, false),
+    currentGlassQuality: (_w, _h, _theme, el) => ({ ...glassQuality(86, false),
+      ...(articleToolbar && el === group ? { deform: articleTrackDeform } : {}) }),
     getComputedStyle: el => ({ opacity: el.opacity ?? '1', zIndex: el.zIndex ?? 'auto', direction, font: '500 12px sans-serif', letterSpacing: '0px', columnGap: '4px', padding: '0px', textTransform: 'none' }) })
   vm.runInContext(ts.transpile(source, { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.attach = attachGlassControl;', context)
   const cleanup = context.attach(host, engine)
@@ -141,7 +143,8 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     for (const [k, v] of Object.entries(values)) Object.defineProperty(e, k, { value: v }); el.dispatchEvent(e) }
   return { host, group, first, second, panel, scroller, page, dock, body, pageScroll, reveal, window, springs, calls, observers, timers, frames, cleanup, decode, event,
     flushFrame: () => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(fn => fn(0)) },
-    rtl: () => { direction = 'rtl' } }
+    rtl: () => { direction = 'rtl' },
+    trackDeform: enabled => { articleTrackDeform = enabled } }
 }
 
 const nav = fixture()
@@ -578,6 +581,24 @@ assert.equal(article.group.children.length, 3, 'Keep only the original indicator
 assert.equal(articleOptic.parentElement, article.body, 'Sample toolbar, card and image outside card containment')
 assert.equal(articleOptic.style.zIndex, '25', 'Moving lens follows the sticky toolbar stacking level')
 assert.equal(articleOptic.style.top, '150px', 'Document-level lens uses viewport coordinates')
+const articleOrigin = article.springs[0].target
+article.event(article.group, 'pointerdown', { button: 0, pointerId: 9, target: article.first })
+article.springs[1].tick(1, 0)
+article.event(article.group, 'pointermove', { pointerId: 9, clientX: 125, clientY: 0 })
+article.springs[0].tick(articleOrigin + 40, 0)
+const shiftRight = parseFloat(article.group.style.getPropertyValue('translate'))
+assert(shiftRight > 0 && shiftRight <= 4, 'Existing article track follows a rightward drag without another optical track')
+article.springs[0].tick(articleOrigin - 40, 0)
+assert(parseFloat(article.group.style.getPropertyValue('translate')) < 0, 'Article track follows a leftward drag')
+article.trackDeform(false)
+article.cleanup.refreshQuality()
+assert.equal(parseFloat(article.group.style.getPropertyValue('translate')), 0, 'Article track obeys its independent deformation setting')
+article.trackDeform(true)
+article.springs[1].tick(0, 0)
+assert.equal(parseFloat(article.group.style.getPropertyValue('translate')), 0, 'Track returns to its resting position on release')
+article.event(article.group, 'pointerup', { pointerId: 9 })
+article.springs[0].tick(articleOrigin, 0)
+assert.equal(article.calls.length, 1, 'Restoring track motion must not restore the duplicate bottom rail')
 article.host.getBoundingClientRect = () => ({ left: 125, top: 140, right: 225, bottom: 200, width: 100, height: 60 })
 article.cleanup.refreshLayout()
 assert.equal(articleOptic.style.clipPath, '', 'The full upper/lower rounded rim can extend beyond the row')
@@ -587,6 +608,7 @@ assert.equal(articleOptic.style.left, '180px', 'Sticky movement aligns during th
 assert.equal(articleOptic.style.top, '130px')
 assert.equal(article.calls[0].updates.at(-1).blur, 0, 'Indicator glyphs remain clear')
 article.cleanup.destroy()
+assert.equal(article.group.style.getPropertyValue('translate'), '', 'Teardown restores the original toolbar position')
 assert.equal(article.body.children.length, 1, 'Remove the document-level optical surface on teardown')
 console.log('PASS: article indicator samples outside toolbar/card roots, retains upper/lower rims and adds no duplicate bottom rail.')
 

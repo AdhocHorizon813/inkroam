@@ -426,10 +426,17 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       movingLens.style.borderRadius = `${radius}px`
       movingLens.style.setProperty('--glass-press', String(progress))
     }
-    if (trackController) {
+    // Track motion does not require a second optical surface. The article
+    // toolbar already owns its glass, but still follows the dragged indicator.
+    if (trackController || articleToolbar) {
+      const trackDeform = articleToolbar
+        ? currentGlassQuality(group!.clientWidth, group!.offsetHeight, group!.dataset.glassTheme, group!).deform
+        : quality.deform
       const fraction = Math.max(-1, Math.min(1, (x - trackOrigin) / Math.max(1, group!.clientWidth)))
-      const shift = quality.deform === false ? 0 : Math.sign(fraction) * 4 * (1 - (1 - Math.abs(fraction)) ** 3) * progress
+      const shift = trackDeform === false ? 0 : Math.sign(fraction) * 4 * (1 - (1 - Math.abs(fraction)) ** 3) * progress
       group!.style.setProperty('translate', `${shift}px 0`)
+    }
+    if (trackController) {
       const growth = quality.deform === false ? 0 : 2 * progress
       const gw = group!.clientWidth, gh = group!.offsetHeight
       // A small lift of the whole rail, independent of the selected tab width.
