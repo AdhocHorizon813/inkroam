@@ -9,6 +9,7 @@ type PanelMotion = {
   owners: Map<HTMLElement, Set<() => void>>
   moving: Set<HTMLElement>
   frame: number
+  tick: () => void
   onStart: EventListener
   onEnd: EventListener
 }
@@ -27,7 +28,7 @@ function findAppearanceSubpage(host: HTMLElement, panel: HTMLElement): HTMLEleme
 function followOpticalMotion(panel: HTMLElement, owners: HTMLElement[], align: () => void) {
   let motion = panelMotions.get(panel)
   if (!motion) {
-    const state: PanelMotion = { owners: new Map(), moving: new Set(), frame: 0,
+    const state: PanelMotion = { owners: new Map(), moving: new Set(), frame: 0, tick: () => {},
       onStart: () => {}, onEnd: () => {} }
     const alignMoving = () => {
       const callbacks = new Set<() => void>()
@@ -45,6 +46,7 @@ function followOpticalMotion(panel: HTMLElement, owners: HTMLElement[], align: (
       }
       if (state.moving.size) state.frame = requestAnimationFrame(tick)
     }
+    state.tick = tick
     state.onStart = event => {
       const owner = event.target as HTMLElement
       if (!state.owners.has(owner)) return
@@ -68,7 +70,12 @@ function followOpticalMotion(panel: HTMLElement, owners: HTMLElement[], align: (
     let callbacks = motion.owners.get(owner)
     if (!callbacks) { callbacks = new Set(); motion.owners.set(owner, callbacks) }
     callbacks.add(align)
+    // Lazy glass can attach after transitionstart, including a running WAAPI
+    // panel morph. Seed the shared follower instead of waiting for a new event.
+    if ((owner.getAnimations?.() ?? []).some(animation =>
+      animation.playState === 'running' || animation.pending)) motion.moving.add(owner)
   }
+  if (motion.moving.size && !motion.frame) motion.frame = requestAnimationFrame(motion.tick)
   return () => {
     const state = panelMotions.get(panel)
     if (!state) return
@@ -292,13 +299,24 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const top = Math.max(...verticalBounds.map(box => box.top))
     const right = Math.min(view.right, frame.right)
     const bottom = Math.min(...verticalBounds.map(box => box.bottom))
-    if (!nativeAnchored) {
+    // Native anchors remain the steady scroll path. During owner animation,
+    // use the same transformed viewport rect as the real thumb; an external
+    // anchor can otherwise lag behind the panel's composited transform.
+    const measuredThumb = slider && (!ready || [opticalOwner, subpage, reveal].some(owner =>
+      (owner?.getAnimations?.() ?? []).some(animation =>
+        animation.playState === 'running' || animation.pending)))
+    if (!nativeAnchored || measuredThumb) {
       // Match the fixed lens's viewport coordinate system, including animated
       // source transforms. The dock only owns stacking/lifetime, not geometry.
       movingLens.style.left = `${source.left}px`
       movingLens.style.top = `${source.top}px`
       movingLens.style.width = `${source.width}px`
       movingLens.style.height = `${source.height}px`
+    } else if (slider) {
+      movingLens.style.left = 'anchor(left)'
+      movingLens.style.top = 'anchor(top)'
+      movingLens.style.width = 'anchor-size(width)'
+      movingLens.style.height = 'anchor-size(height)'
     }
     if (host.closest('[data-glass-presence="closed"]') || host.offsetParent === null
       || source.width < 1 || source.height < 1
@@ -328,7 +346,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     alignMovingOptics()
   }
   const queueAlign = () => {
-    if (!alignFrame) alignFrame = requestAnimationFrame(() => { alignFrame = 0; alignAllOptics() })
+    if (!alignFrame) alignFrame = requestAnimationFrame(() => {
+      alignFrame = 0
+      alignAllOptics()
+      if (!ready) activateDecodedControl()
+    })
   }
   if (opticalScroller && (movingLens || (portaled && !nativeAnchored))) {
     // Native CSS anchors follow scrolling without a JS position follower.
@@ -398,7 +420,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     host.style.marginLeft = '0'
     host.style.transition = 'none'
     host.style.setProperty('--glass-press', String(progress))
-    if (movingLens) movingLens.style.borderRadius = `${radius}px`
+    if (movingLens) {
+      movingLens.style.borderRadius = `${radius}px`
+      movingLens.style.setProperty('--glass-press', String(progress))
+    }
     if (trackController) {
       const fraction = Math.max(-1, Math.min(1, (x - trackOrigin) / Math.max(1, group!.clientWidth)))
       const shift = quality.deform === false ? 0 : Math.sign(fraction) * 4 * (1 - (1 - Math.abs(fraction)) ** 3) * progress
@@ -487,8 +512,22 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     render()
   }
 
-  const decoded = new MutationObserver(() => {
-    if (disposed || !opticalTarget.style.backdropFilter.includes('url(')) return
+  function activateDecodedControl() {
+    if (disposed || (ready && !hasTrack) || !opticalTarget.style.backdropFilter.includes('url(')) return
+    if (slider && movingLens) {
+      // Decode alone is not readiness. Align while still hidden, then switch
+      // off the native thumb and reveal the single painted surface atomically.
+      decoded.disconnect()
+      alignAllOptics()
+      const source = host.getBoundingClientRect(), optic = movingLens.getBoundingClientRect()
+      if (host.offsetParent === null || source.width < 1 || source.height < 1) return
+      if ((['left', 'top', 'width', 'height'] as const).some(edge =>
+        !Number.isFinite(optic[edge]) || Math.abs(source[edge] - optic[edge]) > .75)) {
+        queueAlign()
+        return
+      }
+      host.setAttribute('data-glass-optical-source', '')
+    }
     ready = true
     clearTimeout(timeout)
     host.setAttribute('data-liquid-glass-control', '')
@@ -504,7 +543,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     }
 
     if (!hasTrack || lens.style.backdropFilter.includes('url(')) decoded.disconnect()
-  })
+  }
+  const decoded = new MutationObserver(activateDecodedControl)
   decoded.observe(opticalTarget, { attributes: true, attributeFilter: ['style'] })
   if (hasTrack) decoded.observe(lens, { attributes: true, attributeFilter: ['style'] })
   // The sibling samples the already-painted owner, real rail and ambient
@@ -647,6 +687,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     host.removeAttribute('data-liquid-glass-dormant')
     host.removeAttribute('data-liquid-glass-active')
     host.removeAttribute('data-liquid-glass-control')
+    host.removeAttribute('data-glass-optical-source')
     host.style.removeProperty('--glass-press')
     for (const [name, value, priority] of oldStyles) {
       if (value) host.style.setProperty(name, value, priority)
