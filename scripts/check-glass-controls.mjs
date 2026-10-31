@@ -42,7 +42,7 @@ class Element extends EventTarget {
   getAnimations() { return this.animations ?? [] }
   click() { this.clicks = (this.clicks ?? 0) + 1 }
 }
-function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false, withDock = false, withReveal = false, musicPanel = false, startAnimating = false) {
+function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false, withDock = false, withReveal = false, musicPanel = false, startAnimating = false, articleToolbar = false) {
   const host = new Element(), group = new Element('DIV'), window = new EventTarget()
   window.innerWidth = 1000; window.innerHeight = 800
   host.dataset.glassModule = slider ? 'thumb' : 'indicator'
@@ -55,6 +55,13 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   group.appendChild(host); group.appendChild(first); if (!slider) group.appendChild(second)
   const panel = new Element('SECTION'), scroller = new Element('DIV'), subpages = new Element('DIV'), page = new Element('DIV'), dock = new Element('DIV')
   const reveal = new Element('DIV')
+  const body = new Element('BODY'), pageScroll = new Element('DIV')
+  if (articleToolbar) {
+    group.classes.delete('main-nav'); group.classes.add('article-tools__actions')
+    pageScroll.classes.add('page-scroll'); body.appendChild(pageScroll); pageScroll.appendChild(dock)
+    pageScroll.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1000, bottom: 800, width: 1000, height: 800 })
+    dock.classes.add('article-page')
+  }
   if (startAnimating) panel.animations = [{ playState: 'running' }]
   if (withDock) {
     dock.classes.add(musicPanel ? 'music-dock' : 'appearance-dock'); dock.appendChild(panel)
@@ -62,10 +69,11 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     dock.offsetWidth = 90; dock.offsetHeight = 44
   }
   if (withDock && !portaled) {
-    panel.classes.add('site-header'); panel.appendChild(group); panel.zIndex = '30'
+    panel.classes.add(articleToolbar ? 'article-tools' : 'site-header'); panel.appendChild(group); panel.zIndex = articleToolbar ? '24' : '30'
     panel.getBoundingClientRect = () => ({ left: 100, top: 100, right: 450, bottom: 200, width: 350, height: 100 })
     host.getBoundingClientRect = () => ({ left: 125, top: 150, right: 205, bottom: 182, width: 80, height: 32 })
   }
+  if (articleToolbar) dock.getBoundingClientRect = () => ({ left: 100, top: 100, right: 700, bottom: 900, width: 600, height: 800 })
   if (portaled) {
     panel.classes.add(musicPanel ? 'music-panel' : 'appearance-panel'); scroller.classes.add(musicPanel ? 'music-scroll' : 'appearance-panel__scroll')
     panel.appendChild(scroller)
@@ -120,7 +128,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     }
     return el
   }
-  const context = vm.createContext({ HTMLElement: Element, document: { createElement },
+  const context = vm.createContext({ HTMLElement: Element, document: { createElement, body },
     window, MutationObserver: Observer, ResizeObserver: Observer, clearTimeout: id => timers.delete(id),
     cancelAnimationFrame: id => frames.delete(id), requestAnimationFrame(fn) { frames.set(++frameId, fn); return frameId },
     CSS: { supports: () => nativeAnchors },
@@ -131,7 +139,7 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
   const decode = () => { calls.forEach((call, i) => { call.el.style.backdropFilter = `url(#lens-${i})` }); observers[0].fn() }
   const event = (el, name, values = {}) => { const e = new Event(name, { cancelable: true });
     for (const [k, v] of Object.entries(values)) Object.defineProperty(e, k, { value: v }); el.dispatchEvent(e) }
-  return { host, group, first, second, panel, scroller, page, dock, reveal, window, springs, calls, observers, timers, frames, cleanup, decode, event,
+  return { host, group, first, second, panel, scroller, page, dock, body, pageScroll, reveal, window, springs, calls, observers, timers, frames, cleanup, decode, event,
     layoutLag: value => { layoutLag = value }, anchorLag: value => { anchorLag = value },
     flushFrame: () => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(fn => fn(0)) },
     rtl: () => { direction = 'rtl' } }
@@ -580,6 +588,28 @@ delayedTrack.calls[1].el.style.backdropFilter = 'url(#track-later)'
 delayedTrack.observers[0].fn()
 assert(delayedTrack.group.hasAttribute('data-glass-track-active'), 'A later rail decode still completes indicator readiness')
 delayedTrack.cleanup.destroy()
+
+// A glass toolbar already owns its border and background. Its indicator must
+// sample outside that backdrop root, without adding another full-row rail.
+const article = fixture(false, false, true, false, true, false, false, false, true)
+article.decode()
+const articleOptic = article.calls[0].el
+assert.equal(article.calls.length, 1, 'Article toolbar must not get a duplicate track filter/bottom rim')
+assert.equal(article.group.children.length, 3, 'Keep only the original indicator and controls in the toolbar')
+assert.equal(articleOptic.parentElement, article.body, 'Sample toolbar, card and image outside card containment')
+assert.equal(articleOptic.style.zIndex, '25', 'Moving lens follows the sticky toolbar stacking level')
+assert.equal(articleOptic.style.top, '150px', 'Document-level lens uses viewport coordinates')
+article.host.getBoundingClientRect = () => ({ left: 125, top: 140, right: 225, bottom: 200, width: 100, height: 60 })
+article.cleanup.refreshLayout()
+assert.equal(articleOptic.style.clipPath, '', 'The full upper/lower rounded rim can extend beyond the row')
+article.host.getBoundingClientRect = () => ({ left: 180, top: 130, right: 280, bottom: 190, width: 100, height: 60 })
+article.event(article.pageScroll, 'scroll')
+assert.equal(articleOptic.style.left, '180px', 'Sticky movement aligns during the scroll event without a queued-frame offset')
+assert.equal(articleOptic.style.top, '130px')
+assert.equal(article.calls[0].updates.at(-1).blur, 0, 'Indicator glyphs remain clear')
+article.cleanup.destroy()
+assert.equal(article.body.children.length, 1, 'Remove the document-level optical surface on teardown')
+console.log('PASS: article indicator samples outside toolbar/card roots, retains upper/lower rims and adds no duplicate bottom rail.')
 
 for (const anchored of [false, true]) {
   const header = fixture(false, false, anchored, false, true)

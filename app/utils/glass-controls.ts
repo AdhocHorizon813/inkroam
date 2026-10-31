@@ -103,8 +103,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   const input = slider ? group.querySelector<HTMLInputElement>('input[type="range"]') : null
   const musicProgress = group.classList.contains('music-progress')
   const navbar = group.classList.contains('main-nav')
-  // Navigation already sits on the header glass; it needs no second rail.
-  const hasTrack = !slider && !navbar
+  const articleToolbar = group.classList.contains('article-tools__actions')
+  // These owners already paint their own glass. A second full-size rail adds
+  // another refractive/shadow edge below the toolbar's existing bottom edge.
+  const hasTrack = !slider && !navbar && !articleToolbar
   const buttons = slider ? [] : Array.from(group.children).filter((child): child is HTMLElement =>
     child instanceof HTMLElement && (child.tagName === 'BUTTON' || child.tagName === 'A')
     && !child.classList.contains('theme-toggle'))
@@ -118,8 +120,9 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   // above the completed owner without moving labels or native hit targets.
   const panel = host.closest<HTMLElement>('.appearance-panel, .music-panel')
   const navbarSurface = navbar ? host.closest<HTMLElement>('.site-header') : null
-  const opticalOwner = panel ?? navbarSurface
-  const scroller = panel ? host.closest<HTMLElement>('.appearance-panel__scroll, .music-scroll') : null
+  const opticalOwner = panel ?? navbarSurface ?? (articleToolbar ? group : null)
+  const scroller = panel ? host.closest<HTMLElement>('.appearance-panel__scroll, .music-scroll')
+    : articleToolbar ? host.closest<HTMLElement>('.page-scroll') : null
   const opticalScroller = scroller ?? navbarSurface?.closest<HTMLElement>('.page-scroll')
   const reveal = host.closest<HTMLElement>('.glass-settings__reveal')
   const subpage = panel ? findAppearanceSubpage(host, panel) : null
@@ -129,20 +132,24 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   // track and page without copying background images or moving the real buttons.
   // The phone panel is fixed, so a dock-relative absolute sibling cannot resolve
   // its anchors across that containing-block boundary.
-  const opticalDock = panel?.closest<HTMLElement>('.appearance-dock, .music-dock')
-    ?? navbarSurface?.parentElement ?? null
+  // Article cards can establish a fixed containing block via contain:layout.
+  // Put their moving lens at the document root so viewport coordinates and
+  // the backdrop include the finished toolbar, card and page image together.
+  const opticalDock = articleToolbar ? document.body
+    : panel?.closest<HTMLElement>('.appearance-dock, .music-dock')
+      ?? navbarSurface?.parentElement ?? null
   // The stationary rail can paint below the scroller, but the moving lens must
   // paint ABOVE the completed panel and rail. Inline thumbs are trapped by the
   // scroll mask / panel backdrop root and cannot refract page images or cards.
   // Keep the real thumb inline for its anchor, cap, input and lifecycle; only
   // its optical surface escapes, just like the existing indicator lens.
   const portaled = Boolean(panel && scroller && hasTrack)
-  const movingPortaled = Boolean(opticalDock && (scroller || navbarSurface))
+  const movingPortaled = Boolean(opticalDock && (scroller || navbarSurface || articleToolbar))
   // A JavaScript scroll handler + rAF follows one composited frame behind touch
   // scrolling. On Blink, CSS anchor positioning lets the compositor tether an
   // out-of-scroller indicator lens directly to its real source.
   // Keep the measured-position path for browsers without native anchors.
-  const nativeAnchored = (portaled || movingPortaled) && typeof CSS !== 'undefined'
+  const nativeAnchored = !articleToolbar && (portaled || movingPortaled) && typeof CSS !== 'undefined'
     && CSS.supports('anchor-name: --inkroam-optic-probe')
     && CSS.supports('position-anchor: --inkroam-optic-probe')
     && CSS.supports('top: anchor(top)')
@@ -169,7 +176,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   if (movingLens) {
     movingLens.className = `glass-control-optics ${slider ? 'glass-thumb-optics' : 'glass-indicator-optics'}`
     movingLens.style.position = 'fixed'
-    movingLens.style.zIndex = String((Number(getComputedStyle(opticalOwner!).zIndex) || 0) + 1)
+    const stackingOwner = articleToolbar ? group.closest<HTMLElement>('.article-tools') ?? group : opticalOwner!
+    movingLens.style.zIndex = String((Number(getComputedStyle(stackingOwner).zIndex) || 0) + 1)
     movingLens.dataset.glassModule = slider ? 'thumb' : 'indicator'
     movingLens.setAttribute('aria-hidden', 'true')
     if (nativeAnchored) {
@@ -288,7 +296,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const source = host.getBoundingClientRect()
     const view = scroller?.getBoundingClientRect()
       ?? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
-    const frame = opticalOwner.getBoundingClientRect()
+    // A raised article indicator extends above/below the row. Clipping it to
+    // that row cuts off exactly the curved rim that must refract other layers.
+    const frame = articleToolbar
+      ? host.closest<HTMLElement>('.article-page, .standard-page')?.getBoundingClientRect() ?? view
+      : opticalOwner.getBoundingClientRect()
     const revealBox = reveal?.getBoundingClientRect()
     // Accordion/subpage bounds clip vertically during reveal and page motion.
     // Their content width is not the horizontal viewport: a pressed endpoint
@@ -355,8 +367,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   if (opticalScroller && (movingLens || (portaled && !nativeAnchored))) {
     // Native CSS anchors follow scrolling without a JS position follower.
     // The escaped indicator still needs a scroll-time CLIP update.
-    listen(opticalScroller, 'scroll', queueAlign)
+    // One article indicator follows the sticky row before the next paint;
+    // other controls retain native anchors and the shared queued clip update.
+    listen(opticalScroller, 'scroll', articleToolbar ? alignAllOptics : queueAlign)
   }
+  if (articleToolbar && movingLens) listen(window, 'resize', queueAlign)
   if (portaled || movingLens) cleanups.push(followOpticalMotion(opticalOwner!,
     [movingLens ? opticalOwner : null, subpage, reveal].filter((owner): owner is HTMLElement => Boolean(owner)),
     alignAllOptics))
