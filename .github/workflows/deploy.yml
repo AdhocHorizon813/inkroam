@@ -39,7 +39,7 @@ jobs:
 
       - run: npm run generate
       - name: Check generated site
-        run: npm run check -- --built
+        run: npm run check -- --built-only
       - run: touch .output/public/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -17,7 +17,7 @@
 ```
 build  → checkout / setup-node 22 / npm ci
          → npm run typecheck / npm run check
-         → npm run generate / npm run check -- --built
+         → npm run generate / npm run check -- --built-only
          → touch .output/public/.nojekyll
          → configure-pages / upload-pages-artifact（path: .output/public）
 deploy → deploy-pages@v4（environment: github-pages）

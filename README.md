@@ -95,7 +95,7 @@ CSS 维护：已有顶层级联例外受 `check-css-cascade` 门禁保护，优�
 
 真实浏览器检查按 [浏览器回归验收清单](docs/browser-regression-checklist.md) 执行；清单的建立不代表已经完成视觉验收。
 
-`npm run check` 运行不需要构建或浏览器的逻辑检查。先以 `BASE_PATH=/inkroam/` 生成静态站点，再运行 `npm run check -- --built`，额外检查内容产物和站内链接（既有构建测试以生产子路径为基准）。已有根路径开发服务 `localhost:3000` 时可追加 `--live`，检查笔记搜索和 PDF 服务响应。测试不替代真实浏览器下的布局、动效及权限验收。
+`npm run check` 运行源码检查；局部修改用 `npm run check -- --group=glass` 等功能组，追加 `--list` 只查看清单而不执行。已完成源码检查并以 `BASE_PATH=/inkroam/` 生成站点后，使用 `npm run check -- --built-only` 检查产物，避免重复运行源码专用套件。旧 `--built` 仍表示源码与产物一起检查。已有根路径服务 `localhost:3000` 时可用 `--live-only` 检查在线响应；工具不会自行启动服务。完整分组、合并记录与执行范围见 [脚本入口](scripts/README.md)。这些检查不替代浏览器布局和动效验收，也不要求每次文案或视觉微调都执行。
 
 推送到 `main` 即触发 GitHub Actions：类型检查 → 源码回归 → `npm run generate` → 产物回归 → 上传 `.output/public` → 发布到 GitHub Pages 的 `/inkroam/` 子路径。任一检查失败将阻止后续上传和部署。也可以在仓库 Actions 页面手动触发（`workflow_dispatch`）。
 

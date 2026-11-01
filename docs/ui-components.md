@@ -8,7 +8,7 @@ About侧栏「独立写作者 / 长期主义练习者」使用 `--muted`，随�
 
 ## 默认设置的明暗联动（2026-09-27）
 
-存储边界：`appearance-storage.ts` 是无 DOM/存储副作用的解码函数，v5 优先，只有缺失时才迁移 v4 的共用 blur。组件保留存储读写、字段规范化和失败提示；该提取不改变默认值或旧偏好。兼容性对照测试见 `check-appearance-storage.mjs`。
+存储边界：`appearance-storage.ts` 是无 DOM/存储副作用的解码函数，v5 优先，只有缺失时才迁移 v4 的共用 blur。组件保留存储读写、字段规范化和失败提示；该提取不改变默认值或旧偏好。兼容性对照测试见 `check-appearance-mode.mjs`。
 
 启用默认设置后，手动选择浅色、深色或自动，与自动模式下系统明暗变化，都必须重新应用当前明暗预设：四组材质、四组模糊、背景遮罩及自动背景同步更新并持久化。禁用默认设置时，这些切换不得覆盖手动值；氛围色和主题色混合背景始终不属于明暗预设管理范围。
 
@@ -63,7 +63,7 @@ About侧栏「独立写作者 / 长期主义练习者」使用 `--muted`，随�
 
 回归：`check-search-filters.mjs`（可加 `--live`）、`check-filter-select.mjs`、`check-calendar.mjs` 与 `check-pdf-controls.mjs` 已纳入 `npm run check`。`check-filter-select.mjs` 覆盖过滤、回车、空结果、Esc、父面板收起清理，以及「课程只在笔记下可用」的门控（组件 vm + 源码契约两层）。PDF 测试为模拟渲染器，不能替代手机触摸、真实 PDF 绘制或视觉检查。浏览器连接不可用时，上述人工验收仍待执行。
 
-搜索归并使用 `search-results.ts` 的 `groupSearchMatches`：先按章节 ID 的 `#` 前路径建立 Map，再为每篇文章读取对应命中，避免每篇文章重复过滤全部章节。归并阶段从 O(文章数 × 命中数) 变为 O(文章数 + 命中数)，不改变原有标题加权、排序、摘要和公式对象。`check-search-grouping.mjs` 对比旧过滤方式，并覆盖 10,000 条命中；这是算法复杂度改进，不是浏览器耗时测量结果。
+搜索归并使用 `search-results.ts` 的 `groupSearchMatches`：先按章节 ID 的 `#` 前路径建立 Map，再为每篇文章读取对应命中，避免每篇文章重复过滤全部章节。归并阶段从 O(文章数 × 命中数) 变为 O(文章数 + 命中数)，不改变原有标题加权、排序、摘要和公式对象。`check-search-filters.mjs` 对比旧过滤方式，并覆盖 10,000 条命中；这是算法复杂度改进，不是浏览器耗时测量结果。
 
 页尾复制链接由 `CopyArticleLink.vue` 提供，文章与笔记共用。`node scripts/check-copy-link.mjs` 检查根路径/子路径、去除查询参数与锚点、剪贴板拒绝或缺失时手动复制兜底、重复点击保护及失败后重试。该脚本使用模拟剪贴板，不代表已验证真实浏览器权限行为。
 
@@ -73,7 +73,7 @@ About侧栏「独立写作者 / 长期主义练习者」使用 `--muted`，随�
 
 话题发现入口：归档简介下的“按话题浏览”→ `/tags`；正文侧栏“相关话题”使用下划线、悬停和键盘焦点指示，另有“浏览全部话题”。目录采用单列紧凑行，显示名称与篇数，输入框实时筛选，计数用 status 区域告知辅助技术。标签详情复用 TimelineArchive，并可返回全部话题。不在整行文章链接内嵌套独立标签链接。
 
-目录高亮由 `toc-active.ts` 根据标题位置与实际滚动范围计算。锚点目标受页底限制时，匹配其被截到滚动上限的真实落点，不再要求标题必须越过顶部判定线；无匹配锚点时滚到页底选中最后章节。离开锚点落点后恢复位置跟随，不让旧 hash 锁定目录。`ArticleToc` 监听 hash、滚动、窗口大小与正文尺寸变化。回归命令：`node --experimental-strip-types scripts/check-toc-active.mjs`。
+目录高亮由 `toc-active.ts` 根据标题位置与实际滚动范围计算。锚点目标受页底限制时，匹配其被截到滚动上限的真实落点，不再要求标题必须越过顶部判定线；无匹配锚点时滚到页底选中最后章节。离开锚点落点后恢复位置跟随，不让旧 hash 锁定目录。`ArticleToc` 监听 hash、滚动、窗口大小与正文尺寸变化。回归命令：`node --experimental-strip-types scripts/check-reading-polish.mjs`。
 
 课程目录布局调研与实现（2026-09-19，已获用户同意实施）：对于目前只有中英文名称与篇数的五门课程，现采用单列紧凑导航列表，中文/英文在左、篇数与箭头在右，用分隔线组织而不是放大现有卡片。移动端英文允许自然换行。依据：[Carbon structured list](https://carbondesignsystem.com/components/structured-list/usage/) 对同类内容扫读的指导、[MUI lists](https://mui.com/material-ui/react-list/) 的连续纵向索引模式；卡片并未过时，但这里不需要其复杂信息承载能力。此为适配本页面的设计判断，不是流行度统计。
 
