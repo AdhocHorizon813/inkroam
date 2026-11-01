@@ -1,0 +1,75 @@
+{
+  "scope": "Deterministic exact-expectation softmax bandit teaching example; not GRPO or LLM training.",
+  "true_labels": [
+    1,
+    0,
+    0,
+    0
+  ],
+  "graders": {
+    "clean_grader": [
+      1,
+      0,
+      0,
+      0
+    ],
+    "weak_grader": [
+      1,
+      1,
+      0,
+      0
+    ]
+  },
+  "steps": 200,
+  "learning_rate": 0.5,
+  "summaries": [
+    {
+      "initial": "equal_start",
+      "grader": "clean_grader",
+      "step": 200,
+      "p_A": 0.9917321175036709,
+      "p_B": 0.002755960832109628,
+      "p_C": 0.002755960832109628,
+      "p_D": 0.002755960832109628,
+      "true_correctness": 0.9917321175036709,
+      "weak_pass_rate": 0.9944880783357805,
+      "training_reward": 0.9917321175036709
+    },
+    {
+      "initial": "equal_start",
+      "grader": "weak_grader",
+      "step": 200,
+      "p_A": 0.4946099893003677,
+      "p_B": 0.4946099893003677,
+      "p_C": 0.005390010699632387,
+      "p_D": 0.005390010699632387,
+      "true_correctness": 0.4946099893003677,
+      "weak_pass_rate": 0.9892199786007354,
+      "training_reward": 0.9892199786007354
+    },
+    {
+      "initial": "B_more_likely_at_start",
+      "grader": "clean_grader",
+      "step": 200,
+      "p_A": 0.9916463021399518,
+      "p_B": 0.0030450002651753955,
+      "p_C": 0.002654348797436359,
+      "p_D": 0.002654348797436359,
+      "true_correctness": 0.9916463021399518,
+      "weak_pass_rate": 0.9946913024051272,
+      "training_reward": 0.9916463021399518
+    },
+    {
+      "initial": "B_more_likely_at_start",
+      "grader": "weak_grader",
+      "step": 200,
+      "p_A": 0.04675687714746497,
+      "p_B": 0.9453567779628109,
+      "p_C": 0.00394317244486204,
+      "p_D": 0.00394317244486204,
+      "true_correctness": 0.04675687714746497,
+      "weak_pass_rate": 0.9921136551102759,
+      "training_reward": 0.9921136551102759
+    }
+  ]
+}

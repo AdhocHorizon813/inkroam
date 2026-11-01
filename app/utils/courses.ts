@@ -7,6 +7,7 @@ export const courses = [
   { slug: 'mathematical-statistics', name: '数理统计', english: 'Mathematical Statistics' },
   { slug: 'fundamentals-of-intelligent-computing', name: '智能计算基础', english: 'Fundamentals of Intelligent Computing' },
   { slug: 'stochastic-processes', name: '随机过程', english: 'Stochastic Processes' },
+  { slug: 'reinforcement-learning', name: '强化学习与科研入门', english: 'Reinforcement Learning and Research Foundations' },
 ] as const
 
 export const courseForPath = (path: string) => path.startsWith('/notes/')

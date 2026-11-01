@@ -39,6 +39,7 @@
 | 数理统计 | `mathematical-statistics` |
 | 智能计算基础 | `fundamentals-of-intelligent-computing` |
 | 随机过程 | `stochastic-processes` |
+| 强化学习与科研入门 | `reinforcement-learning` |
 
 例如 `content/notes/functional-analysis/normed-spaces.md` 发布到 `/notes/functional-analysis/normed-spaces`，课程主页为 `/notes/functional-analysis`，界面显示“泛函分析”。GitHub Pages 会自动加 `/inkroam/` 前缀，无须写进文件或链接。
 
