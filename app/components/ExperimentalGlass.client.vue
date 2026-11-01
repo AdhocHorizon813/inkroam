@@ -176,7 +176,10 @@ onBeforeUnmount(() => { disposed = true; stopPageFinish(); destroy?.() })
    Pointer events still reach the original buttons; no copied text or hit boxes. */
 [data-liquid-glass-control][data-glass-module='indicator']:not(.glass-control-optics) { z-index: 3; }
 .glass-track-optics { transform-origin: center; }
-:root[data-visual='modern'] .glass-track-optics[data-liquid-glass-control] {
+:root[data-visual='modern'] .glass-track-optics[data-glass-track-presentation] {
+  /* Shadow/tint accompany entry and subpage motion immediately. Only the
+     optical filter waits for decode; dormant/owner visibility still wins. */
+  visibility: inherit;
   /* Preserve the original light/dark tint hue, but fade its alpha as the
      indicator clarity rises. The SVG backdrop refraction remains intact. */
   background: color-mix(in srgb, var(--experiment-glass-tint) var(--glass-track-tint-strength, 100%), transparent) !important;
@@ -187,7 +190,7 @@ onBeforeUnmount(() => { disposed = true; stopPageFinish(); destroy?.() })
 :root[data-visual='modern'] .segmented-control:has(> [data-liquid-glass-control]) {
   background: var(--experiment-control-track);
 }
-:root[data-visual='modern'] .segmented-control[data-glass-track-active] { background: transparent; }
+:root[data-visual='modern'] .segmented-control[data-glass-track-presentation] { background: transparent; }
 /* Upstream slider behavior: solid white at rest, glass while held. This cap is
    only for range thumbs, never for sliding selection indicators. */
 [data-liquid-glass-control][data-glass-module='thumb']::after {

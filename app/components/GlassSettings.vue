@@ -65,7 +65,7 @@ const segments = (index: number, count: number) => ({ '--segment-transform': `tr
 <template>
   <div class="glass-settings">
         <fieldset class="setting-group" :disabled="visual === 'classic'">
-          <legend class="setting-label">实验性液态玻璃</legend>
+          <legend class="setting-label">漫光玻璃</legend>
           <div class="segmented-control segmented-control--two" :style="segments(enabled ? 1 : 0, 2)">
             <span v-experimental-glass="true" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
             <button type="button" :aria-pressed="!enabled" :class="{ active: !enabled }" @click="emit('update:enabled', false)">关闭</button>
@@ -87,7 +87,7 @@ const segments = (index: number, count: number) => ({ '--segment-transform': `tr
             <div class="glass-settings__clip"><div class="glass-settings__body">
               <p v-if="group.id === 'global'" class="setting-hint">覆盖单项设置</p>
               <fieldset class="setting-group" :disabled="!available(group.id)">
-                <legend class="setting-label">液态玻璃</legend>
+                <legend class="setting-label">漫光玻璃</legend>
                 <div class="segmented-control segmented-control--two" :style="segments(preference(group.id).enabled ? 1 : 0, 2)">
                   <span v-experimental-glass="expanded === group.id" data-glass-module="indicator" class="glass-segment-indicator" aria-hidden="true" />
                   <button v-for="(label, index) in ['关闭', '开启']" :key="label" type="button" :class="{ active: preference(group.id).enabled === !!index }" :aria-pressed="preference(group.id).enabled === !!index" @click="update(group.id, 'enabled', !!index)">{{ label }}</button>
@@ -143,7 +143,7 @@ const segments = (index: number, count: number) => ({ '--segment-transform': `tr
       <svg viewBox="0 0 24 24" fill="none"><path d="M5 4v16M12 4v16M19 4v16" /><path d="M3 8h4M10 16h4M17 10h4" class="appearance-confirm__knobs" /></svg>
     </div>
     <h2 id="glass-defaults-title">采用默认设置？</h2>
-    <p id="glass-defaults-description" class="appearance-confirm__description">将恢复默认的液态玻璃参数。</p>
+    <p id="glass-defaults-description" class="appearance-confirm__description">将恢复默认的漫光玻璃参数。</p>
     <p id="glass-defaults-scope" class="appearance-confirm__hint">{{ defaultsGlobal ? '将替换全局参数，保留单项设置。' : '将分别调整各组件的参数与开关，保留全局设置。' }}</p>
     <div class="appearance-confirm__actions">
       <button type="button" class="appearance-confirm__cancel" autofocus @click="closeDefaults">取消</button>

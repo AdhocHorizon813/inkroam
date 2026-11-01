@@ -1,12 +1,12 @@
-# 实验性液态玻璃：接入与验收记录
+# 漫光玻璃：接入与验收记录
 
-更新：2026-10-28。当前以用户指定的 liquidglass.dev 为视觉参考，已完成浮层接入和本轮代码检查；没有浏览器视觉验收，没有提交部署。本文是当前口径，取代此前几轮临时参数说明。
+更新：2026-11-01。用户确认本轮液态玻璃开发完成，进入收尾。当前实现与验证以 [收尾记录](liquid-glass-closeout-2026-11-01.md) 和 [组件设置](liquid-glass-component-settings.md) 为准。下面保留 2026-10-28 的接入过程与当时检查，不能将旧参数、生命周期或“未接入”描述当作现状。引擎源自 gentpan；后续指示器转为 Kyant0/AndroidLiquidGlass 路线。
 
 ## 不变的要求
 
-- 开关位于阅读外观「光效时序」之后，左侧关闭、右侧开启，默认关闭。沿用现有分段控件与保存通路 paper-trail-appearance-v5；只接受布尔 true。
+- 开关已移至阅读外观 → 漫光玻璃设置二级页面，左侧关闭、右侧开启，默认关闭。沿用现有分段控件与保存通路 paper-trail-appearance-v5；只接受布尔 true。
 - 独立于默认设置和层次感。纸媒模式禁用并暂时停止效果，但保留选择；恢复默认关闭。
-- 用户说“保护原样式”是不要修改其它材质的定义，不是让实验效果继承亚克力、云母等原配方。原组件布局、字体、交互和动画保留；实验开启时使用自己的光学与薄染色，关闭恢复原材质。
+- 用户说“保护原样式”是不要修改其它材质的定义，不是让玻璃效果继承亚克力、云母等原配方。原组件布局、字体、交互和动画保留；漫光玻璃开启时使用自己的光学与薄染色，关闭恢复原材质。
 - 不改 main.css/depth.css 的其它材质规则，不读取其它材质的 blur/saturate/brightness，不重启导航性能重构。
 
 ## 已接入范围
@@ -48,7 +48,7 @@ Navbar 使用 refraction16、bezel.8、curvature3、blur1、specular.55、specul
 - 音乐从未播放到播放时，入口宿主从内层按钮转交外层胶囊，旧实例销毁，不重复折射。
 - 面板直接使用背景滤镜，以避免自身 clip-path 对内层玻璃采样的隔断。前景文字不使用 filter。保留原圆角；音乐全屏时圆角跟随现有动画到0。
 - 面板尺寸观察仅调整光学几何与贴图采样。最长边最多1024采样像素，未改变设备DPR、布局或视口。仍有生成与绘制成本，不能宣称零开销。
-- 贴图URL就绪才启用实验背景，四秒未准备好回退。关闭/纸媒/卸载移除滤镜并恢复接入前的相关内联值。异步加载用序号防止关闭后重新接回。
+- 贴图URL就绪才启用玻璃背景，四秒未准备好回退。关闭/纸媒/卸载移除滤镜并恢复接入前的相关内联值。异步加载用序号防止关闭后重新接回。
 - Chromium/Blink 使用真实背景滤镜路径。非Blink、减少透明度偏好下保持原材质；浏览器类别与CSS语法支持不等于像素级正确性。Safari/Firefox跨引擎折射未接入。
 
 ## 本轮检查（2026-10-28）
@@ -63,7 +63,7 @@ Navbar 使用 refraction16、bezel.8、curvature3、blur1、specular.55、specul
 
 ## 接下来由用户验收
 
-1. 不同原材质下开实验应使用独立玻璃；关闭后恢复各自样式。
+1. 不同原材质下开启漫光玻璃应使用独立玻璃；关闭后恢复各自样式。
 2. 深浅色文字可读性、折射强度、边缘反光是否自然，是否出现黑边或截断。
 3. 音乐全屏/缩回、面板收起、快速重开、路由切换；不能出现提前恢复原材质的闪跳。
 4. 正文工具切换、长下拉滚动和向上展开、日历、确认弹窗；原点击/键盘行为应保留。
@@ -73,7 +73,7 @@ Navbar 使用 refraction16、bezel.8、curvature3、blur1、specular.55、specul
 
 ## 导航及按需加载收尾（2026-10-28）
 
-- app.vue 的既有 site-header 显式注册为 navbar；不改高度、宽度、margin、top、圆角和440ms宽度过渡，不改 SlidingNav 的选中动画。实验就绪时仅在实验组件内隐藏旧材质的 nav-depth-light 内部洗光，避免混入旧配方；原下层投影保留，关闭自动恢复旧层。NavDepthLight.vue 与 depth.css 源码未改。
+- app.vue 的既有 site-header 显式注册为 navbar；不改高度、宽度、margin、top、圆角和440ms宽度过渡，不改 SlidingNav 的选中动画。玻璃就绪时仅在玻璃组件内隐藏旧材质的 nav-depth-light 内部洗光，避免混入旧配方；原下层投影保留，关闭自动恢复旧层。NavDepthLight.vue 与 depth.css 源码未改。
 - 专注模式不为隐藏导航创建实例，退出专注后重新接入；已用适配器测试覆盖。
 - 新增 check-glass-adapter，运行真实适配器配合可控的引擎/DOM边界，覆盖默认关闭零导入、加载中关闭/卸载、宿主转交、滤镜值及优先级恢复、纸媒/WebKit回退、减少透明度、解码超时及专注往返。不是浏览器光学测量。
 - 检查首次生产产物时发现 Nuxt 为动态引擎插入 prefetch，因此只对引擎清单项取消预取/预载，保留动态导入与其它资源提示。新增 check-glass-built：检查动态分包仍存在、运行时引用仍存在、全部HTML无该文件的提前请求。该修复前不能声称默认关闭时完全不下载引擎。
@@ -82,6 +82,6 @@ Navbar 使用 refraction16、bezel.8、curvature3、blur1、specular.55、specul
 - 用户要求持续到剩余额度低于20%，但当前工具没有可读取的5小时/周额度百分比，已明确告知这一限制。不能把任务预算或上下文占用冒充账号用量。
 ### 本阶段最终结果
 
-2026-10-28：npm.cmd run typecheck、BASE_PATH=/inkroam/ npm.cmd run generate、npm.cmd run check -- --built 全部成功，最后为42/42套。产物检查108个HTML均无引擎提前请求标签；动态引擎文件仍存在（本次cXEYiTIP.js，9048 bytes未压缩），运行时import保留。源码审查确认main.css、depth.css、NavDepthLight.vue、SlidingNav.vue、ArticleToc.vue及五个被接入组件的原style区块与HEAD一致；实验覆盖在独立组件中。
+2026-10-28：npm.cmd run typecheck、BASE_PATH=/inkroam/ npm.cmd run generate、npm.cmd run check -- --built 全部成功，最后为42/42套。产物检查108个HTML均无引擎提前请求标签；动态引擎文件仍存在（本次cXEYiTIP.js，9048 bytes未压缩），运行时import保留。源码审查确认main.css、depth.css、NavDepthLight.vue、SlidingNav.vue、ArticleToc.vue及五个被接入组件的原style区块与HEAD一致；玻璃覆盖在独立组件中。
 
-日志：tmp/liquid-glass-typecheck.log、tmp/liquid-glass-generate.log、tmp/liquid-glass-built-check.log。未操作浏览器，未提交推送部署。实验的视觉与性能仍待实机验收。
+日志：tmp/liquid-glass-typecheck.log、tmp/liquid-glass-generate.log、tmp/liquid-glass-built-check.log。未操作浏览器，未提交推送部署。玻璃效果的视觉与性能仍待实机验收。

@@ -290,8 +290,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     // lens that was visible a moment ago must not keep painting at its stale rect.
     const rendered = host.offsetParent !== null && box.width >= 1 && box.height >= 1
     lens.style.visibility = !rendered || box.bottom <= viewTop || box.top >= viewBottom ? 'hidden' : ''
-    // Respect the scroll viewport without inheriting its backdrop-root mask.
-    lens.style.clipPath = `inset(${Math.max(0, viewTop - box.top) / sy}px ${Math.max(0, box.right - view.right) / sx}px ${Math.max(0, box.bottom - viewBottom) / sy}px ${Math.max(0, view.left - box.left) / sx}px round ${trackRadius}px)`
+    // Clip to the VIEWPORT, not the rail's own rounded border box. Zero-clamping
+    // these insets cut off every outer shadow during subpage motion; removing
+    // the clip after entry then made the shadow pop in. Negative insets retain
+    // its visible overflow while still clipping at the real viewport/reveal.
+    lens.style.clipPath = `inset(${(viewTop - box.top) / sy}px ${(box.right - view.right) / sx}px ${(box.bottom - viewBottom) / sy}px ${(view.left - box.left) / sx}px)`
   }
   function alignMovingOptics() {
     if (!movingLens || !opticalDock || !opticalOwner || disposed) return
@@ -648,6 +651,13 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   listen(group, 'focusout', () => release())
   refresh()
   refreshQuality()
+  // Track tint/shadow are ordinary CSS presentation, not decoded optics.
+  // Reveal them after initial geometry is aligned, in the same task as attach.
+  // Waiting for both SVG maps made menu entry finish before its shadow appeared.
+  if (hasTrack) {
+    lens.setAttribute('data-glass-track-presentation', '')
+    group.setAttribute('data-glass-track-presentation', '')
+  }
   // A subpage attached while hidden has a zero-size box, so its lens cannot
   // flush and decode yet. Keep waiting instead of killing a surface that the
   // next switch needs; only a *rendered* control that still failed is broken.
@@ -677,6 +687,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     movingLens?.remove()
     if (hasTrack) lens.remove()
     group!.removeAttribute('data-glass-track-active')
+    group!.removeAttribute('data-glass-track-presentation')
     for (const [name, value, priority] of oldGroupStyles) {
       if (value) group!.style.setProperty(name, value, priority)
       else group!.style.removeProperty(name)

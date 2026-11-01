@@ -631,12 +631,22 @@ function resetAppearance() {
     >
       <div ref="panelScroll" class="appearance-panel__scroll">
         <header class="appearance-panel__header">
-          <div>
-            <button v-if="glassSettingsOpen" type="button" class="appearance-subpage-back panel-close" aria-label="返回阅读外观" title="返回阅读外观" @click="navigateAppearance(false)">
-              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5" /></svg>
-            </button>
-            <span v-else class="panel-kicker">DISPLAY</span>
-            <h2>{{ glassSettingsOpen ? '液态玻璃设置' : '阅读外观' }}</h2>
+          <div class="appearance-header-copy" :class="{ 'is-glass-page': glassSettingsOpen }">
+            <div class="appearance-header-eyebrow">
+              <Transition name="appearance-back">
+                <button v-show="glassSettingsOpen" :inert="!glassSettingsOpen" :aria-hidden="!glassSettingsOpen" type="button" class="appearance-subpage-back panel-close" aria-label="返回阅读外观" title="返回阅读外观" @click="navigateAppearance(false)">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5" /></svg>
+                </button>
+              </Transition>
+              <Transition name="appearance-kicker">
+                <span v-show="!glassSettingsOpen" class="panel-kicker" aria-hidden="true">DISPLAY</span>
+              </Transition>
+            </div>
+            <h2 class="appearance-header-title" :aria-label="glassSettingsOpen ? '漫光玻璃设置' : '阅读外观'">
+              <Transition name="appearance-title">
+                <span :key="glassSettingsOpen ? 'glass' : 'main'" aria-hidden="true">{{ glassSettingsOpen ? '漫光玻璃设置' : '阅读外观' }}</span>
+              </Transition>
+            </h2>
           </div>
           <button type="button" class="panel-close" aria-label="关闭外观设置" @click="isOpen = false">×</button>
         </header>
@@ -697,7 +707,7 @@ function resetAppearance() {
 
 
 
-        <AppearanceMenuRow class="appearance-glass-entry" @click="navigateAppearance(true)">液态玻璃设置</AppearanceMenuRow>
+        <AppearanceMenuRow class="appearance-glass-entry" @click="navigateAppearance(true)">漫光玻璃设置</AppearanceMenuRow>
 
         <fieldset class="setting-group">
           <legend class="setting-label">最近文章</legend>
@@ -1021,11 +1031,35 @@ function resetAppearance() {
 
 <style scoped>
 .appearance-subpage-back svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; }
-.appearance-subpage-back { margin-bottom: 8px; }
+.appearance-header-copy { min-width: 0; --header-enter-x: -8px; }
+.appearance-header-copy.is-glass-page { --header-enter-x: 8px; }
+/* Animate the eyebrow's space as well as its contents: replacing a small
+   kicker with a 32px button must not abruptly push the title and settings. */
+.appearance-header-eyebrow { position: relative; height: calc(9px * 1.6 + 5px); transition: height 260ms cubic-bezier(.16, 1, .3, 1); }
+.is-glass-page .appearance-header-eyebrow { height: 40px; }
+.appearance-header-eyebrow .panel-kicker { position: absolute; inset: 0 auto auto 0; line-height: 1.6; margin: 0; }
+.appearance-subpage-back { position: absolute; top: 0; left: 0; margin: 0; transform-origin: center; }
+.appearance-header-title { position: relative; }
+.appearance-header-title > span { display: block; white-space: nowrap; }
+.appearance-title-leave-active { position: absolute; inset: 0 auto auto 0; pointer-events: none; }
+.appearance-title-enter-active, .appearance-title-leave-active,
+.appearance-back-enter-active, .appearance-back-leave-active,
+.appearance-kicker-enter-active, .appearance-kicker-leave-active { transition: transform 260ms cubic-bezier(.16, 1, .3, 1), opacity 180ms ease; }
+.appearance-title-enter-from { opacity: 0; transform: translateX(var(--header-enter-x)); }
+.appearance-title-leave-to { opacity: 0; transform: translateX(calc(-1 * var(--header-enter-x))); }
+.appearance-back-enter-from, .appearance-back-leave-to { opacity: 0; transform: translateY(-4px) scale(.84) rotate(-12deg); }
+.appearance-back-leave-active { pointer-events: none; }
+.appearance-kicker-enter-from, .appearance-kicker-leave-to { opacity: 0; transform: translateY(4px); }
 .appearance-subpages { position: relative; }
 .appearance-subpage-enter-active, .appearance-subpage-leave-active { transition: transform 260ms cubic-bezier(.16, 1, .3, 1), opacity 180ms ease; }
 .appearance-subpage-leave-active { position: absolute; inset: 0 0 auto; pointer-events: none; }
 .appearance-subpage-enter-from { opacity: 0; transform: translateX(12px); }
 .appearance-subpage-leave-to { opacity: 0; transform: translateX(-8px); }
-@media (prefers-reduced-motion: reduce) { .appearance-subpage-enter-active, .appearance-subpage-leave-active { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .appearance-subpage-enter-active, .appearance-subpage-leave-active,
+  .appearance-header-eyebrow,
+  .appearance-title-enter-active, .appearance-title-leave-active,
+  .appearance-back-enter-active, .appearance-back-leave-active,
+  .appearance-kicker-enter-active, .appearance-kicker-leave-active { transition: none; }
+}
 </style>

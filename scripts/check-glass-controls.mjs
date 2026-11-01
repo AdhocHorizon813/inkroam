@@ -353,6 +353,9 @@ for (const anchored of [false, true]) {
 }
 
 const masked = fixture(false, true)
+assert(masked.group.hasAttribute('data-glass-track-presentation'), 'Track CSS presentation is ready before either filter decodes')
+assert(masked.calls[1].el.hasAttribute('data-glass-track-presentation'), 'Undecoded rail already owns its final shadow and tint')
+assert(!masked.group.hasAttribute('data-glass-track-active'), 'Presentation does not falsely mark optics as decoded')
 masked.decode()
 assert.equal(masked.calls[0].el, masked.host, 'Indicator stays inline to sample actual glyphs')
 assert.equal(masked.calls[1].el.parentElement, masked.panel, 'Track escapes the masked scroll backdrop root')
@@ -380,6 +383,7 @@ assert(pressedSegment.height > masked.group.offsetHeight
   && pressedSegment.height <= masked.group.offsetHeight * 1.1,
   'Pressed segmented indicator rises slightly above the rail, never excessively')
 masked.cleanup.destroy()
+assert(!masked.group.hasAttribute('data-glass-track-presentation'), 'Disable removes early presentation and restores the original rail')
 assert.equal(masked.panel.children.length, 1, 'Portal removed on disable/unmount')
 console.log('PASS: no label copies, center-clamped drag, release-only size morph, range endpoints/RTL/property updates and cleanup. No visual claim.')
 assert.equal(glassQuality(100, false).blur, 0)
@@ -479,6 +483,18 @@ console.log('PASS: bounded bevel removes diagonal corner seam; rim-only highligh
 
 const outgoing = fixture(false, true, false, true)
 outgoing.decode()
+assert.equal(outgoing.calls[1].el.style.clipPath, 'inset(-49px -84px -509px -24px)',
+  'Rail shadow is clipped to the viewport, not its own border box during subpage motion')
+const entering = fixture(false, true, true, true)
+entering.page.dataset.glassPresence = 'opening'
+entering.cleanup.refreshLayout()
+assert.equal(entering.calls[1].el.style.clipPath, 'inset(-49px -84px -509px -24px)',
+  'Native anchored rail retains outer shadow before decode during submenu entry')
+entering.decode()
+entering.page.dataset.glassPresence = 'open'
+entering.cleanup.refreshLayout()
+assert.equal(entering.calls[1].el.style.clipPath, '', 'Stable native anchors release the temporary viewport clip')
+entering.cleanup.destroy()
 outgoing.page.dataset.glassPresence = 'closing'
 outgoing.page.dataset.glassPageHidden = 'true'
 outgoing.page.setAttribute('inert', '')
