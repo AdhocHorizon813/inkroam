@@ -2,6 +2,7 @@ export const tagSlugMap: Record<string, string> = {
   'MATLAB': 'matlab',
   '数学实验': 'mathematical-experiments',
   '可视化': 'visualization',
+  '度量空间': 'metric-spaces',
   '数学竞赛': 'mathematics-competition',
   '高等代数': 'advanced-algebra',
   '矩阵与行列式': 'matrices-and-determinants',
@@ -56,3 +57,4 @@ export const getTagName = (slug: string) => {
   if (tagNameMap[slug]) return tagNameMap[slug]
   try { return decodeURIComponent(slug) } catch { return slug }
 }
+
