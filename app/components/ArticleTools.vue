@@ -6,6 +6,12 @@ import { animateArticleTool } from '~/utils/article-tool-motion'
 const props = defineProps<{ content: HTMLElement | null; title: string }>()
 const root = ref<HTMLElement | null>(null)
 const mode = ref<'find' | 'export' | null>(null)
+const pointerType = ref('')
+// Touch can leave :hover on the drag's original trigger. Remember the actual
+// input until mouse movement resumes, including on hybrid touch/mouse devices.
+function rememberPointer(event: PointerEvent) {
+  if (event.pointerType) pointerType.value = event.pointerType
+}
 const query = ref('')
 const field = ref<HTMLInputElement | null>(null)
 const count = ref(0), current = ref(-1)
@@ -171,7 +177,7 @@ async function exportArticle(format: 'pdf' | 'png') {
 </script>
 
 <template>
-  <div ref="root" class="article-tools" :class="{ 'article-tools--open': mode !== null }" @keydown.esc.stop.prevent="close">
+  <div ref="root" class="article-tools" :class="{ 'article-tools--open': mode !== null }" :data-pointer-type="pointerType || undefined" @pointerdown.capture="rememberPointer" @pointermove.capture="rememberPointer" @keydown.esc.stop.prevent="close">
     <div ref="actions" v-experimental-glass="mode !== null" data-glass-module="tools-track" class="article-tools__actions" :class="{ 'dropdown-surface': mode !== null }" role="group" aria-label="正文工具">
       <span v-experimental-glass="indicator.ready && mode !== null" data-glass-module="indicator" class="article-tools__indicator" :class="{ 'is-ready': indicator.ready && mode !== null, 'is-sliding': indicator.sliding }" :style="{ '--article-indicator-x': `${indicator.x}px`, '--article-indicator-width': `${indicator.width}px`, '--article-indicator-height': `${indicator.height}px` }" aria-hidden="true" />
 
@@ -215,7 +221,10 @@ async function exportArticle(format: 'pdf' | 'png') {
 .article-tools--open { position: sticky; top: 78px; z-index: 24; }
 .article-tools--open .article-tools__actions { border-color: var(--line); background: var(--paper); }
 button { position: relative; min-height: 36px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; font: inherit; color: inherit; cursor: pointer; }
-button:hover { color: var(--accent); }button:disabled { opacity: .45; cursor: default; }
+button:disabled { opacity: .45; cursor: default; }
+@media(hover:hover) and (pointer:fine) {
+  :where(.article-tools:not([data-pointer-type='touch'])) button:not(.article-action):hover { color: var(--accent); }
+}
 button { transition: color 220ms var(--ease-fluid), border-color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
 button:active:not(:disabled) { transform: translateY(1px); }
 .article-tools__reveal { position: absolute; top: calc(100% + 10px); left: 0; z-index: 1; width: min(760px, 100%); display: grid; grid-template-rows: 1fr; }
@@ -257,9 +266,10 @@ input { flex: 1 1 210px; font-size: 16px; }select { flex: 1 1 180px; }option { b
 .article-tools__actions .article-tools__indicator.is-ready { opacity: 1; }
 .article-tools__actions .article-action[aria-expanded='true'] { color: var(--accent); }
 .article-tools__actions .article-action:active:not(:disabled) { transform: translateY(1px); }
-@media(hover:hover) and (pointer:fine) { .article-tools__actions .article-action:hover:not([aria-expanded='true']) { color: var(--ink); } }
+@media(hover:hover) and (pointer:fine) { :where(.article-tools:not([data-pointer-type='touch'])) .article-tools__actions .article-action:hover:not([aria-expanded='true']) { color: var(--ink); } }
 @media(max-width:767.98px) { .article-tools__actions .article-action { min-height: 44px; padding-inline: 8px; gap: 5px; } }
 @media(prefers-reduced-motion:reduce) { .article-tools__actions .article-action, .article-tools__actions .article-tools__indicator { transition-duration: .01ms; } }
 ::highlight(inkroam-find) { background: #e9c55a80; color: inherit; }
 ::highlight(inkroam-find-current) { background: #efb44c; color: #1d211c; }
 </style>
+
