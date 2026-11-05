@@ -630,6 +630,9 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     }
     release()
     if (commit && choice && choice !== selected()) {
+      // Synthetic clicks do not transfer focus like pointer clicks do. Keep the
+      // article tools' previous trigger from retaining its interaction state.
+      if (articleToolbar) choice.focus({ preventScroll: true })
       choice.click()
       if (!disposed) target(choice)
     } else if (!slider) target(selected())
@@ -748,3 +751,4 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   }
   return { destroy, refreshQuality, refreshLayout, setDormant }
 }
+

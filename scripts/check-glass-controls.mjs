@@ -628,6 +628,51 @@ assert.equal(article.group.style.getPropertyValue('translate'), '', 'Teardown re
 assert.equal(article.body.children.length, 1, 'Remove the document-level optical surface on teardown')
 console.log('PASS: article indicator samples outside toolbar/card roots, retains upper/lower rims and adds no duplicate bottom rail.')
 
+// Dropping onto a different article tool must transfer focus before activating
+// it, just like a pointer click. HTMLElement.click() alone leaves the old tool
+// focused, even after its expanded/selected presentation has changed.
+{
+  const tools = fixture(false, false, true, false, true, false, false, false, true)
+  tools.first.removeAttribute('aria-current')
+  tools.first.setAttribute('aria-expanded', 'true')
+  tools.second.setAttribute('aria-expanded', 'false')
+  let focused = tools.first
+  const events = []
+  for (const [button, name] of [[tools.first, 'find'], [tools.second, 'export']]) {
+    button.focus = options => {
+      assert.equal(options.preventScroll, true, 'Switching tools must not jump the article')
+      focused = button; events.push(`focus:${name}`)
+    }
+    button.click = () => {
+      assert.equal(focused === button, true, 'Focus must move before the original activation handler runs')
+      tools.first.setAttribute('aria-expanded', String(button === tools.first))
+      tools.second.setAttribute('aria-expanded', String(button === tools.second))
+      events.push(`click:${name}`)
+    }
+  }
+  const drag = (from, to, pointerId, cancel = false) => {
+    tools.event(tools.group, 'pointerdown', { button: 0, pointerId, clientX: from.offsetLeft + 40, clientY: 20, target: from })
+    tools.event(tools.group, 'pointermove', { pointerId, clientX: to.offsetLeft + 40, clientY: 20 })
+    tools.event(tools.window, cancel ? 'pointercancel' : 'pointerup', { pointerId })
+  }
+  drag(tools.first, tools.second, 31)
+  assert.equal(focused === tools.second, true, 'Dropped article tool must receive focus')
+  assert.equal(tools.first.getAttribute('aria-expanded'), 'false')
+  assert.equal(tools.second.getAttribute('aria-expanded'), 'true')
+  assert.deepEqual(events, ['focus:export', 'click:export'])
+  events.length = 0
+  drag(tools.second, tools.first, 32, true)
+  assert.equal(focused === tools.second, true, 'A cancelled drag retains the active tool and focus')
+  assert.equal(tools.second.getAttribute('aria-expanded'), 'true')
+  assert.deepEqual(events, [])
+  drag(tools.second, tools.first, 33)
+  assert.equal(focused === tools.first, true, 'Reverse drag must focus the new article tool')
+  assert.equal(tools.first.getAttribute('aria-expanded'), 'true')
+  assert.equal(tools.second.getAttribute('aria-expanded'), 'false')
+  assert.deepEqual(events, ['focus:find', 'click:find'])
+  tools.cleanup.destroy()
+}
+
 for (const anchored of [false, true]) {
   const header = fixture(false, false, anchored, false, true)
   header.decode()
@@ -642,3 +687,4 @@ for (const anchored of [false, true]) {
   header.cleanup.destroy()
   assert.equal(header.dock.children.length, 1)
 }
+
