@@ -660,6 +660,27 @@ console.log('PASS: article indicator samples outside toolbar/card roots, retains
   assert.equal(tools.first.getAttribute('aria-expanded'), 'false')
   assert.equal(tools.second.getAttribute('aria-expanded'), 'true')
   assert.deepEqual(events, ['focus:export', 'click:export'])
+
+  // Copy is a nested action, rather than one of the two panel triggers.
+  const copy = tools.group.appendChild(new Element('DIV')).appendChild(new Element('BUTTON'))
+  const copyIcon = copy.appendChild(new Element('SVG'))
+  let copies = 0
+  tools.group.addEventListener('click', event => {
+    if (event.target === copy && !event.defaultPrevented) copies++
+  })
+  for (const [pointerType, pointerId] of [['mouse', 41], ['touch', 42]]) {
+    tools.flushFrame()
+    const updates = tools.calls[0].updates.length
+    tools.event(tools.group, 'pointerdown', { button: 0, pointerId, pointerType, clientX: 215, clientY: 20, target: copyIcon })
+    tools.event(tools.group, 'focusout', { target: tools.second, relatedTarget: copy })
+    tools.event(tools.group, 'pointermove', { pointerId, pointerType, clientX: 216, clientY: 20 })
+    tools.event(tools.window, 'pointerup', { pointerId, pointerType })
+    tools.event(tools.group, 'click', { target: copy, isTrusted: true })
+    tools.flushFrame()
+    assert.equal(tools.calls[0].updates.length, updates, 'Pressing Copy must leave the indicator still')
+    assert.equal(tools.second.getAttribute('aria-expanded'), 'true')
+  }
+  assert.equal(copies, 2, 'A fresh Copy press works even immediately after an indicator drag')
   events.length = 0
   drag(tools.second, tools.first, 32, true)
   assert.equal(focused === tools.second, true, 'A cancelled drag retains the active tool and focus')
@@ -670,6 +691,14 @@ console.log('PASS: article indicator samples outside toolbar/card roots, retains
   assert.equal(tools.first.getAttribute('aria-expanded'), 'true')
   assert.equal(tools.second.getAttribute('aria-expanded'), 'false')
   assert.deepEqual(events, ['focus:find', 'click:find'])
+  tools.flushFrame()
+  const updates = tools.calls[0].updates.length
+  tools.event(tools.group, 'keydown', { target: copy, key: 'Enter' })
+  tools.event(tools.group, 'click', { target: copy, isTrusted: true })
+  tools.event(tools.group, 'keyup', { target: copy, key: 'Enter' })
+  tools.flushFrame()
+  assert.equal(copies, 3, 'Keyboard Copy is independent of the preceding drag')
+  assert.equal(tools.calls[0].updates.length, updates, 'Keyboard Copy must leave the indicator still')
   tools.cleanup.destroy()
 }
 

@@ -591,6 +591,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const control = (event.target as Element)?.closest('input, button, a')
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || !control || control.matches(':disabled')) return
     suppressClick = false
+    // The copy action shares the article row but does not select a panel.
+    if (articleToolbar && !buttons.includes(control as HTMLElement)) return
     pressedPointer = event.pointerId; pressIndicator()
     if (!slider && buttons.includes(control as HTMLElement)) {
       dragStartX = event.clientX; dragStartY = event.clientY; dragged = false
@@ -647,11 +649,24 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   listen(group, 'dragstart', e => { if (pressedPointer !== null && !slider) e.preventDefault() })
   listen(window, 'blur', () => { release(); if (!slider) target(selected()) })
   listen(group, 'keydown', e => {
-    if ([' ', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes((e as KeyboardEvent).key)
-      && !(e.target as Element).matches(':disabled')) pressIndicator()
+    const control = e.target as HTMLElement
+    if (![' ', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes((e as KeyboardEvent).key)
+      || control.matches(':disabled')) return
+    if (articleToolbar && !buttons.includes(control)) {
+      suppressClick = false
+      return
+    }
+    pressIndicator()
   })
-  listen(group, 'keyup', () => release())
-  listen(group, 'focusout', () => release())
+  listen(group, 'keyup', e => {
+    if (!articleToolbar || buttons.includes(e.target as HTMLElement)) release()
+  })
+  listen(group, 'focusout', () => {
+    // The window already handles pointer release. Only a held tool key
+    // needs a focus-loss release, so tabbing to Copy leaves the lens alone.
+    if (articleToolbar && (pressedPointer !== null || releasePending || pressure.target !== 1)) return
+    release()
+  })
   refresh()
   refreshQuality()
   // Track tint/shadow are ordinary CSS presentation, not decoded optics.
