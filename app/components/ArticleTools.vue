@@ -223,7 +223,7 @@ async function exportArticle(format: 'pdf' | 'png') {
 button { position: relative; min-height: 36px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; font: inherit; color: inherit; cursor: pointer; }
 button:disabled { opacity: .45; cursor: default; }
 @media(hover:hover) and (pointer:fine) {
-  :where(.article-tools:not([data-pointer-type='touch'])) button:not(.article-action):hover { color: var(--accent); }
+  :where(.article-tools:not([data-pointer-type='touch'])) button:not(.article-action, .article-copy-action):hover { color: var(--accent); }
 }
 button { transition: color 220ms var(--ease-fluid), border-color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
 button:active:not(:disabled) { transform: translateY(1px); }
@@ -259,16 +259,19 @@ input { flex: 1 1 210px; font-size: 16px; }select { flex: 1 1 180px; }option { b
    text, and switching between the two tools moves/resizes the block on the same
    settle curve as the navbar. */
 .article-tools__actions { position: relative; }
-.article-tools__actions .article-action { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: inherit; white-space: nowrap; text-decoration: none; transition: color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
-.article-tools__actions .article-action svg { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.article-tools__actions :is(.article-action, .article-copy-action) { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: inherit; white-space: nowrap; text-decoration: none; transition: color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
+.article-tools__actions :is(.article-action, .article-copy-action) svg { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .article-tools__actions .article-tools__indicator { position: absolute; top: 50%; left: 0; z-index: 0; width: var(--article-indicator-width, 0px); height: var(--article-indicator-height, 40px); border-radius: 11px; background: var(--line); opacity: 0; transform: translate3d(var(--article-indicator-x, 0px), -50%, 0); transition: opacity 180ms var(--ease-fluid); pointer-events: none; }
 .article-tools__actions .article-tools__indicator.is-sliding { transition: width 380ms var(--ease-settle), transform 380ms var(--ease-settle), opacity 180ms var(--ease-fluid); will-change: width, transform; }
 .article-tools__actions .article-tools__indicator.is-ready { opacity: 1; }
 .article-tools__actions .article-action[aria-expanded='true'] { color: var(--accent); }
 .article-tools__actions .article-action:active:not(:disabled) { transform: translateY(1px); }
-@media(hover:hover) and (pointer:fine) { :where(.article-tools:not([data-pointer-type='touch'])) .article-tools__actions .article-action:hover:not([aria-expanded='true']) { color: var(--ink); } }
-@media(max-width:767.98px) { .article-tools__actions .article-action { min-height: 44px; padding-inline: 8px; gap: 5px; } }
-@media(prefers-reduced-motion:reduce) { .article-tools__actions .article-action, .article-tools__actions .article-tools__indicator { transition-duration: .01ms; } }
+@media(hover:hover) and (pointer:fine) {
+  :where(.article-tools:not([data-pointer-type='touch'])) .article-tools__actions .article-action:hover:not([aria-expanded='true']) { color: var(--ink); }
+  :where(.article-tools:not([data-pointer-type='touch'])) .article-tools__actions .article-copy-action:hover:not(:disabled) { color: var(--ink); }
+}
+@media(max-width:767.98px) { .article-tools__actions :is(.article-action, .article-copy-action) { min-height: 44px; padding-inline: 8px; gap: 5px; } }
+@media(prefers-reduced-motion:reduce) { .article-tools__actions :is(.article-action, .article-copy-action), .article-tools__actions .article-tools__indicator { transition-duration: .01ms; } }
 ::highlight(inkroam-find) { background: #e9c55a80; color: inherit; }
 ::highlight(inkroam-find-current) { background: #efb44c; color: #1d211c; }
 </style>

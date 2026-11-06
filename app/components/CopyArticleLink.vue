@@ -61,7 +61,7 @@ async function copyLink() {
 
 <template>
   <div class="copy-article-link">
-    <button :class="feedback ? 'article-action' : 'text-link'" type="button" :disabled="busy" @pointerdown="captureSelection" @pointercancel="captured = null" @pointerleave="captured = null" @click="copyLink">
+    <button :class="feedback ? 'article-copy-action' : 'text-link'" type="button" :disabled="busy" @pointerdown="captureSelection" @pointercancel="captured = null" @pointerleave="captured = null" @click="copyLink">
       <!-- Center the link arcs and their stroke inside the 24 by 24 viewport. -->
       <span v-if="feedback" class="copy-icon" aria-hidden="true"><Transition name="code-label"><svg :key="copied ? 'done' : 'link'" viewBox="0 0 24 24"><path v-if="copied" d="m5 12 4 4L19 6" /><path v-else d="m11.5 13 4-4m-6 6-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 3 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" /></svg></Transition></span>
       <span v-if="feedback" class="copy-label" aria-live="polite">

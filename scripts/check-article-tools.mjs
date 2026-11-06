@@ -60,6 +60,12 @@ assert.match(descriptor.template.content, /@leave="leavePanel"/)
 // every button its own background: hovering an inactive tool only brightens its
 // text, and switching moves/resizes the block on the settle curve.
 const styleText = descriptor.styles.map(style => style.content).join('\n')
+const copyTemplate = parse(readFileSync('app/components/CopyArticleLink.vue', 'utf8')).descriptor.template.content
+assert.match(copyTemplate, /:class="feedback \? 'article-copy-action' : 'text-link'"/, 'Inline Copy is separate from the panel triggers')
+for (const style of descriptor.styles) postcss.parse(style.content).walkRules(rule => {
+  if (!rule.selector.includes('.article-copy-action') || !rule.selector.includes(':active')) return
+  rule.walkDecls('transform', () => assert.fail('Copy must not inherit the panel triggers’ pressed motion'))
+})
 assert.match(descriptor.template.content, /class="article-tools__indicator"/, 'The row owns one sliding indicator')
 assert.match(descriptor.template.content, /'is-ready': indicator\.ready && mode !== null/, 'The block stays hidden until it is measured and active')
 assert.match(styleText, /\.article-tools__indicator \{[^}]*background: var\(--line\)/, 'The block keeps the existing visual weight')
