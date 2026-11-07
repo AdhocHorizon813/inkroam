@@ -13,7 +13,8 @@ const near = (actual, expected, message) => assert(Math.abs(actual - expected) <
 const course = 'mathematics-competition'
 assert.equal(courses.find(entry => entry.slug === course)?.name, '数学竞赛（数学专业类）')
 const folder = `content/notes/${course}`
-const files = readdirSync(folder).filter(file => file.endsWith('.md')).sort()
+// This suite covers chapters 1–3; later competition subjects share the course folder.
+const files = readdirSync(folder).filter(file => /^0[1-3]-advanced-algebra-.*\.md$/.test(file)).sort()
 assert.equal(files.length, 3, 'One Markdown note per chapter')
 let formulas = 0
 for (const [index, file] of files.entries()) {
