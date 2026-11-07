@@ -1,0 +1,432 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Inkroam 现状与改进调查报告</title><style>
+:root{color-scheme:light;--ink:#24322f;--muted:#62716b;--line:#d9e1db;--accent:#336b57}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f5f6f2;color:var(--ink);font:16px/1.95 system-ui,'Microsoft YaHei',sans-serif}header{max-width:1200px;margin:auto;padding:30px 36px 18px;color:var(--muted);font-size:13px;letter-spacing:.05em}.layout{max-width:1200px;margin:auto;display:grid;grid-template-columns:230px minmax(0,1fr);gap:28px;padding:0 30px 80px}nav{position:sticky;top:20px;align-self:start;font-size:13px;max-height:90vh;overflow:auto}nav a{display:block;padding:7px 12px;border-left:2px solid var(--line);color:var(--muted);text-decoration:none}nav a:hover{color:var(--accent);border-color:var(--accent)}main{min-width:0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:34px 42px}h1{font-size:30px;line-height:1.45;margin:0 0 24px}h2{font-size:23px;line-height:1.6;margin:2.4em 0 1em;padding-bottom:9px;border-bottom:1px solid var(--line);scroll-margin-top:24px}h3{font-size:18px;margin-top:1.8em;scroll-margin-top:24px}p{margin:.9em 0}a{color:var(--accent);overflow-wrap:anywhere}strong{font-weight:650}code{font:13px/1.7 ui-monospace,monospace;background:#eef2ed;padding:2px 4px;border-radius:3px;overflow-wrap:anywhere}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.75;margin:1.5em 0}th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#edf2ed}li{margin:.45em 0}.table-scroll{overflow-x:auto}footer{padding-top:24px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}@media(max-width:800px){header{padding:20px}.layout{display:block;padding:0 12px 40px}nav{position:static;max-height:none;margin-bottom:20px;display:flex;flex-wrap:wrap;gap:4px}nav a{font-size:12px;padding:5px 8px}main{padding:25px 18px}h1{font-size:25px}h2{font-size:21px}table{min-width:580px}}@media print{body{background:#fff;font-size:10.5pt}.layout{display:block;padding:0}nav,header{display:none}main{border:0;padding:0}h2,h3{break-after:avoid}tr{break-inside:avoid}a{color:inherit}h1{font-size:24pt}}
+</style></head><body><header>INKROAM · 技术与产品调查 · 2026-10-15 · 基线 2a2bfb5</header><div class="layout"><nav aria-label="报告目录"><a href="#section-1">一、主要判断</a><a href="#section-2">二、调查方法与证据边界</a><a href="#section-6">三、Inkroam 当前已经具备什么</a><a href="#section-9">四、优先处理的数据与资源交付问题</a><a href="#section-13">五、信息架构与阅读路径</a><a href="#section-19">六、搜索的功能契约</a><a href="#section-21">七、可访问性与外观状态</a><a href="#section-27">八、工程质量、发布与维护</a><a href="#section-31">九、发现、分享与长期内容维护</a><a href="#section-33">十、关于层次光效性能的独立判断</a><a href="#section-34">十一、整改优先级与交付顺序</a><a href="#section-35">十二、建议固定的验收仪表与停止条件</a><a href="#section-36">十三、交付物与复核入口</a></nav><main><h1>Inkroam 现状与改进调查报告</h1>
+<p>调查日期：2026-10-15<br>源码基线：<code>2a2bfb57c3c0f0dcf78794e83dd51dff0db0071b</code><br>线上站点：<a href="https://adhochorizon813.github.io/inkroam/">https://adhochorizon813.github.io/inkroam/</a><br>调查对象：整个 Inkroam，包括首页、文章、笔记、归档、话题、搜索、外观系统、资源交付、测试和维护流程。</p>
+<h2 id="section-1">一、主要判断</h2>
+<p><strong>Inkroam 已经是一个具备完整阅读功能、明确视觉取向和较好工程基础的个人内容站点。下一阶段最值得投入的是：减少读者尚未需要的数据加载，统一内容入口的含义，完善阅读过程中的可访问性，并将已有验证沉淀为持续机制。</strong></p>
+<p>这轮最重要的新发现不是缺少某个功能，而是已有功能之间的组合成本：</p>
+<ol>
+<li><strong>搜索数据影响到了非搜索页面。</strong> 新构建的搜索 payload 为 <strong>6,185,355 字节</strong>，离线 gzip 后为 <strong>1,727,484 字节</strong>。本地冷上下文打开首页和普通文章时，资源记录中也出现了这个搜索 payload。说明搜索数据边界与导航预取值得优先处理。</li>
+<li><strong>壁纸资源存在可直接核验的加载成本。</strong> 本轮四个页面的桌面资源记录都出现了两张内置壁纸，其文件合计 <strong>4,651,961 字节</strong>。需要区分当前背景、设置面板的预览图与原尺寸资源，避免仅查看一篇文字也提前处理两张大图。</li>
+<li><strong>信息组织已经多样，入口契约还不完全一致。</strong> 首页“查看所有文章”实际进入混合文章与笔记的归档；课程首页按日期排列，正文前后篇按学习顺序排列；阅读末尾存在重复推荐的可能。</li>
+<li><strong>测试基础较强，但自动化通过与实际体验仍有距离。</strong> 本轮生产构建、37 组回归、全站静态锚点检查通过；仍发现了 ARIA 使用问题、部分控件缺少程序化名称，以及外观转场的真实响应式实现问题。</li>
+<li><strong>视觉系统值得保留，性能研究需要收束范围。</strong> 本轮没有证明需要更换 Nuxt、引入服务端或重做材质。Chrome 层次光效问题已有大量历史记录，但本轮没有重新复现那台机器的 GPU 问题，不能把历史数字直接套到当前所有读者。</li>
+</ol>
+<p>建议首轮交付聚焦三个结果：<strong>普通阅读不承担大搜索索引的预取成本；当前壁纸与预览资源按需交付；内容入口和关键控件的含义一致。</strong></p>
+<h2 id="section-2">二、调查方法与证据边界</h2>
+<h3 id="section-3">2.1 调查材料</h3>
+<ul>
+<li>重新执行 <code>git fetch origin</code>，确认本地 HEAD 与 <code>origin/main</code> 一致，开始时工作区干净。</li>
+<li>阅读 README、架构、创作规范、设计提案、阅读关系试点、浏览器验收协议，以及截至 10 月 13 日的性能调查。</li>
+<li>交叉检查 <code>app/pages</code>、持久外壳、正文阅读器、外观面板、搜索、目录、PDF/Mermaid 组件、工具函数和 GitHub Actions。</li>
+<li>使用当前提交重新构建生产子路径，运行既有检查，并对新产物做统计。</li>
+<li>检查线上主要页面的 HTTP 状态、canonical 和常见订阅/站点地图地址。</li>
+<li>在本地生产静态站点上采集四个页面的浏览器资源记录，并对三个页面进行 axe 自动检查。</li>
+</ul>
+<h3 id="section-4">2.2 证据等级</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>标识</th>
+<th>含义</th>
+<th>能支持的结论</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>源码事实</td>
+<td>当前提交中可以直接定位的实现</td>
+<td>查询、排序、状态来源、资源引用、CI 是否包含某步骤</td>
+</tr>
+<tr>
+<td>本轮验证</td>
+<td>当前提交的新构建、脚本、HTTP 或浏览器结果</td>
+<td>在所记录条件下通过或复现的具体行为</td>
+</tr>
+<tr>
+<td>历史记录</td>
+<td>仓库保存的旧实验与产品决定</td>
+<td>当时条件下的结果，不能自动视为本轮复测</td>
+</tr>
+<tr>
+<td>改进建议</td>
+<td>根据上述证据提出的方案</td>
+<td>仍需实现、对照测量与验收，不能预先宣称收益百分比</td>
+</tr>
+</tbody></table></div>
+<p>浏览器环境为 Linux 下的无头 Chromium <strong>154.0.8037.57</strong>；已完成的资源采样采用 1440×900、DPR 1、浅色、modern、层次关闭的独立新上下文。服务端为本地 Python HTTP 静态服务，未压缩响应，没有模拟弱网或 CPU 降速。观察窗口为页面 DOMContentLoaded 后约 8 秒。这里的结果不是用户真实访问速度、Core Web Vitals 达标证明或显卡性能测试。</p>
+<p>本轮构建使用 Node <strong>24.19.0</strong>，现有 GitHub Actions 使用 Node 22；本轮本地成功不替代将来具体提交在 CI 环境中的验证。</p>
+<p><strong>本轮浏览器脚本在后续主题场景处停止。</strong> 原因是 modern 模式有意隐藏了顶栏主题按钮，自动点击等待超时。四页资源记录与前三项 axe 扫描保留；后续主题覆盖、完整移动端、无 JavaScript 和其余场景没有完成，不能写成通过。用户随后要求收束调查并开始写报告，本轮不再扩展测试。</p>
+<h3 id="section-5">2.3 已完成验证结果</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>检查</th>
+<th>本轮结果</th>
+<th>边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>npm run typecheck</code></td>
+<td>通过</td>
+<td>类型检查，不验证视觉</td>
+</tr>
+<tr>
+<td>生产子路径静态生成</td>
+<td>通过，生成日志记录 201 个预渲染路由/数据条目</td>
+<td>包含 payload 等条目，不等于 201 个内容页面</td>
+</tr>
+<tr>
+<td><code>npm run check -- --built</code></td>
+<td><strong>37/37 通过</strong></td>
+<td>34 组基础检查及 3 组产物检查，不包含完整浏览器验收</td>
+</tr>
+<tr>
+<td>既有本地资源/页面链接门禁</td>
+<td>97 个 HTML，3,701 个目标通过</td>
+<td>不涵盖外链、CSS URL、运行时生成链接</td>
+</tr>
+<tr>
+<td>额外页内锚点检查</td>
+<td><strong>1,229 个链接，未发现失效锚点</strong></td>
+<td>当前静态 HTML 可解析的站内 fragment</td>
+</tr>
+<tr>
+<td>额外 HTML 检查</td>
+<td>未发现重复 ID；未发现 img 缺 alt 属性</td>
+<td>alt 存在不等于替代文字质量全部合格</td>
+</tr>
+<tr>
+<td>42 个 C17 教学程序</td>
+<td>编译、样例断言和输出检查通过</td>
+<td>初次因沙箱限制未能启动 GCC；允许运行编译器后复跑成功，不代表所有输入的正确性证明</td>
+</tr>
+<tr>
+<td>线上 HTTP</td>
+<td>抽查的首页、笔记、归档、搜索、关于、普通文章和 C2 笔记均为 200；未知路径为 404</td>
+<td>可访问性抽查，不等于全站端到端测试</td>
+</tr>
+<tr>
+<td>自动可访问性</td>
+<td>首页、搜索未报告所测规则的确定违规；普通文章报告 1 处 ARIA 违规</td>
+<td>三页均有对比度待人工判断项，不能宣称 WCAG 全面通过</td>
+</tr>
+</tbody></table></div>
+<h2 id="section-6">三、Inkroam 当前已经具备什么</h2>
+<h3 id="section-7">3.1 内容与产品形态</h3>
+<p>当前有 <strong>18 篇公开文章、25 篇公开笔记、1 篇草稿、8 个课程入口、38 个公开标签</strong>。8 门课程中，6 门已有公开笔记；数据结构 18 篇，数学竞赛高等代数 3 篇，C2 MATLAB、数学物理方程、泛函分析、智能计算基础各 1 篇。空课程入口和草稿是既有设计，不应直接视为故障。</p>
+<p>站点同时承载个人写作、技术/设计记录和成体系的学习材料。关于页明确表达“个人博客、保持判断、允许看法变化”；数据结构、高等代数和 MATLAB 笔记又形成了较强的教学属性。因此，合适的发展方向是让不同内容各有清晰入口，并在确有关系时相互连接。</p>
+<h3 id="section-8">3.2 已有能力应继续保留</h3>
+<ul>
+<li>文章和笔记共用内容模型、正文阅读器、归档、标签与分节搜索，减少两套系统的维护成本。</li>
+<li>首页与列表使用摘要字段，正文按路径读取完整内容，草稿具有查询和阅读页双重拦截。</li>
+<li>目录、章节定位、回退位置恢复、选段分享、随机漫游、相关阅读、图片灯箱和 PDF 页内查找已经存在。</li>
+<li>数学公式构建期排版；普通代码静态高亮；PDF 与 Mermaid 已划出动态加载/绘制边界。</li>
+<li>现代与纸媒两套视觉可共存，偏好本地保存，兼顾系统明暗、减少动态效果和旧配置迁移。</li>
+<li>42 个正文 C 程序具有真实编译与输出验证机制；高等代数 SVG 交互没有为简单教学引入通用绘图库。</li>
+<li>Actions 已把类型、源码、静态生成和产物检查串成发布门禁，失败会阻断后续部署。</li>
+</ul>
+<p>这些能力说明项目的主要问题已经从“功能不足”，转向“边界、组合、持续验证和内容组织”。</p>
+<h2 id="section-9">四、优先处理的数据与资源交付问题</h2>
+<h3 id="section-10">F01：搜索完整正文数据被非搜索页面预取</h3>
+<p><strong>优先级：P1。证据：新产物统计＋本轮浏览器资源记录＋源码。</strong></p>
+<p><code>app/pages/search.vue:18</code> 查询所有公开记录且没有选择字段；<code>:25</code> 同时取得章节索引；<code>:38</code> 再遍历全部正文树，提取能完整排版的数学摘要。新构建的搜索 payload 包含 43 篇完整内容记录和 661 个分节条目。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>产物</th>
+<th align="right">文件字节</th>
+<th align="right">离线 gzip 字节</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>搜索 <code>_payload.json</code></td>
+<td align="right"><strong>6,185,355</strong></td>
+<td align="right"><strong>1,727,484</strong></td>
+</tr>
+<tr>
+<td>高代第一章 HTML</td>
+<td align="right">750,211</td>
+<td align="right">66,166</td>
+</tr>
+<tr>
+<td>高代第一章 <code>_payload.json</code></td>
+<td align="right">831,873</td>
+<td align="right">222,575</td>
+</tr>
+</tbody></table></div>
+<p>本地首页和普通文章的资源记录均出现 <code>/inkroam/search/_payload.json</code>。主导航的普通 NuxtLink 预取是需要优先验证和控制的路径：<code>app/components/SlidingNav.vue:70</code>。这使搜索索引大小不再只影响主动搜索的读者。</p>
+<p>这里的“出现资源记录”不等于证明线上每次额外传输了 6.19 MB。CDN 压缩、浏览器缓存和重复引用会改变实际传输；搜索页记录中还出现同一 payload 的多条 Resource Timing，不能简单累加为多次完整网络下载。<strong>可以确认的是大搜索数据进入了普通阅读路径，本轮不报告未经核实的线上流量倍率。</strong></p>
+<p>建议分两步：</p>
+<ol>
+<li>先控制搜索入口的预取策略，确认普通页面不提前获取整份搜索 payload；这是一项边界明确、便于回滚的调整。</li>
+<li>构建时生成“章节文本、完整 TeX 摘要片段、标题、路径和筛选元信息”的轻量索引，浏览器按需载入，避免为摘要携带全部正文结构。</li>
+</ol>
+<p>验收：同一提交条件下比较普通页与搜索页的请求清单、实际压缩传输和解析成本；普通页不再预取完整搜索索引；搜索结果、排序、草稿隔离、章节链接、筛选与完整公式摘要保持正确。先建立基线，再定量确定预算，不预设任意压缩百分比。</p>
+<h3 id="section-11">F02：两张大壁纸同时进入初始资源集合</h3>
+<p><strong>优先级：P1。证据：文件大小＋四页浏览器资源记录。</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>资源</th>
+<th align="right">文件字节</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>yuzoramachi.png</code></td>
+<td align="right">2,631,292</td>
+</tr>
+<tr>
+<td><code>modern-dream-city.png</code></td>
+<td align="right">2,020,669</td>
+</tr>
+<tr>
+<td>两张合计</td>
+<td align="right"><strong>4,651,961</strong></td>
+</tr>
+</tbody></table></div>
+<p>四个桌面样本均记录到这两张图片由 CSS 发起。当前外观面板保持挂载，背景选项也引用图片，可能使预览与当前壁纸的加载边界混在一起。具体触发点应以隔离对照确认，不能仅凭 CSS 引用位置认定唯一原因。</p>
+<p>建议保留原始图，制作经过目视核验的 WebP/AVIF 交付版本；预设卡片使用小缩略图，面板打开后再载入非当前背景的预览；当前背景按屏幕和像素需求选择资源。</p>
+<p>验收：首次阅读只请求实际需要的背景资源；打开设置和切换背景功能正常；两种明暗与不同材质下对比色阶、渐变、细节和接缝；报告真实请求字节。C2 的数学图、带文字的图表和壁纸应分别制定格式策略，不统一做有损转换。</p>
+<h3 id="section-12">F03：长数学页需要独立的可重复基线</h3>
+<p><strong>优先级：P2。证据：新产物及浏览器 DOM；候选瓶颈尚未确认。</strong></p>
+<p>高代第一章桌面样本约 <strong>19,088 个 DOM 元素</strong>；同轮首页 659、搜索初始页 729、普通文章 450。正文长、公式多会自然增加 DOM，这本身不是缺陷，但说明普通文章无法代表全部阅读场景。</p>
+<p>目录当前在滚动调度帧中遍历标题，读取几何与计算样式：<code>ArticleToc.vue:13</code>。正文阅读器也直接导入专用教学组件：<code>ArticleReader.vue:4</code>。这些是值得测量的候选点，<strong>本轮没有证明它们就是卡顿根因</strong>。</p>
+<p>建议固定一篇长数学页和一篇普通文章，对冷加载、目录定位、返回恢复、公式横向滚动、图片/图表加载后的布局变化做基线。只在测到收益后再缓存标题位置、减少重复样式读取或调整专用组件加载。</p>
+<h2 id="section-13">五、信息架构与阅读路径</h2>
+<h3 id="section-14">F04：首页“文章”入口与归档内容范围不一致</h3>
+<p><strong>优先级：P2。证据：源码。</strong></p>
+<p>首页近期文章的“查看所有文章”指向 <code>/archive</code>；归档实际混合文章与笔记，且没有像话题页那样提供内容类型筛选。对希望继续浏览个人写作的读者，入口文字与结果集合并不一致。</p>
+<p>建议选择明确的产品契约：将入口改为“查看全部内容”，或者给归档增加文章/笔记筛选并使文章入口带筛选条件。筛选条件可分享、刷新与后退恢复，统计与列表来自同一集合。</p>
+<h3 id="section-15">F05：首页存在编辑引导的空间</h3>
+<p><strong>优先级：P2，属于产品假设。</strong></p>
+<p>默认最近文章与最近笔记各展示 10 条，之后才到精选和话题探索。已有内容的展示量不小，但首次访问者如何找到“值得从这里开始”的内容，还主要依赖日期和较深位置的精选。</p>
+<p>建议用少量真实编辑内容提供“第一次来可以读这几篇”“正在整理的主题”等入口，或把少量精选前移。保留近期更新的可达性。是否更好应通过任务走查或少量读者反馈判断，不能把页面长直接等同于跳出率高。</p>
+<h3 id="section-16">F06：课程页的时间顺序与学习顺序分离</h3>
+<p><strong>优先级：P2。证据：源码。</strong></p>
+<p>课程页 <code>app/pages/notes/[course]/index.vue:8</code> 按日期倒序；正文前后篇 <code>app/utils/course-sequence.ts:14</code> 按 <code>order</code> 排列。二者各自合理，但课程首页尚未给读者清晰的学习起点。</p>
+<p>建议并列提供“按学习顺序”与“按更新时间归档”，复用现有 <code>order</code>；导读由作者维护。数学竞赛可在课程内增加高等代数、数学分析等系列分组，不必改变已发布 URL。</p>
+<h3 id="section-17">F07：继续阅读区域需要统一去重与解释</h3>
+<p><strong>优先级：P2。证据：源码及现有内容关系。</strong></p>
+<p>课程前后篇、作者维护的阅读关系、按标签推荐的内容分别计算。高代三章之间既有课程/作者关系，也有共同标签，可能在同一页末尾重复出现同一目标。通用正文末尾的“共鸣”“其他文字”等文案也不完全适合练习和课程笔记。</p>
+<p>建议把目的地去重，并保留推荐理由：上一/下一课、需要回顾的知识、同主题文章。作者关系优先，标签关系补充；笔记和随笔采用适合各自任务的文案。</p>
+<p>跨课程关系可以从少量有明确理由的例子开始，例如 C2 的矩阵实验与高代矩阵/求逆。当前 <code>reading-links.ts:4</code> 刻意限制同课程，扩大范围时需同步目标查询、失效检测和展示规则。内链预览已列入设计下一阶段，宜沿用普通链接与键盘/触屏行为。</p>
+<h3 id="section-18">F08：跨会话继续阅读是自然扩展，但不是最高优先级缺陷</h3>
+<p>目前已有 sessionStorage 阅读位置恢复：<code>page-scroll.ts:33</code>。它解决会话内刷新和前进后退，但不等同于长期书签。</p>
+<p>可增加本地保存的章节锚点、阅读时间和“继续阅读”入口，优先定位章节，再以像素位置辅助。内容变动后定位失败需正常退回正文。这里不需要先引入账号、云同步或后台。</p>
+<h2 id="section-19">六、搜索的功能契约</h2>
+<p>现有分节搜索、高级筛选、URL 状态和公式摘要是站点优势。改进应以保持这些能力为前提。</p>
+<h3 id="section-20">F09：多词匹配范围应明确</h3>
+<p><strong>优先级：P2。证据：<code>search.vue:35–68</code>。</strong></p>
+<p>当前关键词采用多词 AND，但正文匹配发生在同一个章节内；标题匹配则要求所有词都在标题里。一个词在标题、另一个在正文，或两个词分散在不同章节时，不保证按文章级 AND 命中。description 和 tags 虽被携带，但并未作为统一全文匹配字段使用。</p>
+<p>这不是简单的实现错误，而是需要产品明确的检索契约。建议说明当前规则，或者设计文章级候选与章节级命中展示分层。数学术语可补可靠别名，例如 Jordan/若尔当、Schmidt/施密特；别名应同时考虑高亮、排序和 AND 关系，避免只扩大命中却让读者看不懂为什么匹配。</p>
+<p>验收使用真实内容和少量固定查询覆盖：标题＋正文分散命中、跨章节、多词、课程/日期/标签筛选、无关键词筛选、大小写和带公式摘要。</p>
+<h2 id="section-21">七、可访问性与外观状态</h2>
+<h3 id="section-22">F10：普通文章的 AI 标识存在确定的 ARIA 问题</h3>
+<p><strong>优先级：P1，小改动。证据：本轮 axe。</strong></p>
+<p>普通文章样本报告 <code>aria-prohibited-attr</code>：AI 标识使用没有有效语义角色的普通 <code>span</code>，却通过 <code>aria-label</code> 赋名，同时内部可见文字标成 <code>aria-hidden</code>。源组件位于 <code>app/components/AiGeneratedBadge.vue</code>，AI 辅助标识也应一并核查。</p>
+<p>建议采用可被辅助技术读取的实际文字，或选择与其用途相符的有效语义结构；避免为了视觉徽章隐藏全部可读文字。验收检查 AI 生成/辅助标识在列表和正文中的读取结果，并复跑对应 axe 规则。</p>
+<h3 id="section-23">F11：外观面板的部分滑块和选择按钮缺少完整语义</h3>
+<p><strong>优先级：P1/P2。证据：源码。</strong></p>
+<p><code>AppearancePanel.vue</code> 中导航模糊、内容模糊、下拉框模糊、背景模糊、背景遮罩五个滑块的视觉文字使用普通 <code>span</code>，没有对应 label 或 aria-label。部分旧分段按钮只有 <code>.active</code> 类，缺少选中状态；较新的代码材质、层次与数量控件已经使用 <code>aria-pressed</code>，说明同一面板内模式不统一。</p>
+<p>建议为每个输入建立可程序化读取的名称与数值单位，统一分段控件的选中语义；优先复用一种经过验证的设置控件模式。并补“跳到正文”入口，减少键盘用户每次经过整组导航的成本。</p>
+<p>本轮没有完成启用手动设置后的面板 axe 扫描，因此“五个名称缺失”属于源码确认，不冒充扫描结果。自动扫描也无法完成所有背景取样条件下的文字对比度判断。</p>
+<h3 id="section-24">F12：预期的外观快照转场没有被深 watcher 正确识别</h3>
+<p><strong>优先级：P2。证据：真实 Vue 最小复现与生产 watcher 抽取探针。</strong></p>
+<p><code>AppearancePanel.vue:298</code> 使用深 watch 监听同一个 reactive 对象，又在 <code>:300–303</code> 比较 <code>state</code> 与 <code>from</code> 的字段。对象原地修改时，新旧参数是同一对象，导致离散变化比较不成立。</p>
+<p>抽取当前 watcher 并使用真实 Vue 执行后，5 类离散字段变更都触发了应用外观与写存储，但 <code>startViewTransition</code> 调用数为 <strong>0</strong>。这说明文档所述快照交叉淡入路径在这些修改下没有按设计触发；<strong>不意味着主题切换本身失效，也不是 Chrome GPU 卡顿根因的证明。</strong></p>
+<p>建议监听显式字段快照或维护前一次规范化状态，分开处理离散切换和连续滑块。验收应验证真实 Vue 调度、支持/不支持 View Transition、减少动态效果、快速连点和转场结束清理，而不只匹配源码字符串。</p>
+<h3 id="section-25">主题双入口：保留为未完成验证项</h3>
+<p><code>ThemeToggle.vue</code> 自己维护 <code>isDark</code>、直接写 DOM 和存储；外观面板另有状态。源码提示二者存在不同步风险，但现代模式在 <code>main.css:471</code> 隐藏了顶栏按钮，纸媒模式才应重点复核。</p>
+<p>本轮脚本误在现代模式尝试点击隐藏按钮并超时。<strong>这一超时不应列为产品故障，也不能据此宣称已经复现了主题互相覆盖。</strong> 后续如继续调查，应在纸媒模式验证顶栏切换、面板切换、其他设置变更和刷新后的实际状态，再决定统一状态来源或移除冗余入口。</p>
+<h3 id="section-26">无 JavaScript 与对比度边界</h3>
+<p>Mermaid 的 SVG 在客户端生成，源码面板初始收起并 inert，展开按钮也依赖 JavaScript；源码与历史交接记录均提示其无 JS 回退承诺需要核对。正文和高代初始 SVG 已有更好的静态基础。建议明确哪些功能依赖 JS，并为关键图示提供可读的静态文字/源码回退。</p>
+<p>本轮 axe 的对比度待判断节点数：首页 231、搜索 18、普通文章 113。背景图与透明材质使自动工具难以给出确定答案，不能将这些数量直接当作违规数量，也不能因没有确定报告就认定对比度合格。后续应按几组实际背景和主题做人工检查。</p>
+<h2 id="section-27">八、工程质量、发布与维护</h2>
+<h3 id="section-28">F13：已有测试应沉淀为持续的行为验证</h3>
+<p><strong>优先级：P1。</strong></p>
+<p>37 组检查覆盖了不少逻辑、边界和静态产物，值得保留；缺口是少量跨组件和浏览器路径尚未稳定进入仓库与 CI。此前高代专项的真实浏览器检查确实存在，不能说项目从未做过浏览器验证，但它们主要留在临时审阅目录，不是长期回归基础。</p>
+<p>建议建立小而稳定的浏览器集合：</p>
+<ul>
+<li>长文 → 短页 → 后退、刷新、目录定位与真实触摸滚动分支。</li>
+<li>搜索筛选、日期输入、弹层翻转、Esc 与焦点返回。</li>
+<li>外观默认设置确认、主题切换、减少动态效果及快速操作。</li>
+<li>一篇普通文章、一篇长数学笔记和一个 PDF/交互图场景。</li>
+</ul>
+<p>截图比较用于静态外观；动画、背景取样与真实设备流畅性需另立验收，不能全部压成一张截图的通过/失败。</p>
+<h3 id="section-29">F14：教学代码校验尚未进入发布链路</h3>
+<p><strong>优先级：P1。</strong></p>
+<p><code>check-study-code.mjs</code> 能从实际 Markdown 编译执行 42 个 C17 程序、核对哈希和输出，本轮已复跑通过。但该脚本没有进入 <code>check-all.mjs</code> 或部署 workflow。仅检查围栏存在和预期数量，无法替代实际执行。</p>
+<p>建议新增教学内容校验 job；再为 PR 增加只检查、不部署的工作流，使问题在合入前暴露。MATLAB 记录需区分真实 MATLAB 运行、静态语法检查和其他解释器的结果，不强行把缺少许可证的 CI 描述成完整验证。</p>
+<h3 id="section-30">F15：维护复杂度集中于少数文件与历史规范</h3>
+<p><code>main.css</code> 约 3,604 行、157,093 字节，外观面板约 45 KB 源码；多套材质、主题、背景、设备与动画组合使维护依赖上下文。已有 42 组级联兼容/优先级例外门禁，是控制回归的积极措施。</p>
+<p>建议先提取外观状态规范化、持久化、主题应用和离散转场的职责，再按实际组件边界整理样式。每步有独立验收，不把拆文件本身宣称为运行更快。</p>
+<p>文档需增加“当前事实”入口。具体漂移包括：架构页仍称全部样式集中在 main.css；README 同时保留默认同步和桌面固定延迟的描述；部分已发布功能的历史记录仍写“未提交”。应保留历史实验原文，并在顶部标明当前状态与后续决定，避免后来的维护者重复建设或按旧结论改代码。</p>
+<h2 id="section-31">九、发现、分享与长期内容维护</h2>
+<h3 id="section-32">F16：基础 SEO 已有，订阅与显式发现入口可补齐</h3>
+<p><strong>优先级：P2，实施边界较小。</strong></p>
+<p>本轮线上抽查主要页面的标题与 canonical 正确，已有 Open Graph 和 Twitter 元信息。<code>robots.txt</code> 返回 200 并允许抓取。</p>
+<p><code>sitemap.xml</code>、<code>feed.xml</code>、<code>rss.xml</code> 本轮返回 404；源码未发现 RSS/Atom、站点地图或 JSON-LD 的实现。这不表示搜索引擎无法收录，而是缺少稳定的主动发现与订阅渠道。</p>
+<p>建议先静态生成 sitemap 和 RSS，按公开内容统一过滤草稿，处理 <code>/inkroam/</code> 子路径与绝对地址。之后再考虑文章结构化数据和分主题订阅。</p>
+<p>关于页允许作者修订观点，但目前没有公开更新时间或修订摘要。对数学、实验与性能调查，适度增加 <code>updated</code> 或简短更正说明，有助于读者判断内容是否仍适用。是否展示应由内容性质决定，不机械要求所有随笔拥有修改日志。</p>
+<h2 id="section-33">十、关于层次光效性能的独立判断</h2>
+<p>仓库 10 月 13 日记录明确：同步/延迟已作为用户偏好，默认同步；桌面延迟选项保留 440 ms，调查暂告一段落。这是产品决定，不代表具体 Chrome 问题已经找到根因。</p>
+<p>过去的部分实验确实在特定机器和浏览器上观察到动态光效成本，且指出几何变化与后续亮度动画应分别看待。本轮环境是 Linux 无头 Chromium，<strong>没有重新复现 Windows 上 Chrome/Edge 的 GPU 后端差异，没有新的物理呈现帧率结论。</strong></p>
+<p>因此建议把该问题保留为独立研究项，有明确输入再重启：固定设备、浏览器、DPR、背景、材质和动作，建立导航光面＋接光＋内容背景取样的最小复现，保存原始记录。候选实现需同时满足稳定收益与原视觉轨迹、终值、文字边缘和近远关系不退化。不要把移除模糊或停止动画的诊断实验当作已经完成的产品修复。</p>
+<p>在这项研究之外，搜索预取和壁纸交付已经有本轮可复核的数据，适合先做边界更清楚的改进。</p>
+<h2 id="section-34">十一、整改优先级与交付顺序</h2>
+<p>这里没有使用缺少校准依据的“健康分”或性能完成百分比。P1 表示建议下一轮优先处理，P2 表示随后推进；没有证据表明当前站点需要停用或立即重写。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>顺序</th>
+<th>交付</th>
+<th>预期价值</th>
+<th>相对工作量</th>
+<th>主要验收</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>控制搜索预取</td>
+<td>让普通阅读避开完整搜索数据</td>
+<td>小</td>
+<td>首页/文章的冷上下文请求不再包含整份搜索 payload</td>
+</tr>
+<tr>
+<td>2</td>
+<td>当前背景、缩略图与非当前壁纸分离</td>
+<td>减少未使用图片加载</td>
+<td>中</td>
+<td>请求清单、实际传输与四种主题视觉对照</td>
+</tr>
+<tr>
+<td>3</td>
+<td>修复 AI 标识、滑块名称和选择状态语义</td>
+<td>提高辅助技术可理解性</td>
+<td>小</td>
+<td>axe、键盘与读屏抽查</td>
+</tr>
+<tr>
+<td>4</td>
+<td>修正外观离散状态检测</td>
+<td>使设计中的转场可被真实验证</td>
+<td>小至中</td>
+<td>真实 Vue＋浏览器支持/降级/快速操作用例</td>
+</tr>
+<tr>
+<td>5</td>
+<td>固化少量浏览器回归、C17 job 与 PR 检查</td>
+<td>降低后续修改引入回归的概率</td>
+<td>中</td>
+<td>PR 可运行，失败阻止部署，证据可追溯</td>
+</tr>
+<tr>
+<td>6</td>
+<td>轻量搜索索引</td>
+<td>为内容增长控制数据和解析成本</td>
+<td>中</td>
+<td>功能等价与同环境前后测量</td>
+</tr>
+<tr>
+<td>7</td>
+<td>统一归档、课程顺序与文末推荐</td>
+<td>使内容范围和阅读方向更明确</td>
+<td>中</td>
+<td>文案、筛选、排序、去重和链接状态一致</td>
+</tr>
+<tr>
+<td>8</td>
+<td>RSS、sitemap、当前状态文档</td>
+<td>提升发现、订阅与维护效率</td>
+<td>小</td>
+<td>XML 可读、绝对地址正确、草稿排除</td>
+</tr>
+<tr>
+<td>9</td>
+<td>章节书签、内链预览与逐步教学组件</td>
+<td>丰富长期阅读与学习体验</td>
+<td>中</td>
+<td>每项先以真实内容小范围试点</td>
+</tr>
+</tbody></table></div>
+<p>时间安排宜按交付批次，而非在未设计前给出精确天数：</p>
+<p><strong>第一批：修边界。</strong> 搜索预取、资源预览、语义小修；同时建立对应浏览器用例。每项单独提交，便于对照和回滚。</p>
+<p><strong>第二批：稳数据与结构。</strong> 搜索索引、内容元数据检查、教学 CI、归档/课程/推荐的一致性；补齐当前事实文档。</p>
+<p><strong>第三批：扩展阅读价值。</strong> RSS、继续阅读、手工跨课程线索、内链预览和少量过程式数学演示。扩展以已有内容是否更容易理解和复访为判断依据。</p>
+<h2 id="section-35">十二、建议固定的验收仪表与停止条件</h2>
+<p>为每次有实质影响的修改保存一份轻量记录：提交、构建命令、浏览器与设备、模式、背景、视口、输入能力、操作步骤、预期、实际结果和证据路径。</p>
+<p>固定观察项建议包括：</p>
+<ul>
+<li>普通首页/文章是否加载搜索索引，当前背景以外的图片是否被请求。</li>
+<li>HTML、payload、压缩文件体积及实际请求，分别记录，不合并为含糊的“页面大小”。</li>
+<li>长数学页的可用时间、主线程任务、目录定位与布局变化；对照测量后再决定优化对象。</li>
+<li>键盘焦点、控件名称、选中状态和弹层收起行为。</li>
+<li>原生文档滚动与桌面容器滚动两条分支；减少动态效果、浅深与现代/纸媒组合。</li>
+<li>搜索公式摘要、草稿过滤、标签 slug、章节锚点和 404 恢复。</li>
+</ul>
+<p>当候选没有稳定收益、证据无法区分环境差异，或必须改变既有设计才能看起来更快时，应结束该候选并记录结果。对研究项如此，对普通功能也一样：没有必要为了每页都有推荐、每个段落都有交互而扩大系统。</p>
+<h2 id="section-36">十三、交付物与复核入口</h2>
+<p>本报告及调查文件写在仓库外的 <code>/workspace/inkroam-audit-2026-10-15/</code>，未修改、提交或部署产品代码。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>文件</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>typecheck.log</code>、<code>generate.log</code>、<code>check-built.log</code></td>
+<td>当前提交的新类型、生产构建与回归结果</td>
+</tr>
+<tr>
+<td><code>study-code-escalated.log</code></td>
+<td>42 个 C17 程序的最终成功验证；首次受限记录另保留</td>
+</tr>
+<tr>
+<td><code>evidence/static-audit.json</code></td>
+<td>静态锚点、ID 与图片 alt 属性检查</td>
+</tr>
+<tr>
+<td><code>evidence/live-http.json</code></td>
+<td>线上页面、SEO 地址和 404 抽查</td>
+</tr>
+<tr>
+<td><code>evidence/browser-audit.json</code>、<code>browser-audit.log</code></td>
+<td>浏览器环境、四页资源、三页 axe、失败场景与边界</td>
+</tr>
+<tr>
+<td><code>evidence/*-desktop.png</code></td>
+<td>四页桌面截图；截图时固定动效，不能用于评估动画流畅度</td>
+</tr>
+<tr>
+<td><code>appearance-watch-probe.mjs</code> 与结果 JSON</td>
+<td>真实 Vue 外观 watcher 的最小复核</td>
+</tr>
+<tr>
+<td><code>product-findings.md</code></td>
+<td>产品与内容体验专项材料</td>
+</tr>
+<tr>
+<td><code>engineering-findings.md</code></td>
+<td>工程、状态、语义与 CI 专项材料</td>
+</tr>
+<tr>
+<td><code>performance-findings.md</code></td>
+<td>性能、资源与新制品统计专项材料</td>
+</tr>
+</tbody></table></div>
+<p>专项材料包含调查中的候选项；<strong>本文的最终证据等级与未完成项说明优先于中间材料中的初步判断</strong>，尤其是顶栏主题按钮在现代模式隐藏这一点。</p>
+<p>主要源码与历史依据可从以下位置复核：</p>
+<ul>
+<li><a href="https://github.com/AdhocHorizon813/inkroam/blob/2a2bfb57c3c0f0dcf78794e83dd51dff0db0071b/app/app.vue">持久外壳与全局 SEO</a></li>
+<li><a href="https://github.com/AdhocHorizon813/inkroam/blob/2a2bfb57c3c0f0dcf78794e83dd51dff0db0071b/app/components/SlidingNav.vue">主导航及预取入口</a></li>
+<li><a href="https://github.com/AdhocHorizon813/inkroam/blob/2a2bfb57c3c0f0dcf78794e83dd51dff0db0071b/app/pages/search.vue">搜索查询、摘要与匹配</a></li>
+<li><a href="https://github.com/AdhocHorizon813/inkroam/blob/2a2bfb57c3c0f0dcf78794e83dd51dff0db0071b/app/components/AppearancePanel.vue">外观状态与控件</a></li>
+<li><a href="https://github.com/AdhocHorizon813/inkroam/blob/2a2bfb57c3c0f0dcf78794e83dd51dff0db0071b/app/pages/notes/%5Bcourse%5D/index.vue">课程入口</a></li>
+<li><a href="https://github.com/AdhocHorizon813/inkroam/blob/2a2bfb57c3c0f0dcf78794e83dd51dff0db0071b/scripts/check-all.mjs">统一检查</a></li>
+<li><a href="https://github.com/AdhocHorizon813/inkroam/blob/2a2bfb57c3c0f0dcf78794e83dd51dff0db0071b/.github/workflows/deploy.yml">部署工作流</a></li>
+<li><a href="https://github.com/AdhocHorizon813/inkroam/blob/2a2bfb57c3c0f0dcf78794e83dd51dff0db0071b/docs/browser-regression-checklist.md">浏览器验收协议</a></li>
+<li><a href="https://github.com/AdhocHorizon813/inkroam/blob/2a2bfb57c3c0f0dcf78794e83dd51dff0db0071b/docs/chrome-light-timing-2026-10-13.md">光效阶段收尾与产品决定</a></li>
+</ul>
+<p>本轮没有读者访谈、访问统计、真实用户性能数据、全浏览器兼容矩阵或渗透测试。因此，关于首次访问路径、内容推荐和持续阅读的收益是可验证的产品建议，不是已经测得的用户行为结论。</p>
+<footer>本文件包含完整报告；阅读无需外部脚本或字体。原始证据位于同目录 evidence 及各专项材料。</footer></main></div></body></html>
