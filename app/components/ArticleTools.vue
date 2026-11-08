@@ -184,6 +184,7 @@ async function exportArticle(format: 'pdf' | 'png') {
       <button ref="trigger" class="article-action" type="button" :aria-expanded="mode === 'find'" aria-controls="article-find-panel" @click="toggle('find')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4 4" /></svg><span>页内查找</span></button>
       <button ref="exportTrigger" class="article-action" type="button" :aria-expanded="mode === 'export'" aria-controls="article-export-panel" @click="toggle('export')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg><span>导出正文</span></button>
       <CopyArticleLink feedback class="copy-article-link--inline" />
+      <slot name="actions" />
     </div>
     <Transition :css="false" mode="out-in" @enter="enterPanel" @leave="leavePanel" @enter-cancelled="cancelPanel" @leave-cancelled="cancelPanel" @before-leave="beforeLeave" @after-enter="afterEnter">
       <div v-if="mode === 'find'" key="find" class="article-tools__reveal">
