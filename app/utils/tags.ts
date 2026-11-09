@@ -1,4 +1,6 @@
 export const tagSlugMap: Record<string, string> = {
+  '多目标优化': 'multi-objective-optimization',
+  'NSGA-II': 'nsga-ii',
   'MATLAB': 'matlab',
   '数学实验': 'mathematical-experiments',
   '可视化': 'visualization',

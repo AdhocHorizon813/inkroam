@@ -23,6 +23,8 @@
 
 ## 学习笔记
 
+智能计算基础的 `nsga-ii.md` 使用 `::nsga-explorer{mode="dominance|sorting|crowding|selection"}`（每次选择一个 mode，以单独一行 `::` 结束）。四个模式分别演示占优关系、快速非劣排序、拥挤距离和环境选择；组件通过 `ArticleReader.vue` 显式注册，初始 SVG 与表格可无 JavaScript 阅读。纯计算位于 `app/utils/nsga-ii.ts`，例子限定无约束最小化，目标坐标不替代决策变量上的交叉、变异。专项验证运行 `node --experimental-strip-types scripts/check-nsga-ii.mjs`；以 `BASE_PATH=/inkroam/` 静态生成后加 `--built`，检查实际组件、公式和原图路径。该脚本独立运行，不改变现有统一检查的分组数量。
+
 笔记正文下方会显示同课程的上一篇/下一篇。可选 frontmatter `order: 1` 指定学习顺序：有序号的笔记按序号升序，未填写的排在其后、按日期从早到晚，同日按路径稳定排序。建议一门课程统一填写序号；草稿不参与，只有一篇时只显示返回课程入口。课程归档仍保留按日期倒序，不改变此前的时间线。
 
 话题目录筛选使用 `?q=名称`，话题详情类型筛选使用 `?type=posts` 或 `?type=notes`（默认全部）。刷新、复制网址和浏览器后退可恢复条件；从筛选目录进入话题后，“全部话题”返回链接保留名称条件。替换筛选不产生逐字的浏览历史，不触发页面切换动画；滚动恢复沿用 Nuxt 已有的 savedPosition 行为。

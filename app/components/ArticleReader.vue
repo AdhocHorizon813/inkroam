@@ -6,6 +6,7 @@ import ArticleCode from '~/components/content/ArticleCode.vue'
 import ArticleTable from '~/components/content/ArticleTable.vue'
 import TreeWalk from '~/components/content/TreeWalk.vue'
 import AlgebraExplorer from '~/components/content/AlgebraExplorer.vue'
+import NsgaExplorer from '~/components/content/NsgaExplorer.vue'
 import '~/assets/css/article-technical.css'
 
 const route = useRoute()
@@ -198,7 +199,7 @@ watch(() => route.fullPath, async () => {
         @click="onContentClick"
         @keydown="onContentKeydown"
       >
-        <ContentRenderer :value="post" :components="{ 'pdf-viewer': PdfViewer, PdfViewer, 'tree-walk': TreeWalk, TreeWalk, 'algebra-explorer': AlgebraExplorer, AlgebraExplorer, pre: ArticleCode, table: ArticleTable }" />
+        <ContentRenderer :value="post" :components="{ 'pdf-viewer': PdfViewer, PdfViewer, 'tree-walk': TreeWalk, TreeWalk, 'algebra-explorer': AlgebraExplorer, AlgebraExplorer, 'nsga-explorer': NsgaExplorer, NsgaExplorer, pre: ArticleCode, table: ArticleTable }" />
       </article>
     </div>
 
