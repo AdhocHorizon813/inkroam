@@ -9,6 +9,10 @@ aiAssisted: true
 pinned: false
 featured: false
 draft: false
+readingLinks:
+  - path: /notes/functional-analysis/six-methods-to-prove-closed-sets
+    kind: next
+    reason: 用六种闭集证明方法与完整证明，进一步理解教材中的紧等于列紧加闭，以及闭性和完备性的区别。
 ---
 
 这些概念分别在回答几类问题：点列能否找到收敛子列，Cauchy 列的极限是否仍在空间中，以及能否用少量网点逼近整个集合。先分清问题，再记箭头，会比逐条背诵更容易。
