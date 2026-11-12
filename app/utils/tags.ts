@@ -7,6 +7,7 @@ export const tagSlugMap: Record<string, string> = {
   '度量空间': 'metric-spaces',
   '泛函分析': 'functional-analysis',
   '闭集': 'closed-sets',
+  '开集': 'open-sets',
   '证明方法': 'proof-methods',
   '数学竞赛': 'mathematics-competition',
   '高等代数': 'advanced-algebra',

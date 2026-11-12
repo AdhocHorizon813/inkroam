@@ -8,6 +8,9 @@ aiGenerated: true
 aiAssisted: true
 draft: false
 readingLinks:
+  - path: /notes/functional-analysis/six-methods-to-prove-open-sets
+    kind: next
+    reason: 对照开球、内部和最终进入集合的序列判据，理解开集与闭集证明方法的对偶关系。
   - path: /notes/functional-analysis/metric-space-concepts
     kind: review
     reason: 对照已有概念关系图，复习教材中列紧允许极限落在母空间，以及紧等于列紧加闭的约定。
