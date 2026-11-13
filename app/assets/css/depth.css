@@ -26,8 +26,9 @@
   --depth-menu-light: .045;
 }
 
-/* The after slot is unused by main.css; before remains owned by materials.
-   Hollow highlights follow the existing radius without covering text. */
+/* Disabled 2026-11-13: this fixed white gradient painted a false upper-left
+   rim, then brightened on interaction. Preserve the old recipe for reference;
+   material lighting and the optical glass edge remain owned by their layers.
 @supports (mask-composite: exclude) {
   :root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])
   .appearance-panel::after {
@@ -51,6 +52,7 @@
     opacity: calc(var(--depth-rim-opacity) + .08);
   }
 }
+*/
 /* Background highlights paint below text without a scrolling overlay. */
 :root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined']) .dropdown-surface {
   background-image: radial-gradient(ellipse at 0% 0%,
