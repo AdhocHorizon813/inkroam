@@ -16,6 +16,7 @@ const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   .replace(/^/, `const useRadialShortcut = () => ({ recording: { value: false }, shortcut: { value: null } })
 if (typeof globalThis.window === 'undefined') globalThis.window = { matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) }
 if (!window.addEventListener) { window.addEventListener = () => {}; window.removeEventListener = () => {}; window.dispatchEvent = () => {} }
+if (typeof globalThis.onBeforeUnmount === 'undefined') globalThis.onBeforeUnmount = typeof globalThis.onUnmounted === 'function' ? globalThis.onUnmounted : () => {}
 `)
 const template = panel.match(/<template>([\s\S]*)<\/template>/)[1]
 const css = readFileSync('app/assets/css/main.css', 'utf8')

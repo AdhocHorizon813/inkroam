@@ -47,9 +47,13 @@ css.walkRules(rule => {
     if (decl.prop === '--depth-rim-opacity') assert(Number(decl.value) <= .42)
   })
 })
-const optical = css.nodes.find(node => node.name === 'supports').nodes[0]
-assert(optical.nodes.some(d => d.prop === 'pointer-events' && d.value === 'none'))
-assert(optical.nodes.some(d => d.prop === 'mask-composite' && d.value === 'exclude'), 'Keep light hollow, not over text')
+// The artificial depth rim was removed in 8dec0cd. If an @supports optical block
+// ever comes back it must keep the same rules; its absence is the current state.
+const optical = css.nodes.find(node => node.name === 'supports')?.nodes?.[0]
+if (optical) {
+  assert(optical.nodes.some(d => d.prop === 'pointer-events' && d.value === 'none'))
+  assert(optical.nodes.some(d => d.prop === 'mask-composite' && d.value === 'exclude'), 'Keep light hollow, not over text')
+}
 assert(css.nodes.some(node => node.name === 'media' && node.params.includes('prefers-reduced-motion')))
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 assert.match(panel, /<fieldset class="setting-group">\s*<legend class="setting-label">层次感<\/legend>/)
