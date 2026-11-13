@@ -148,16 +148,45 @@ const appearancePage = ref<AppearancePage>('main')
 const isSubpage = computed(() => appearancePage.value !== 'main')
 const appearanceTitle = computed(() => appearancePages.find(page => page.id === appearancePage.value)?.title || '阅读外观')
 const settingsScroll: Record<AppearancePage, number> = { main: 0, reading: 0, materials: 0, depth: 0, glass: 0, shortcuts: 0 }
+const pageDirection = ref(1)
+let pageHeightMotion: Animation | undefined
+let pageNavigation = 0
+function cancelPageMotion() {
+  pageNavigation++
+  pageHeightMotion?.cancel()
+  pageHeightMotion = undefined
+}
+onBeforeUnmount(cancelPageMotion)
 const { recording: shortcutRecording } = useRadialShortcut()
-watch(isOpen, value => { if (!value) shortcutRecording.value = false })
+watch(isOpen, value => { if (!value) { shortcutRecording.value = false; cancelPageMotion() } })
 async function navigateAppearance(page: AppearancePage) {
+  if (page === appearancePage.value) return
   const scroll = panelScroll.value
   const previous = appearancePage.value
+  // Capture the currently presented size before cancelling a reversed transition.
+  const fromHeight = scroll?.getBoundingClientRect().height
+  cancelPageMotion()
+  const navigation = pageNavigation
   if (scroll) settingsScroll[previous] = scroll.scrollTop
+  pageDirection.value = page === 'main' ? -1 : 1
   shortcutRecording.value = false
   appearancePage.value = page
   await nextTick()
+  if (navigation !== pageNavigation) return
   if (scroll) {
+    // The incoming page owns natural layout; outgoing content is absolute.
+    // Animate the bounded viewport, not thousands of pixels of menu content.
+    const toHeight = scroll.getBoundingClientRect().height
+    if (isOpen.value && fromHeight && Math.abs(fromHeight - toHeight) > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const motion = scroll.animate([{ height: `${fromHeight}px` }, { height: `${toHeight}px` }], {
+        duration: 280, easing: 'cubic-bezier(.16, 1, .3, 1)',
+      })
+      pageHeightMotion = motion
+      motion.onfinish = () => {
+        if (pageHeightMotion === motion) pageHeightMotion = undefined
+        window.dispatchEvent(new Event('inkroam:glass-surfaces-changed'))
+      }
+    }
     scroll.scrollTop = settingsScroll[page]
     scroll.querySelector<HTMLElement>(page === 'main' ? `[data-appearance-page="${previous}"]` : '.appearance-subpage-back')?.focus({ preventScroll: true })
   }
@@ -649,9 +678,9 @@ function resetAppearance() {
       :inert="!isOpen"
       aria-label="外观设置"
     >
-      <div ref="panelScroll" class="appearance-panel__scroll">
+      <div ref="panelScroll" class="appearance-panel__scroll" :style="{ '--appearance-direction': pageDirection }">
         <header class="appearance-panel__header">
-          <div class="appearance-header-copy" :class="{ 'is-glass-page': isSubpage }">
+          <div class="appearance-header-copy">
             <div class="appearance-header-eyebrow">
               <Transition name="appearance-back">
                 <button v-show="isSubpage" :inert="!isSubpage" :aria-hidden="!isSubpage" type="button" class="appearance-subpage-back panel-close" aria-label="返回阅读外观" title="返回阅读外观" @click="navigateAppearance('main')">
@@ -659,7 +688,7 @@ function resetAppearance() {
                 </button>
               </Transition>
               <Transition name="appearance-kicker">
-                <span v-show="!isSubpage" class="panel-kicker" aria-hidden="true">DISPLAY</span>
+                <span v-show="!isSubpage" class="appearance-header-mark" aria-hidden="true">Aa</span>
               </Transition>
             </div>
             <h2 class="appearance-header-title" :aria-label="appearanceTitle">
@@ -1070,15 +1099,13 @@ function resetAppearance() {
 
 <style scoped>
 .appearance-subpage-back svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; }
-.appearance-header-copy { min-width: 0; --header-enter-x: -8px; }
-.appearance-header-copy.is-glass-page { --header-enter-x: 8px; }
-/* Animate the eyebrow's space as well as its contents: replacing a small
-   kicker with a 32px button must not abruptly push the title and settings. */
-.appearance-header-eyebrow { position: relative; height: calc(9px * 1.6 + 5px); transition: height 260ms cubic-bezier(.16, 1, .3, 1); }
-.is-glass-page .appearance-header-eyebrow { height: 40px; }
-.appearance-header-eyebrow .panel-kicker { position: absolute; inset: 0 auto auto 0; line-height: 1.6; margin: 0; }
+.appearance-panel__header { align-items: center; min-height: 36px; }
+.appearance-header-copy { min-width: 0; display: flex; align-items: center; gap: 10px; --header-enter-x: calc(var(--appearance-direction, 1) * 8px); }
+/* Keep both pages on one stable title baseline; the back control owns a fixed slot. */
+.appearance-header-eyebrow { position: relative; flex: 0 0 32px; width: 32px; height: 32px; }
+.appearance-header-mark { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font: 13px var(--sans); }
 .appearance-subpage-back { position: absolute; top: 0; left: 0; margin: 0; transform-origin: center; }
-.appearance-header-title { position: relative; }
+.appearance-header-title { position: relative; min-width: 0; margin: 0; }
 .appearance-header-title > span { display: block; white-space: nowrap; }
 .appearance-title-leave-active { position: absolute; inset: 0 auto auto 0; pointer-events: none; }
 .appearance-title-enter-active, .appearance-title-leave-active,
@@ -1086,14 +1113,14 @@ function resetAppearance() {
 .appearance-kicker-enter-active, .appearance-kicker-leave-active { transition: transform 260ms cubic-bezier(.16, 1, .3, 1), opacity 180ms ease; }
 .appearance-title-enter-from { opacity: 0; transform: translateX(var(--header-enter-x)); }
 .appearance-title-leave-to { opacity: 0; transform: translateX(calc(-1 * var(--header-enter-x))); }
-.appearance-back-enter-from, .appearance-back-leave-to { opacity: 0; transform: translateY(-4px) scale(.84) rotate(-12deg); }
+.appearance-back-enter-from, .appearance-back-leave-to { opacity: 0; transform: translateX(-4px); }
 .appearance-back-leave-active { pointer-events: none; }
-.appearance-kicker-enter-from, .appearance-kicker-leave-to { opacity: 0; transform: translateY(4px); }
+.appearance-kicker-enter-from, .appearance-kicker-leave-to { opacity: 0; transform: translateX(4px); }
 .appearance-subpages { position: relative; }
 .appearance-subpage-enter-active, .appearance-subpage-leave-active { transition: transform 260ms cubic-bezier(.16, 1, .3, 1), opacity 180ms ease; }
 .appearance-subpage-leave-active { position: absolute; inset: 0 0 auto; pointer-events: none; }
-.appearance-subpage-enter-from { opacity: 0; transform: translateX(12px); }
-.appearance-subpage-leave-to { opacity: 0; transform: translateX(-8px); }
+.appearance-subpage-enter-from { opacity: 0; transform: translateX(calc(var(--appearance-direction, 1) * 12px)); }
+.appearance-subpage-leave-to { opacity: 0; transform: translateX(calc(var(--appearance-direction, 1) * -8px)); }
 @media (prefers-reduced-motion: reduce) {
   .appearance-subpage-enter-active, .appearance-subpage-leave-active,
   .appearance-header-eyebrow,
