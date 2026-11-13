@@ -467,11 +467,18 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     alignAllOptics()
   }
 
+  // Only the row's mode buttons own the pill. Copy-link and the slotted sidebar
+  // toggle both wear `.article-copy-action`: they are one-shot actions whose
+  // aria-expanded belongs to another panel, so they must never drag the
+  // indicator past 导出正文.
+  const actionsOnly = Boolean(group!.classList.contains('article-tools__actions'))
+  const ownsIndicator = (b: HTMLElement) => !actionsOnly || !b.classList.contains('article-copy-action')
   function selected() {
-    return buttons.find(b => b.getAttribute('aria-expanded') === 'true'
+    return buttons.find(b => ownsIndicator(b)
+      && (b.getAttribute('aria-expanded') === 'true'
       || b.getAttribute('aria-current') === 'page'
       || b.getAttribute('aria-pressed') === 'true' || b.classList.contains('active')
-      || b.classList.contains('router-link-active')) ?? buttons[0]!
+      || b.classList.contains('router-link-active'))) ?? buttons[0]!
   }
   function target(button: HTMLElement, immediate = false) {
     const center = button.offsetLeft + button.offsetWidth / 2
@@ -581,7 +588,10 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     // Vue may update only the .value property; GlassRange signals its update hook.
     listen(group, 'inkroam:range-update', () => readRange())
   } else {
-    buttons.forEach(button => {
+    // Only the mode buttons drive the pill. A copy/sidebar action flips its own
+    // attributes; observing them made every sidebar toggle re-target and re-press
+    // the indicator — the "slider wakes up" the copy link never caused.
+    buttons.filter(ownsIndicator).forEach(button => {
       state!.observe(button, { attributes: true, childList: true, subtree: true,
         attributeFilter: ['aria-current', 'aria-pressed', 'aria-expanded', 'class', 'disabled'] })
     })
@@ -590,6 +600,9 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     const event = e as PointerEvent
     const control = (event.target as Element)?.closest('input, button, a')
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || !control || control.matches(':disabled')) return
+    // Parity with the copy link: actions that never own the pill must not raise
+    // its pressure either.
+    if (!slider && !ownsIndicator(control as HTMLElement)) return
     suppressClick = false
     // The copy action shares the article row but does not select a panel.
     if (articleToolbar && !buttons.includes(control as HTMLElement)) return
@@ -611,7 +624,8 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     event.preventDefault()
     const box = group!.getBoundingClientRect()
     const local = (event.clientX - box.left) * group!.clientWidth / Math.max(1, box.width)
-    const enabled = buttons.filter(b => !b.matches(':disabled') && b.getAttribute('aria-disabled') !== 'true')
+    const enabled = buttons.filter(b => ownsIndicator(b)
+      && !b.matches(':disabled') && b.getAttribute('aria-disabled') !== 'true')
     if (!enabled.length) return
     dragChoice = enabled.reduce((a, b) => Math.abs(a.offsetLeft + a.offsetWidth / 2 - local)
       <= Math.abs(b.offsetLeft + b.offsetWidth / 2 - local) ? a : b)

@@ -54,7 +54,22 @@ function move(delta: number) {
   if (horizontal) horizontal.scrollTo({ left: horizontal.scrollLeft + rect.left - horizontal.getBoundingClientRect().left - 24, behavior: 'auto' })
 }
 watch(query, () => { clearTimeout(timer); if (mode.value === 'find') timer = setTimeout(() => find(), 180) })
+// Collapse parity: while docked the row is sticky, so dropping `--open` would
+// re-anchor it mid-animation and eat the fold. Keep the docked anchor for as
+// long as the panel's own leave motion (180ms) runs, then release. A timer is
+// used instead of a Transition hook so the release can never be lost.
+const closing = ref(false)
+let closeTimer = 0
+function beginClose() {
+  if (mode.value === null) return
+  closing.value = true
+  clearTimeout(closeTimer)
+  closeTimer = setTimeout(() => { closing.value = false }, 200)
+}
+function endClose() { clearTimeout(closeTimer); closing.value = false }
 async function toggle(next: 'find' | 'export') {
+  if (mode.value === next) beginClose()
+  else endClose()
   mode.value = mode.value === next ? null : next
   if (mode.value === 'find') { await nextTick(); find(false) }
   else { clearTimeout(timer); clearHighlights() }
@@ -65,6 +80,7 @@ async function toggle(next: 'find' | 'export') {
 }
 function close() {
   const activeTrigger = mode.value === 'export' ? exportTrigger.value : trigger.value
+  beginClose()
   clearTimeout(timer); mode.value = null; clearHighlights(); activeTrigger?.focus({ preventScroll: true })
 }
 const trigger = ref<HTMLButtonElement | null>(null)
@@ -110,7 +126,7 @@ function afterEnter() { if (mode.value === 'find') field.value?.focus({ preventS
 function keydown(event: KeyboardEvent) { if (event.key === 'Escape' && mode.value) { event.preventDefault(); close() } }
 function outside(event: PointerEvent) {
   if (mode.value && event.target instanceof Node && !root.value?.contains(event.target)) {
-    clearTimeout(timer); mode.value = null; clearHighlights()
+    clearTimeout(timer); beginClose(); mode.value = null; clearHighlights()
   }
 }
 onMounted(() => {
@@ -129,7 +145,7 @@ watch(() => props.content, content => {
   observer.observe(content, { childList: true, subtree: true, characterData: true })
 }, { flush: 'post' })
 onBeforeUnmount(() => {
-  disposed = true; clearTimeout(timer); observer?.disconnect(); clearHighlights()
+  disposed = true; clearTimeout(timer); clearTimeout(closeTimer); observer?.disconnect(); clearHighlights()
   transitions.forEach(cancel => cancel()); transitions.clear()
   document.removeEventListener('keydown', keydown)
   document.removeEventListener('pointerdown', outside)
@@ -177,7 +193,7 @@ async function exportArticle(format: 'pdf' | 'png') {
 </script>
 
 <template>
-  <div ref="root" class="article-tools" :class="{ 'article-tools--open': mode !== null }" :data-pointer-type="pointerType || undefined" @pointerdown.capture="rememberPointer" @pointermove.capture="rememberPointer" @keydown.esc.stop.prevent="close">
+  <div ref="root" class="article-tools" :class="{ 'article-tools--open': mode !== null || closing }" :data-pointer-type="pointerType || undefined" @pointerdown.capture="rememberPointer" @pointermove.capture="rememberPointer" @keydown.esc.stop.prevent="close">
     <div ref="actions" v-experimental-glass="mode !== null" data-glass-module="tools-track" class="article-tools__actions" :class="{ 'dropdown-surface': mode !== null }" role="group" aria-label="正文工具">
       <span v-experimental-glass="indicator.ready && mode !== null" data-glass-module="indicator" class="article-tools__indicator" :class="{ 'is-ready': indicator.ready && mode !== null, 'is-sliding': indicator.sliding }" :style="{ '--article-indicator-x': `${indicator.x}px`, '--article-indicator-width': `${indicator.width}px`, '--article-indicator-height': `${indicator.height}px` }" aria-hidden="true" />
 
