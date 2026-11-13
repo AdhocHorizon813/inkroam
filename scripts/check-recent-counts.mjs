@@ -11,6 +11,12 @@ const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   .replace(/^import .*glass-(?:settings|defaults).*$/gm, '')
   .replace(/^import .*\.vue'$/gm, '')
   .replace("import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'", '')
+  // Radial-shortcut composable + window-level radial events, stubbed for the VM.
+  .replace(/^import .*useRadialShortcut.*$/gm, '')
+  .replace(/^/, `const useRadialShortcut = () => ({ recording: { value: false }, shortcut: { value: null } })
+if (typeof globalThis.window === 'undefined') globalThis.window = { matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) }
+if (!window.addEventListener) { window.addEventListener = () => {}; window.removeEventListener = () => {}; window.dispatchEvent = () => {} }
+`)
 // This harness tests count preferences, not browser PDF capabilities or scrolling.
 const compiled = ts.transpile(source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'false'), { target: ts.ScriptTarget.ES2022 })
 

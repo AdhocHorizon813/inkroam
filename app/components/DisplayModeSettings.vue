@@ -15,6 +15,8 @@ const segmentStyle = computed(() => {
   return { '--segment-transform': `translate3d(calc(${index * 100}% + ${index * 5}px), 0, 0)` }
 })
 
+function toggleFocus() { void selectMode(mode.value === 'focus' ? 'off' : 'focus') }
+
 function syncFullscreen() {
   if (document.fullscreenElement !== document.documentElement) mode.value = 'off'
   else if (mode.value === 'off') mode.value = 'fullscreen'
@@ -48,9 +50,11 @@ onMounted(() => {
   supported.value = Boolean(document.fullscreenEnabled && document.documentElement.requestFullscreen)
   syncFullscreen()
   document.addEventListener('fullscreenchange', syncFullscreen)
+  window.addEventListener('inkroam:toggle-focus', toggleFocus)
 })
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', syncFullscreen)
+  window.removeEventListener('inkroam:toggle-focus', toggleFocus)
   delete document.documentElement.dataset.displayMode
 })
 </script>

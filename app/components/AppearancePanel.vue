@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import AppearanceMenuRow from './AppearanceMenuRow.vue'
 import GlassSettings from './GlassSettings.vue'
+import RadialShortcutSettings from './RadialShortcutSettings.vue'
+import { useRadialShortcut } from '~/composables/useRadialShortcut'
 import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '~/utils/glass-defaults'
 import { normalizeGlassPreferences, normalizeGlassGlobal, type GlassGlobalOverride, type GlassPreferences } from '~/utils/glass-settings'
 import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'
@@ -134,18 +136,36 @@ const CUSTOM_BG_KEY = 'paper-trail-custom-background'
 const CUSTOM_BG_NAME_KEY = 'paper-trail-custom-background-name'
 
 const isOpen = ref(false)
-const glassSettingsOpen = ref(false)
-const settingsScroll = { main: 0, glass: 0 }
-async function navigateAppearance(glass: boolean) {
+const appearancePages = [
+  { id: 'reading', title: '阅读与内容' },
+  { id: 'materials', title: '材质与背景' },
+  { id: 'depth', title: '层次与光效' },
+  { id: 'glass', title: '漫光玻璃设置' },
+  { id: 'shortcuts', title: '快捷操作' },
+] as const
+type AppearancePage = 'main' | typeof appearancePages[number]['id']
+const appearancePage = ref<AppearancePage>('main')
+const isSubpage = computed(() => appearancePage.value !== 'main')
+const appearanceTitle = computed(() => appearancePages.find(page => page.id === appearancePage.value)?.title || '阅读外观')
+const settingsScroll: Record<AppearancePage, number> = { main: 0, reading: 0, materials: 0, depth: 0, glass: 0, shortcuts: 0 }
+const { recording: shortcutRecording } = useRadialShortcut()
+watch(isOpen, value => { if (!value) shortcutRecording.value = false })
+async function navigateAppearance(page: AppearancePage) {
   const scroll = panelScroll.value
-  if (scroll) settingsScroll[glassSettingsOpen.value ? 'glass' : 'main'] = scroll.scrollTop
-  glassSettingsOpen.value = glass
+  const previous = appearancePage.value
+  if (scroll) settingsScroll[previous] = scroll.scrollTop
+  shortcutRecording.value = false
+  appearancePage.value = page
   await nextTick()
   if (scroll) {
-    scroll.scrollTop = settingsScroll[glass ? 'glass' : 'main']
-    scroll.querySelector<HTMLElement>(glass ? '.appearance-subpage-back' : '.appearance-glass-entry')?.focus({ preventScroll: true })
+    scroll.scrollTop = settingsScroll[page]
+    scroll.querySelector<HTMLElement>(page === 'main' ? `[data-appearance-page="${previous}"]` : '.appearance-subpage-back')?.focus({ preventScroll: true })
   }
   window.dispatchEvent(new Event('inkroam:glass-surfaces-changed'))
+}
+function previewRadial() {
+  isOpen.value = false
+  window.dispatchEvent(new Event('inkroam:open-radial'))
 }
 const status = ref('')
 /* 能内嵌 PDF 的浏览器上，PDF 附件这一项没有意义：禁用并按「支持内嵌」标注。
@@ -631,20 +651,20 @@ function resetAppearance() {
     >
       <div ref="panelScroll" class="appearance-panel__scroll">
         <header class="appearance-panel__header">
-          <div class="appearance-header-copy" :class="{ 'is-glass-page': glassSettingsOpen }">
+          <div class="appearance-header-copy" :class="{ 'is-glass-page': isSubpage }">
             <div class="appearance-header-eyebrow">
               <Transition name="appearance-back">
-                <button v-show="glassSettingsOpen" :inert="!glassSettingsOpen" :aria-hidden="!glassSettingsOpen" type="button" class="appearance-subpage-back panel-close" aria-label="返回阅读外观" title="返回阅读外观" @click="navigateAppearance(false)">
+                <button v-show="isSubpage" :inert="!isSubpage" :aria-hidden="!isSubpage" type="button" class="appearance-subpage-back panel-close" aria-label="返回阅读外观" title="返回阅读外观" @click="navigateAppearance('main')">
                   <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5" /></svg>
                 </button>
               </Transition>
               <Transition name="appearance-kicker">
-                <span v-show="!glassSettingsOpen" class="panel-kicker" aria-hidden="true">DISPLAY</span>
+                <span v-show="!isSubpage" class="panel-kicker" aria-hidden="true">DISPLAY</span>
               </Transition>
             </div>
-            <h2 class="appearance-header-title" :aria-label="glassSettingsOpen ? '漫光玻璃设置' : '阅读外观'">
+            <h2 class="appearance-header-title" :aria-label="appearanceTitle">
               <Transition name="appearance-title">
-                <span :key="glassSettingsOpen ? 'glass' : 'main'" aria-hidden="true">{{ glassSettingsOpen ? '漫光玻璃设置' : '阅读外观' }}</span>
+                <span :key="appearancePage" aria-hidden="true">{{ appearanceTitle }}</span>
               </Transition>
             </h2>
           </div>
@@ -652,9 +672,7 @@ function resetAppearance() {
         </header>
         <div class="appearance-subpages">
         <Transition name="appearance-subpage">
-        <div v-glass-presence="!glassSettingsOpen" v-show="!glassSettingsOpen" :inert="glassSettingsOpen" :data-glass-page-hidden="glassSettingsOpen ? 'true' : undefined">
-
-
+          <div v-glass-presence="appearancePage === 'main'" v-show="appearancePage === 'main'" :inert="appearancePage !== 'main'" :data-glass-page-hidden="appearancePage !== 'main' ? 'true' : undefined">
         <div class="setting-group">
           <span class="setting-label">视觉风格</span>
           <div class="segmented-control segmented-control--two" :style="segmentStyle(state.visual === 'modern' ? 0 : 1)">
@@ -686,6 +704,17 @@ function resetAppearance() {
 
         <DisplayModeSettings />
 
+        <nav aria-label="阅读设置分类">
+          <AppearanceMenuRow v-for="page in appearancePages" :key="page.id" :data-appearance-page="page.id" @click="navigateAppearance(page.id)">{{ page.title }}</AppearanceMenuRow>
+        </nav>
+        <footer class="appearance-panel__footer">
+          <span class="visually-hidden" role="status" aria-live="polite">{{ status }}</span>
+          <button type="button" @click="resetAppearance">恢复默认</button>
+        </footer>
+          </div>
+        </Transition>
+        <Transition name="appearance-subpage">
+          <div v-glass-presence="appearancePage === 'depth'" v-show="appearancePage === 'depth'" :inert="appearancePage !== 'depth'" :data-glass-page-hidden="appearancePage !== 'depth' ? 'true' : undefined">
         <fieldset class="setting-group">
           <legend class="setting-label">层次感</legend>
           <div class="segmented-control" :style="segmentStyle(state.depth === 'off' ? 0 : state.depth === 'soft' ? 1 : 2)">
@@ -707,8 +736,11 @@ function resetAppearance() {
 
 
 
-        <AppearanceMenuRow class="appearance-glass-entry" @click="navigateAppearance(true)">漫光玻璃设置</AppearanceMenuRow>
 
+          </div>
+        </Transition>
+        <Transition name="appearance-subpage">
+          <div v-glass-presence="appearancePage === 'reading'" v-show="appearancePage === 'reading'" :inert="appearancePage !== 'reading'" :data-glass-page-hidden="appearancePage !== 'reading' ? 'true' : undefined">
         <fieldset class="setting-group">
           <legend class="setting-label">最近文章</legend>
           <div class="segmented-control" :style="segmentStyle(state.latestPostCount === 5 ? 0 : state.latestPostCount === 10 ? 1 : 2)">
@@ -760,6 +792,11 @@ function resetAppearance() {
           <div class="range-scale" aria-hidden="true"><span>0 %</span><span>100 %</span></div>
         </div>
 
+
+          </div>
+        </Transition>
+        <Transition name="appearance-subpage">
+          <div v-glass-presence="appearancePage === 'materials'" v-show="appearancePage === 'materials'" :inert="appearancePage !== 'materials'" :data-glass-page-hidden="appearancePage !== 'materials' ? 'true' : undefined">
         <fieldset class="setting-group" :disabled="managedDisabled">
           <legend class="setting-label">导航材质</legend>
           <div class="segmented-control" :style="segmentStyle(state.navMaterial === 'liquid' ? 0 : state.navMaterial === 'acrylic' ? 1 : 2)">
@@ -981,17 +1018,19 @@ function resetAppearance() {
           </div>
         </fieldset>
 
-        <footer class="appearance-panel__footer">
-          <span class="visually-hidden" role="status" aria-live="polite">{{ status }}</span>
-          <button type="button" @click="resetAppearance">恢复默认</button>
-        </footer>
-        </div>
+
+          </div>
         </Transition>
         <Transition name="appearance-subpage">
-        <div v-glass-presence="glassSettingsOpen" v-show="glassSettingsOpen" :inert="!glassSettingsOpen" :data-glass-page-hidden="!glassSettingsOpen ? 'true' : undefined">
+          <div v-glass-presence="appearancePage === 'glass'" v-show="appearancePage === 'glass'" :inert="appearancePage !== 'glass'" :data-glass-page-hidden="appearancePage !== 'glass' ? 'true' : undefined">
         <GlassSettings v-model="state.glassComponents" v-model:global="state.glassGlobal" v-model:enabled="state.experimentalLiquidGlass" :visual="state.visual"
           :materials="{ navMaterial: state.navMaterial, musicMaterial: state.musicMaterial, material: state.contentMaterial, dropdownMaterial: state.dropdownMaterial }" />
-        </div>
+          </div>
+        </Transition>
+        <Transition name="appearance-subpage">
+          <div v-glass-presence="appearancePage === 'shortcuts'" v-show="appearancePage === 'shortcuts'" :inert="appearancePage !== 'shortcuts'" :data-glass-page-hidden="appearancePage !== 'shortcuts' ? 'true' : undefined">
+<RadialShortcutSettings :active="isOpen && appearancePage === 'shortcuts'" @preview="previewRadial" />
+          </div>
         </Transition>
         </div>
         <PageScrollbar />

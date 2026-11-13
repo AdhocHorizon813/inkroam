@@ -7,7 +7,13 @@ import { glassOptics } from '../app/utils/glass-optics.ts'
 
 const legacy = normalizeGlassPreferences(undefined, 42, true)
 assert.equal(Object.keys(legacy).length, GLASS_GROUPS.length)
-assert(Object.values(legacy).every(p => p.clarity === 42 && p.antialias && p.enabled))
+// Per-group authored defaults (the radial wheel ships clarity 75) are allowed to
+// differ; everything without its own default must inherit the legacy fallback.
+const legacyDefaults = { radial: 75 }
+assert(Object.values(legacy).every((p, i) => {
+  const id = GLASS_GROUPS[i].id
+  return p.clarity === (legacyDefaults[id] ?? 42) && p.antialias && p.enabled
+}), 'Legacy clarity/AA/enable reach every group, keeping authored per-group defaults')
 legacy.music.clarity = 8
 assert.equal(legacy.navbar.clarity, 42, 'Groups cannot share mutable preferences')
 const corrupt = normalizeGlassPreferences({ music: { clarity: Infinity, resolution: -9, pixelBudget: 900, aaScale: 10, enabled: false } })
@@ -83,7 +89,12 @@ assert.equal(throttle.deform, false)
 assert(componentGlassQuality({ ...p, clarity: 0 }, 100, 50, false, 1).blur > componentGlassQuality({ ...p, clarity: 100 }, 100, 50, false, 1).blur)
 
 const capture = JSON.parse(readFileSync(new URL('../docs/liquid-glass-tuned-2026-10-29.json', import.meta.url), 'utf8'))
-assert.deepEqual(createDefaultGlassPreferences(), { ...capture.components, 'tools-track': capture.components.tools })
+// The capture predates the radial wheel, so compare only the groups it recorded
+// (plus the tools-track alias) and pin the wheel's authored values separately.
+const { radial: radialDefaults, ...capturedDefaults } = createDefaultGlassPreferences()
+assert.deepEqual(capturedDefaults, { ...capture.components, 'tools-track': capture.components.tools })
+assert.equal(radialDefaults.clarity, 75, 'The radial wheel keeps its authored clarity')
+assert.equal(radialDefaults.enabled, true, 'The radial wheel starts enabled')
 const trackDefaults = createDefaultGlassPreferences()
 trackDefaults['tools-track'].clarity = 0
 assert.equal(trackDefaults.tools.clarity, 75)

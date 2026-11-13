@@ -1,5 +1,9 @@
+<script setup lang="ts">
+withDefaults(defineProps<{ followScroll?: boolean }>(), { followScroll: true })
+</script>
+
 <template>
-  <span class="nav-depth-light" aria-hidden="true" />
+  <span class="nav-depth-light" :class="{ 'is-scroll-reactive': followScroll }" aria-hidden="true" />
 </template>
 
 <style scoped>
@@ -13,7 +17,7 @@
   will-change: opacity;
   transition: opacity 520ms cubic-bezier(.4, 0, .2, 1) var(--depth-light-delay, 0ms);
 }
-:global(:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])[data-scrolled='true'] .nav-depth-light) {
+:global(:root[data-visual='modern']:is([data-depth='soft'], [data-depth='defined'])[data-scrolled='true'] .nav-depth-light.is-scroll-reactive) {
   opacity: .58;
   transition: opacity 480ms cubic-bezier(.22, .8, .3, 1) var(--depth-light-delay, 0ms);
 }

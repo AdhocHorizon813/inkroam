@@ -7,6 +7,7 @@ import { onPageScroll, pageScrollTop, rememberScrollPosition, scrollPageTo } fro
    ("Failed to resolve component" + a hydration mismatch), leaving the whole receiver
    layer unrendered. Importing it here removes the dependency on that manifest. */
 import DepthReceivers from '~/components/DepthReceivers.vue'
+import QuickRadialMenu from '~/components/QuickRadialMenu.vue'
 import NavDepthLight from '~/components/NavDepthLight.vue'
 import ExperimentalGlass from '~/components/ExperimentalGlass.client.vue'
 
@@ -201,5 +202,6 @@ useHead(() => ({
   </div>
   <AppearancePanel />
   <MusicPlayer />
+  <QuickRadialMenu />
   <ExperimentalGlass />
 </template>

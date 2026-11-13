@@ -13,6 +13,13 @@ const script = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   .replace(/^import .*glass-(?:settings|defaults).*$/gm, '')
   .replace(/^import .*\.vue'$/gm, '')
   .replace("import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'", '')
+  // The panel now pulls the radial shortcut composable and listens for
+  // window-level radial events; this harness only mounts the appearance state.
+  .replace(/^import .*useRadialShortcut.*$/gm, '')
+  .replace(/^/, `const useRadialShortcut = () => ({ recording: { value: false }, shortcut: { value: null } })
+if (typeof globalThis.window === 'undefined') globalThis.window = { matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) }
+if (!window.addEventListener) { window.addEventListener = () => {}; window.removeEventListener = () => {}; window.dispatchEvent = () => {} }
+`)
 const compiled = ts.transpile(script.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'true'), { target: ts.ScriptTarget.ES2022 })
 async function mount(saved, dark = false, options = {}) {
   const mounted = [], cleanup = [], shared = {}, media = { matches: dark, addEventListener() {}, removeEventListener() {} }

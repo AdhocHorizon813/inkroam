@@ -171,7 +171,7 @@ watch(() => route.fullPath, async () => {
 
     <ArticleTools :key="post.path" :content="articleContent" :title="post.title">
       <template #actions>
-        <button class="article-copy-action article-sidebar-toggle" :class="{ 'is-collapsed': sidebarHidden }" type="button" :aria-label="sidebarHidden ? '展开侧栏' : '收起侧栏'" :aria-expanded="!sidebarHidden" aria-controls="article-sidebar" @click="toggleSidebar">
+        <button data-radial-action="sidebar" class="article-copy-action article-sidebar-toggle" :class="{ 'is-collapsed': sidebarHidden }" type="button" :aria-label="sidebarHidden ? '展开侧栏' : '收起侧栏'" :aria-expanded="!sidebarHidden" aria-controls="article-sidebar" @click="toggleSidebar">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path class="article-sidebar-toggle__arrow" d="m16 9-3 3 3 3" /></svg>
           <span class="article-sidebar-toggle__labels" aria-hidden="true">
             <span class="article-sidebar-toggle__collapse">收起侧栏</span>

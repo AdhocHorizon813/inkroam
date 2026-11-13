@@ -8,7 +8,10 @@ const lightStyle = parse(lightSource).descriptor.styles[0]
 const lightCss = postcss.parse(lightStyle.content)
 const lightPaint = lightCss.nodes.find(rule => rule.selector === '.nav-depth-light' && rule.nodes.some(d => d.prop === 'box-shadow'))
 assert(lightPaint, 'One continuous optical surface retains the original recipe')
-assert(!lightSource.includes('<script'), 'No per-frame JS for navbar self-emission')
+// A prop-only script is fine; what the glass navbar must never grow back is
+// per-frame JS driving its own emission (that belongs to the CSS recipe).
+assert(!/requestAnimationFrame|setInterval|addEventListener\(\s*'scroll'|onscroll/.test(lightSource),
+  'No per-frame JS for navbar self-emission')
 assert(!lightSource.includes('nav-depth-light__'), 'No independently rasterized endcaps or centre seam beside the logo')
 assert.equal((parse(lightSource).descriptor.template.content.match(/<span\b/g) || []).length, 1, 'Light is a single decorative surface')
 assert(lightSource.includes('aria-hidden="true"') && lightSource.includes('pointer-events: none'))

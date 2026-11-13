@@ -21,7 +21,10 @@ const document = {
   addEventListener: (type, fn) => listeners.set(type, fn),
   removeEventListener: type => listeners.delete(type),
 }
-const context = vm.createContext({ ref, computed, document, onMounted: fn => { mounted = fn }, onUnmounted: fn => { cleanup = fn } })
+const context = vm.createContext({ ref, computed, document, onMounted: fn => { mounted = fn }, onUnmounted: fn => { cleanup = fn },
+  // The panel now listens for the radial menu's focus toggle at setup scope.
+  window: { addEventListener() {}, removeEventListener() {}, dispatchEvent() {},
+    matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) } })
 vm.runInContext(`${code}\nglobalThis.api = { mode, pending, message, supported, selectMode };`, context)
 const api = context.api
 mounted()

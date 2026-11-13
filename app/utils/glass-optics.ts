@@ -5,6 +5,10 @@ import type { GlassOptions } from '../vendor/liquidglass/liquid-glass.js'
 // Keep these distinct from the Playground's image-lens demonstration preset.
 export function glassOptics(module?: string): GlassOptions {
   const common = { ior: 1.5, lightAngle: -120, chroma: 0 }
+  if (module === 'radial') return {
+    ...common, refraction: 16, bezel: .45, curvature: 3,
+    blur: 2, specular: .5, specularWidth: 1.5,
+  }
   if (module === 'toolbar') return {
     ...common, refraction: 6, bezel: .25, curvature: 4,
     blur: 1, specular: .35, specularWidth: 1,

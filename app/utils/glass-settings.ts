@@ -7,6 +7,7 @@ export const GLASS_GROUPS = [
   { id: 'tools', label: '正文工具', material: 'dropdownMaterial', owner: '下拉材质' },
   { id: 'tools-track', label: '正文工具轨道', material: 'dropdownMaterial', owner: '下拉材质' },
   { id: 'dropdown', label: '下拉菜单与日历', material: 'dropdownMaterial', owner: '下拉材质' },
+  { id: 'radial', label: '快捷轮盘', material: 'dropdownMaterial', owner: '下拉材质' },
   { id: 'confirm', label: '确认弹窗', material: 'navMaterial', owner: '导航材质' },
   { id: 'toolbar', label: 'PDF 工具栏', material: 'material', owner: '内容材质' },
   { id: 'button', label: '图片查看按钮', material: 'navMaterial', owner: '导航材质' },
@@ -44,7 +45,7 @@ export function normalizeGlassPreferences(raw?: unknown, clarity = 86, antialias
     const p = item && typeof item === 'object' ? item as Partial<GlassPreference> : {}
     return [id, {
       enabled: p.enabled !== false,
-      clarity: bounded(p.clarity, 0, 100, bounded(clarity, 0, 100, 86)),
+      clarity: bounded(p.clarity, 0, 100, id === 'radial' ? 75 : bounded(clarity, 0, 100, 86)),
       antialias: typeof p.antialias === 'boolean' ? p.antialias : antialias,
       aaScale: [1, 1.5, 2].includes(p.aaScale!) ? p.aaScale! : 1,
       resolution: [0, .25, .5, .75, 1, 1.5, 2].includes(p.resolution!) ? p.resolution! : 0,
