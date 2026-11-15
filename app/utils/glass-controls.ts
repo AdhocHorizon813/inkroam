@@ -384,8 +384,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     // horizontal growth so wide labels do not create an excessively wide lens.
     const liftX = (inflationX - 1) / (78 / 56 - 1)
     const liftY = (inflationY - 1) / (78 / 56 - 1)
+    // Navbar retains the responsive two-Hanzi Selected baseline, but its
+    // pressed width needs less extra padding than larger tool indicators.
+    const pressWidth = navbar ? 12 : 20
     const extraWidth = quality.deform === false ? 0 : Math.max(-2, Math.min(26,
-      20 * liftX + 16 * clampSpeed(speed * .75)))
+      pressWidth * liftX + 16 * clampSpeed(speed * .75)))
     const verticalLift = navbar ? targetHeight * .22 : Math.min(targetHeight * .34,
       Math.max(targetHeight * .22, group!.offsetHeight - targetHeight + 4))
     const extraHeight = quality.deform === false ? 0 : verticalLift * liftY
