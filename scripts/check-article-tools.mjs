@@ -73,6 +73,16 @@ assert.match(styleText, /\.article-tools__indicator \{[^}]*border-radius: 11px/,
 assert.match(styleText, /\.article-tools__indicator\.is-sliding \{[^}]*transition: width 380ms var\(--ease-settle\), transform 380ms var\(--ease-settle\)/, 'The block moves with the navbar settle curve')
 assert.ok(!/\.article-tools__indicator \{[^}]*transition: [^;]*transform/.test(styleText), 'The first placement must not animate its own geometry')
 assert.match(descriptor.template.content, /'is-sliding': indicator\.sliding/, 'Sliding unlocks only after the first painted placement')
+// The article indicator is measured and its optical map is decoded while the
+// tool row is idle. Its visibility (is-ready) still belongs to the active mode.
+assert.match(descriptor.template.content, /v-experimental-glass="indicator\.ready"/,
+  'The indicator registers its glass as soon as geometry is available, not on click')
+assert.match(descriptor.template.content, /'is-ready': indicator\.ready && mode !== null/,
+  'The prewarmed indicator must remain hidden while no tool is selected')
+assert.match(descriptor.template.content, /v-experimental-glass="mode !== null" data-glass-module="tools-track"/,
+  'Only the selection indicator opts out of lazy initialization')
+assert.match(descriptor.template.content, /v-glass-presence="mode === 'find'" v-experimental-glass="mode === 'find'"/,
+  'Find panel keeps its existing lifecycle')
 assert.match(styleText, /\.article-action\[aria-expanded='true'\] \{ color: var\(--accent\); \}/, 'The active tool changes text colour only')
 assert.match(styleText, /\.article-action:hover:not\(\[aria-expanded='true'\]\) \{ color: var\(--ink\); \}/, 'Hovering an inactive tool must not paint a block')
 assert.ok(!/\.article-action:hover[^{]*\{[^}]*background/.test(styleText), 'No hover background on tool buttons')
@@ -91,8 +101,17 @@ const toolContext = vm.createContext({
   window: { CSS: { highlights: new Map() } },
 })
 vm.runInContext(ts.transpile(descriptor.scriptSetup.content.replace(/^import .*$/gm, ''),
-  { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.toolInput = { pointerType, rememberPointer, toggle, mode };', toolContext)
+  { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.toolInput = { pointerType, rememberPointer, toggle, mode, indicator, positionIndicator, actions, trigger };', toolContext)
 const toolInput = toolContext.toolInput
+toolInput.actions.value = {}
+toolInput.trigger.value = { offsetLeft: 12, offsetWidth: 96, offsetHeight: 40 }
+await toolInput.positionIndicator()
+assert.equal(toolInput.mode.value, null, 'Prewarming the lens must not open either panel')
+assert.equal(toolInput.indicator.ready, true, 'The lens is measured while idle')
+assert.equal(toolInput.indicator.x, 12)
+assert.equal(toolInput.indicator.width, 96)
+assert.equal(toolInput.indicator.height, 40)
+assert.equal(toolInput.indicator.sliding, false, 'Idle prewarming must not trigger a slide')
 toolInput.rememberPointer({ pointerType: 'touch' })
 await toolInput.toggle('find')
 await toolInput.toggle('export')
