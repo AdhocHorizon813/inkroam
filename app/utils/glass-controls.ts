@@ -743,7 +743,11 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     }
     if (host.closest('[data-glass-presence="closing"]')) { alignAllOptics(); return }
     if (slider) readRange(true)
-    else if (!dragged) target(selected(), true)
+    // Page-finish synchronizes every glass surface after router-link-active has
+    // changed. Snapping the navbar to its target here cancels the selection
+    // spring that the route/class observer already started. Keep its motion
+    // continuous; other controls still align immediately on layout refresh.
+    else if (!dragged) target(selected(), !navbar)
     render()
   }
   function setDormant(value: boolean) {
