@@ -207,6 +207,26 @@ nav.springs[0].target = -1
 nav.event(nav.second, 'pointerenter', { pointerType: 'mouse' })
 assert.equal(nav.springs[0].target, -1, 'Listeners removed')
 
+// Route changes update the active navbar link, then page:finish synchronizes
+// glass surfaces. A quality/layout refresh must not snap the already-running
+// selection spring to its final position (other controls keep their existing
+// immediate geometry alignment).
+const routeNav = fixture()
+routeNav.first.removeAttribute('aria-current')
+routeNav.second.setAttribute('aria-current', 'page')
+routeNav.observers.find(observer => observer.targets.includes(routeNav.second))?.fn()
+assert.equal(routeNav.springs[0].target, 129, 'Router selection updates the navbar spring target')
+assert.equal(routeNav.springs[0].immediate, false, 'Route selection begins a spring transition')
+routeNav.cleanup.refreshLayout()
+assert.equal(routeNav.springs[0].target, 129, 'Page-finish keeps the new navbar destination')
+assert.equal(routeNav.springs[0].immediate, false, 'Page-finish must not jump the navbar to its destination')
+routeNav.cleanup.destroy()
+
+const resizeNav = fixture()
+resizeNav.cleanup.refreshLayout()
+assert.equal(resizeNav.springs[0].immediate, false, 'Navbar layout refresh preserves spring motion')
+resizeNav.cleanup.destroy()
+
 // The submenu accordion clips its children horizontally. Reserve enough
 // native-input runway for the larger optical thumb at both extreme values.
 // These geometry checks also cover press + spring stretch (28 + 14 + 10px).
