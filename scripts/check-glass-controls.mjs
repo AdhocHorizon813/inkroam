@@ -169,7 +169,7 @@ nav.event(nav.group, 'pointerleave')
 assert.equal(nav.springs[0].target, 44, 'Leaving returns to actual selection center')
 nav.second.offsetWidth = 40
 // The velocity left by line 113 would add its (bounded) stretch term to the
-// pressed width. Pressed growth is asserted at rest: 20px of fixed-pixel lift,
+// pressed width. Navbar growth is asserted at rest: 12px of fixed-pixel lift,
 // never a multiple of the label width.
 nav.springs[0].tick(44, 0)
 nav.event(nav.group, 'pointerdown', { button: 0, pointerId: 1, clientX: 40, clientY: 20, target: nav.first })
@@ -179,7 +179,7 @@ assert.equal(nav.calls[0].updates.at(-1).rimOpacity, 1)
 const pressedNav = nav.calls[0].updates.at(-1)
 assert(pressedNav.height > nav.first.offsetHeight && pressedNav.height <= nav.group.offsetHeight,
   'Pressed navbar lens lifts gently without exceeding its 40px rail')
-assert.equal(nav.calls[0].updates.at(-1).width, 100, 'Width grows by 20px rather than multiplying the label width')
+assert.equal(nav.calls[0].updates.at(-1).width, 92, 'Navbar width grows by 12px rather than multiplying the label width')
 assert(Math.abs(pressedNav.refractionHeight - Math.min(pressedNav.width, pressedNav.height) * .22) < 1e-9,
   'Refraction dome scales to the actual compact indicator height')
 assert(Math.abs(pressedNav.refraction - Math.min(pressedNav.width, pressedNav.height) * .26) < 1e-9,
@@ -219,15 +219,15 @@ widthNav.observers.find(observer => observer.targets.includes(widthNav.second))?
 widthNav.springs[2].tick(40, 0)
 widthNav.springs[0].tick(109, 0)
 widthNav.springs[5].tick(78 / 56, 0)
-assert.equal(widthNav.calls[0].updates.at(-1).width, 100,
-  'Pressed search matches the two-Hanzi tab width plus the existing 20px inflation')
+assert.equal(widthNav.calls[0].updates.at(-1).width, 92,
+  'Pressed search matches the responsive two-Hanzi tab width plus 12px inflation')
 widthNav.springs[5].tick(1, 0)
 assert.equal(widthNav.calls[0].updates.at(-1).width, 40,
   'Unpressed search retains its own compact width')
 widthNav.first.offsetWidth = 60
 widthNav.cleanup.refreshLayout()
 widthNav.springs[5].tick(78 / 56, 0)
-assert.equal(widthNav.calls[0].updates.at(-1).width, 80,
+assert.equal(widthNav.calls[0].updates.at(-1).width, 72,
   'Responsive two-Hanzi width is remeasured instead of hardcoding desktop pixels')
 widthNav.cleanup.destroy()
 
