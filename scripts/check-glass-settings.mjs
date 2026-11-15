@@ -131,6 +131,25 @@ const contentGlassSource = readFileSync('app/utils/glass-content.ts', 'utf8')
 assert.match(contentGlassSource, /host\.style\.transition = 'none'/, 'Tint handover must not animate')
 assert.match(contentGlassSource, /void host\.offsetWidth/, 'The suppressed swap is flushed in the same frame')
 assert.match(appSource, /targets\.forEach\(target => target\.style\.opacity = '0'\)/, 'The existing route motion remains unchanged')
+// Search has always been a .standard-page, so it already receives the content
+// preview and atomic tint handoff. Its apparent card flicker came from the
+// route animation translating whole .page-intro / .search-results sections,
+// including the borders. Keep the optical card and section frames stationary.
+const searchPageSource = readFileSync('app/pages/search.vue', 'utf8')
+assert.match(searchPageSource, /<main class="standard-page search-page">/,
+  'Search retains the shared content-glass host and preview rules')
+assert.match(appSource, /surface\.matches\('\.search-page'\)/,
+  'Search receives a content-only route motion target')
+assert.match(appSource, /:scope > \.page-intro > \*/,
+  'Search intro children can rise without translating its section')
+assert.match(appSource, /:scope > \.search-results > \.search-results__heading > \*/,
+  'Search heading text moves independently of its border')
+assert.match(appSource, /:scope > \.search-results > \.search-group > \.search-result > \*/,
+  'Result contents move independently of their bordered rows')
+assert.match(appSource, /:scope > \.search-results > \.search-empty/,
+  'Empty search text also keeps its panel stationary')
+assert.match(appSource, /: surface\.children/,
+  'Non-search pages retain their original animation targets')
 // Interaction state must not tear down optics while the animated owner leaves.
 const musicSource = readFileSync('app/components/MusicPlayer.vue', 'utf8')
 const surfacesSource = readFileSync('app/utils/glass-surfaces.ts', 'utf8')
