@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { vExperimentalGlass } from '~/utils/glass-surfaces'
+import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'
 import { articleMatches } from '~/utils/article-find'
 import { pageScrollTop, scrollPageTo } from '~/utils/page-scroll'
 import { animateArticleTool } from '~/utils/article-tool-motion'
@@ -89,13 +89,15 @@ const exportTrigger = ref<HTMLButtonElement | null>(null)
 // absolutely positioned span, so an inactive tool only brightens its text on
 // hover and switching between the tools moves and resizes that block.
 const actions = ref<HTMLElement | null>(null)
-const indicator = reactive({ x: 0, width: 0, height: 0, ready: false, shown: false, sliding: false })
+const indicator = reactive({ x: 0, width: 0, height: 0, ready: false, sliding: false })
 let actionsResize: ResizeObserver | undefined
 function currentTrigger() {
   return mode.value === 'find' ? trigger.value : mode.value === 'export' ? exportTrigger.value : null
 }
 async function positionIndicator() {
   await nextTick()
+  // Prime the indicator geometry before a tool opens. The dormant control
+  // stays transparent, but its lens can decode while the article is idle.
   const bar = actions.value, active = currentTrigger() ?? trigger.value
   if (!bar || !active) return
   // Integer layout offsets, not getBoundingClientRect: rects are fractional while
@@ -105,66 +107,24 @@ async function positionIndicator() {
   indicator.width = active.offsetWidth
   indicator.height = active.offsetHeight
   indicator.ready = true
-  // Measure the dormant lens on mount, but reveal it only after the first
-  // active button has been positioned. Never paint a stale initial selection.
-  if (mode.value !== null) {
-    indicator.shown = true
-    if (!indicator.sliding) requestAnimationFrame(() => requestAnimationFrame(() => { indicator.sliding = true }))
-  }
+  // The first placement must not animate from 0px/left edge: enable the slide
+  // only after that frame has been painted, so later switches glide.
+  if (mode.value !== null && !indicator.sliding) requestAnimationFrame(() => requestAnimationFrame(() => { indicator.sliding = true }))
 }
 watch(mode, positionIndicator)
-// Both reveal trees stay mounted at their real, measurable size. Their hidden
-// state is visibility-only, not display:none, so the glass engine can decode
-// each panel's backdrop before anyone clicks a tool.
-type ToolPanel = 'find' | 'export'
-const findReveal = ref<HTMLElement | null>(null)
-const exportReveal = ref<HTMLElement | null>(null)
-const revealed = ref<ToolPanel | null>(null)
-const panelVisible = reactive<Record<ToolPanel, boolean>>({ find: false, export: false })
-let panelRevision = 0
-let cancelPanelMotion: (() => void) | undefined
+const transitions = new Map<Element, () => void>()
 
-function runPanelMotion(panel: ToolPanel, entering: boolean): Promise<void> {
-  const element = panel === 'find' ? findReveal.value : exportReveal.value
-  if (!element) return Promise.resolve()
-  return new Promise(resolve => {
-    let settled = false
-    let cancel: (() => void) | undefined
-    const done = () => {
-      if (settled) return
-      settled = true
-      if (cancelPanelMotion === cancel) cancelPanelMotion = undefined
-      resolve()
-    }
-    const cancelAnimation = animateArticleTool(element, entering, done)
-    cancel = () => { cancelAnimation(); done() }
-    if (!settled) cancelPanelMotion = cancel
-  })
+function cancelPanel(element: Element) { transitions.get(element)?.(); transitions.delete(element) }
+function panelMotion(element: Element, done: () => void, entering: boolean) {
+  cancelPanel(element)
+  let completed = false
+  const cancel = animateArticleTool(element as HTMLElement, entering, () => { completed = true; transitions.delete(element); done() })
+  if (!completed) transitions.set(element, cancel)
 }
-
-async function updatePanels() {
-  const revision = ++panelRevision
-  cancelPanelMotion?.()
-  const next = mode.value, previous = revealed.value
-  // Preserve out-in ordering: the old tool folds for 180ms before the new
-  // one opens. A rapid click cancels the obsolete motion, not the new intent.
-  if (previous && previous !== next) {
-    await runPanelMotion(previous, false)
-    if (revision !== panelRevision) return
-    panelVisible[previous] = false
-    revealed.value = null
-  }
-  if (!next || revision !== panelRevision) return
-  if (revealed.value !== next) {
-    revealed.value = next
-    panelVisible[next] = true
-    await nextTick()
-  }
-  if (revision !== panelRevision) return
-  await runPanelMotion(next, true)
-  if (revision === panelRevision && next === 'find') field.value?.focus({ preventScroll: true })
-}
-watch(mode, () => { void updatePanels() }, { flush: 'post' })
+function enterPanel(element: Element, done: () => void) { panelMotion(element, done, true) }
+function leavePanel(element: Element, done: () => void) { panelMotion(element, done, false) }
+function beforeLeave(element: Element) { (element as HTMLElement).inert = true }
+function afterEnter() { if (mode.value === 'find') field.value?.focus({ preventScroll: true }) }
 function keydown(event: KeyboardEvent) { if (event.key === 'Escape' && mode.value) { event.preventDefault(); close() } }
 function outside(event: PointerEvent) {
   if (mode.value && event.target instanceof Node && !root.value?.contains(event.target)) {
@@ -188,7 +148,7 @@ watch(() => props.content, content => {
 }, { flush: 'post' })
 onBeforeUnmount(() => {
   disposed = true; clearTimeout(timer); clearTimeout(closeTimer); observer?.disconnect(); clearHighlights()
-  panelRevision++; cancelPanelMotion?.(); cancelPanelMotion = undefined
+  transitions.forEach(cancel => cancel()); transitions.clear()
   document.removeEventListener('keydown', keydown)
   document.removeEventListener('pointerdown', outside)
   actionsResize?.disconnect()
@@ -236,17 +196,18 @@ async function exportArticle(format: 'pdf' | 'png') {
 
 <template>
   <div ref="root" class="article-tools" :class="{ 'article-tools--open': mode !== null || closing }" :data-pointer-type="pointerType || undefined" @pointerdown.capture="rememberPointer" @pointermove.capture="rememberPointer" @keydown.esc.stop.prevent="close">
-    <div ref="actions" v-experimental-glass="true" data-glass-module="tools-track" class="article-tools__actions" :class="{ 'dropdown-surface': mode !== null }" role="group" aria-label="正文工具">
-      <span v-experimental-glass="indicator.ready" data-glass-module="indicator" class="article-tools__indicator" :class="{ 'is-ready': indicator.ready && indicator.shown && mode !== null, 'is-sliding': indicator.sliding }" :style="{ '--article-indicator-x': `${indicator.x}px`, '--article-indicator-width': `${indicator.width}px`, '--article-indicator-height': `${indicator.height}px` }" aria-hidden="true" />
+    <div ref="actions" v-experimental-glass="mode !== null" data-glass-module="tools-track" class="article-tools__actions" :class="{ 'dropdown-surface': mode !== null }" role="group" aria-label="正文工具">
+      <span v-experimental-glass="indicator.ready" data-glass-module="indicator" class="article-tools__indicator" :class="{ 'is-ready': indicator.ready && mode !== null, 'is-sliding': indicator.sliding }" :style="{ '--article-indicator-x': `${indicator.x}px`, '--article-indicator-width': `${indicator.width}px`, '--article-indicator-height': `${indicator.height}px` }" aria-hidden="true" />
 
       <button ref="trigger" class="article-action" type="button" :aria-expanded="mode === 'find'" aria-controls="article-find-panel" @click="toggle('find')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4 4" /></svg><span>页内查找</span></button>
       <button ref="exportTrigger" class="article-action" type="button" :aria-expanded="mode === 'export'" aria-controls="article-export-panel" @click="toggle('export')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg><span>导出正文</span></button>
       <CopyArticleLink feedback class="copy-article-link--inline" />
       <slot name="actions" />
     </div>
-      <div ref="findReveal" class="article-tools__reveal" :class="{ 'article-tools__reveal--visible': panelVisible.find }" :aria-hidden="mode !== 'find'">
+    <Transition :css="false" mode="out-in" @enter="enterPanel" @leave="leavePanel" @enter-cancelled="cancelPanel" @leave-cancelled="cancelPanel" @before-leave="beforeLeave" @after-enter="afterEnter">
+      <div v-if="mode === 'find'" key="find" class="article-tools__reveal">
       <div class="article-tools__clip">
-      <div id="article-find-panel" v-experimental-glass="true" data-glass-module="tools" class="article-tools__panel dropdown-surface" role="search" aria-label="当前正文查找" :inert="mode !== 'find'">
+      <div id="article-find-panel" v-glass-presence="mode === 'find'" v-experimental-glass="mode === 'find'" data-glass-module="tools" class="article-tools__panel dropdown-surface" role="search" aria-label="当前正文查找" :inert="mode !== 'find'">
         <label class="visually-hidden" for="article-find-input">在当前正文中查找</label>
         <input id="article-find-input" ref="field" v-model="query" type="search" placeholder="在这篇正文中查找" @keydown.enter.prevent="move($event.shiftKey ? -1 : 1)">
         <span class="article-tools__count" role="status">{{ count ? `${current + 1} / ${count}` : query.trim() ? '无匹配' : '输入关键词' }}</span>
@@ -256,9 +217,9 @@ async function exportArticle(format: 'pdf' | 'png') {
       </div>
       </div>
       </div>
-      <div ref="exportReveal" class="article-tools__reveal article-tools__reveal--export" :class="{ 'article-tools__reveal--visible': panelVisible.export }" :aria-hidden="mode !== 'export'">
+      <div v-else-if="mode === 'export'" key="export" class="article-tools__reveal article-tools__reveal--export">
       <div class="article-tools__clip">
-      <div id="article-export-panel" v-experimental-glass="true" data-glass-module="tools" class="article-tools__panel article-tools__panel--export dropdown-surface" :inert="mode !== 'export'">
+      <div id="article-export-panel" v-glass-presence="mode === 'export'" v-experimental-glass="mode === 'export'" data-glass-module="tools" class="article-tools__panel article-tools__panel--export dropdown-surface" :inert="mode !== 'export'">
         <SearchFilterSelect class="article-tools__scope" label="导出范围" :model-value="String(sectionIndex)" :options="[{value:'-1', label:'整篇正文'}, ...sections.map((section,index) => ({value:String(index),label:section.title}))]" :enabled="mode === 'export'" :disabled="busy" @update:model-value="sectionIndex = Number($event)" />
         <button type="button" :disabled="busy" @click="exportArticle('pdf')">PDF</button>
         <button type="button" :disabled="busy" @click="exportArticle('png')">PNG {{ sectionIndex < 0 ? '长图' : '小节' }}</button>
@@ -267,7 +228,7 @@ async function exportArticle(format: 'pdf' | 'png') {
       </div>
       </div>
       </div>
-
+    </Transition>
   </div>
 </template>
 
@@ -285,8 +246,7 @@ button:disabled { opacity: .45; cursor: default; }
 }
 button { transition: color 220ms var(--ease-fluid), border-color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
 button:active:not(:disabled) { transform: translateY(1px); }
-.article-tools__reveal { position: absolute; top: calc(100% + 10px); left: 0; z-index: 1; width: min(760px, 100%); display: grid; grid-template-rows: 1fr; visibility: hidden; pointer-events: none; }
-.article-tools__reveal--visible { visibility: visible; pointer-events: auto; }
+.article-tools__reveal { position: absolute; top: calc(100% + 10px); left: 0; z-index: 1; width: min(760px, 100%); display: grid; grid-template-rows: 1fr; }
 .article-tools__reveal--export { width: max-content; max-width: 100%; }
 .article-tools__clip { min-width: 0; min-height: 0; overflow: hidden; border-radius: 12px; }
 .article-tools__panel { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; max-height: min(480px, 60dvh); overflow-y: auto; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
