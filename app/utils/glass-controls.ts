@@ -202,6 +202,12 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   let trackOrigin = 0
   let ready = false, disposed = false, initialized = false
   let x = 0, velocity = 0, press = 0, targetWidth = 0, targetHeight = 0, targetY = 0
+  // The first Navbar link is the two-Hanzi "文章" tab. Its rendered width
+  // follows the responsive CSS, so it defines the pressed width on every layout.
+  let navbarReferenceWidth = navbar ? buttons[0]!.offsetWidth : 0
+  function syncNavbarReferenceWidth() {
+    if (navbar && buttons[0]!.offsetWidth > 0) navbarReferenceWidth = buttons[0]!.offsetWidth
+  }
   let pressedPointer: number | null = null
   let dragStartX = 0, dragStartY = 0, dragged = false, suppressClick = false
   let clickTimer = 0
@@ -384,7 +390,13 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       Math.max(targetHeight * .22, group!.offsetHeight - targetHeight + 4))
     const extraHeight = quality.deform === false ? 0 : verticalLift * liftY
     const sy = quality.deform === false ? 1 : 1 - clampSpeed(speed * .25)
-    const w = slider ? 28 + deformation * 14 + stretch : Math.max(1, targetWidth + extraWidth)
+    // Only while the Navbar lens inflates, morph its base width toward a
+    // two-Hanzi tab. Search stays narrow at rest, but its fully pressed size
+    // matches the text tabs (including responsive breakpoint differences).
+    const navWidthLift = navbar && quality.deform !== false && navbarReferenceWidth > 0
+      ? (navbarReferenceWidth - targetWidth) * Math.max(0, Math.min(1, liftX))
+      : 0
+    const w = slider ? 28 + deformation * 14 + stretch : Math.max(1, targetWidth + navWidthLift + extraWidth)
     const h = slider ? 18 + deformation * 10 - stretch * .2 : Math.max(16, (targetHeight + extraHeight) * sy)
     const left = x - w / 2
     const top = targetY - h / 2
@@ -508,6 +520,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
   }
   function refresh() {
     if (disposed || host.hasAttribute('data-liquid-glass-dormant')) return
+    syncNavbarReferenceWidth()
     if (slider) readRange(!initialized)
     else if (!dragged) target(selected(), !initialized)
     initialized = true
@@ -742,6 +755,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       return
     }
     if (host.closest('[data-glass-presence="closing"]')) { alignAllOptics(); return }
+    syncNavbarReferenceWidth()
     if (slider) readRange(true)
     // Page-finish synchronizes every glass surface after router-link-active has
     // changed. Snapping the navbar to its target here cancels the selection
