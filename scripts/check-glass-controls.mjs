@@ -207,6 +207,30 @@ nav.springs[0].target = -1
 nav.event(nav.second, 'pointerenter', { pointerType: 'mouse' })
 assert.equal(nav.springs[0].target, -1, 'Listeners removed')
 
+// Navbar search is intrinsically narrower than two-Hanzi labels. During
+// Selected inflation it must expand to the actual responsive two-Hanzi width,
+// regardless of which link was previously active. At rest it keeps its own
+// narrow width. Resizing the reference link updates the pressed target.
+const widthNav = fixture()
+widthNav.second.offsetWidth = 40
+widthNav.first.removeAttribute('aria-current')
+widthNav.second.setAttribute('aria-current', 'page')
+widthNav.observers.find(observer => observer.targets.includes(widthNav.second))?.fn()
+widthNav.springs[2].tick(40, 0)
+widthNav.springs[0].tick(109, 0)
+widthNav.springs[5].tick(78 / 56, 0)
+assert.equal(widthNav.calls[0].updates.at(-1).width, 100,
+  'Pressed search matches the two-Hanzi tab width plus the existing 20px inflation')
+widthNav.springs[5].tick(1, 0)
+assert.equal(widthNav.calls[0].updates.at(-1).width, 40,
+  'Unpressed search retains its own compact width')
+widthNav.first.offsetWidth = 60
+widthNav.cleanup.refreshLayout()
+widthNav.springs[5].tick(78 / 56, 0)
+assert.equal(widthNav.calls[0].updates.at(-1).width, 80,
+  'Responsive two-Hanzi width is remeasured instead of hardcoding desktop pixels')
+widthNav.cleanup.destroy()
+
 // Route changes update the active navbar link, then page:finish synchronizes
 // glass surfaces. A quality/layout refresh must not snap the already-running
 // selection spring to its final position (other controls keep their existing
