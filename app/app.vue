@@ -39,9 +39,18 @@ watch(() => route.path, async (_currentPath, previousPath) => {
   const surfaces = frame.querySelectorAll<HTMLElement>(
     '.hero, .latest-section, .manifesto, .standard-page, .article-page',
   )
-  const targets = Array.from(surfaces).flatMap(surface =>
-    Array.from(surface.children).filter((element): element is HTMLElement => element instanceof HTMLElement),
-  )
+  const targets = Array.from(surfaces).flatMap(surface => {
+    // The search card already inherits the same preview-tint/atomic handoff
+    // as other .standard-page surfaces. Animate only its readable contents:
+    // moving the two section wrappers also moves their borders and makes the
+    // whole card appear to rise while the glass backdrop is settling.
+    const elements = surface.matches('.search-page')
+      ? surface.querySelectorAll<HTMLElement>(
+        ':scope > .page-intro > *, :scope > .search-results > .search-results__heading > *, :scope > .search-results > .search-group > .search-result > *, :scope > .search-results > .search-empty',
+      )
+      : surface.children
+    return Array.from(elements).filter((element): element is HTMLElement => element instanceof HTMLElement)
+  })
 
   targets.forEach(target => target.style.opacity = '0')
   requestAnimationFrame(() => requestAnimationFrame(() => {

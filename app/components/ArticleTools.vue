@@ -96,7 +96,9 @@ function currentTrigger() {
 }
 async function positionIndicator() {
   await nextTick()
-  const bar = actions.value, active = currentTrigger()
+  // Prime the indicator geometry before a tool opens. The dormant control
+  // stays transparent, but its lens can decode while the article is idle.
+  const bar = actions.value, active = currentTrigger() ?? trigger.value
   if (!bar || !active) return
   // Integer layout offsets, not getBoundingClientRect: rects are fractional while
   // absolutely positioned children sit on the padding box, so a fractional x left
@@ -107,7 +109,7 @@ async function positionIndicator() {
   indicator.ready = true
   // The first placement must not animate from 0px/left edge: enable the slide
   // only after that frame has been painted, so later switches glide.
-  if (!indicator.sliding) requestAnimationFrame(() => requestAnimationFrame(() => { indicator.sliding = true }))
+  if (mode.value !== null && !indicator.sliding) requestAnimationFrame(() => requestAnimationFrame(() => { indicator.sliding = true }))
 }
 watch(mode, positionIndicator)
 const transitions = new Map<Element, () => void>()
@@ -195,7 +197,7 @@ async function exportArticle(format: 'pdf' | 'png') {
 <template>
   <div ref="root" class="article-tools" :class="{ 'article-tools--open': mode !== null || closing }" :data-pointer-type="pointerType || undefined" @pointerdown.capture="rememberPointer" @pointermove.capture="rememberPointer" @keydown.esc.stop.prevent="close">
     <div ref="actions" v-experimental-glass="mode !== null" data-glass-module="tools-track" class="article-tools__actions" :class="{ 'dropdown-surface': mode !== null }" role="group" aria-label="正文工具">
-      <span v-experimental-glass="indicator.ready && mode !== null" data-glass-module="indicator" class="article-tools__indicator" :class="{ 'is-ready': indicator.ready && mode !== null, 'is-sliding': indicator.sliding }" :style="{ '--article-indicator-x': `${indicator.x}px`, '--article-indicator-width': `${indicator.width}px`, '--article-indicator-height': `${indicator.height}px` }" aria-hidden="true" />
+      <span v-experimental-glass="indicator.ready" data-glass-module="indicator" class="article-tools__indicator" :class="{ 'is-ready': indicator.ready && mode !== null, 'is-sliding': indicator.sliding }" :style="{ '--article-indicator-x': `${indicator.x}px`, '--article-indicator-width': `${indicator.width}px`, '--article-indicator-height': `${indicator.height}px` }" aria-hidden="true" />
 
       <button ref="trigger" class="article-action" type="button" :aria-expanded="mode === 'find'" aria-controls="article-find-panel" @click="toggle('find')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4 4" /></svg><span>页内查找</span></button>
       <button ref="exportTrigger" class="article-action" type="button" :aria-expanded="mode === 'export'" aria-controls="article-export-panel" @click="toggle('export')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg><span>导出正文</span></button>
