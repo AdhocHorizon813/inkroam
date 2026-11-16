@@ -3,12 +3,29 @@ import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
 
-const config = readFileSync('nuxt.config.ts', 'utf8').replace('export default defineNuxtConfig', 'globalThis.testConfig = defineNuxtConfig')
-const compiled = ts.transpile(config, { target: ts.ScriptTarget.ES2022 })
+// Evaluate only the prerender hook: the full config imports Node modules and
+// uses import.meta, neither of which can run in a vm.Script context.
+const source = ts.createSourceFile('nuxt.config.ts', readFileSync('nuxt.config.ts', 'utf8'), ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS)
+const property = (node, name) => {
+  assert(ts.isObjectLiteralExpression(node), `Expected object containing ${name}`)
+  const found = node.properties.find(prop =>
+    (ts.isPropertyAssignment(prop) || ts.isMethodDeclaration(prop))
+    && (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name))
+    && prop.name.text === name)
+  assert(found, `Missing ${name} in nuxt.config.ts`)
+  return found
+}
+const exported = source.statements.find(ts.isExportAssignment)
+assert(exported && ts.isCallExpression(exported.expression)
+  && exported.expression.expression.getText(source) === 'defineNuxtConfig', 'Expected defineNuxtConfig export')
+const nitro = property(exported.expression.arguments[0], 'nitro')
+const hooks = property(nitro.initializer, 'hooks')
+const prerenderHook = property(hooks.initializer, 'prerender:generate')
+const compiled = ts.transpile(`globalThis.testHook = ({ ${prerenderHook.getText(source)} })['prerender:generate']`, { target: ts.ScriptTarget.ES2022 })
 for (const base of ['/', '/inkroam/', '/a&b"<>/']) {
-  const context = vm.createContext({ defineNuxtConfig: value => value, process: { env: { BASE_PATH: base } } })
+  const context = vm.createContext({ process: { env: { BASE_PATH: base } } })
   vm.runInContext(compiled, context)
-  const hook = context.testConfig.nitro.hooks['prerender:generate']
+  const hook = context.testHook
   const contents = '<html><body><div id="__nuxt"></div></body></html>'
   const route = { route: '/404.html', contents }
   hook(route)
