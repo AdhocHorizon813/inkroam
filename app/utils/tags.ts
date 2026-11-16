@@ -1,4 +1,8 @@
 export const tagSlugMap: Record<string, string> = {
+  '校园生活': 'campus-life',
+  '天气': 'weather',
+  '数值天气预报': 'numerical-weather-prediction',
+  '纪事': 'chronicles',
   '多目标优化': 'multi-objective-optimization',
   'NSGA-II': 'nsga-ii',
   'MATLAB': 'matlab',
