@@ -11,6 +11,7 @@ export default defineContentConfig({
       schema: z.object({
         title: z.string(),
         description: z.string(),
+        encryptedDocument: z.string().regex(/^[a-f0-9]{32}$/).optional(),
         date: z.string(),
         order: z.number().int().nonnegative().optional(),
         readingLinks: z.array(z.object({

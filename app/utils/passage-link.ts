@@ -22,6 +22,8 @@ export function findPassageTarget(article: Element, key: string): Element | null
 }
 
 export function selectedPassage(article: Element | null, selection: Selection | null): PassageSelection | null {
+  // Encrypted readers share the clean document URL, never a private passage identifier.
+  if (article?.getAttribute('data-private-document') === 'true') return null
   if (!article || !selection || selection.isCollapsed || selection.rangeCount !== 1 || !selection.toString().trim()) return null
   const range = selection.getRangeAt(0)
   if (!article.contains(range.startContainer) || !article.contains(range.endContainer)) return null

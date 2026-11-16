@@ -1,8 +1,15 @@
+import { fileURLToPath } from 'node:url'
+import { assertEncryptedNotes } from './scripts/lib/encrypted-notes-guard'
+
+const projectRoot = fileURLToPath(new URL('.', import.meta.url))
+assertEncryptedNotes(projectRoot)
+
 export default defineNuxtConfig({
   modules: ['@nuxt/content'],
   css: ['katex/dist/katex.min.css', '~/assets/css/main.css', '~/assets/css/depth.css'],
   devtools: { enabled: false },
   hooks: {
+    'build:before'() { assertEncryptedNotes(projectRoot) },
     'build:manifest'(manifest) {
       // Nuxt prefetches dynamic entries even when the opt-in branch never ran.
       // Keep only this experimental engine demand-loaded; leave other hints alone.
@@ -75,6 +82,8 @@ export default defineNuxtConfig({
   },
   vite: {
     server: {
+      // Git ignore does not protect Vite's /@fs endpoint, including phone-preview tunnels.
+      fs: { deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/.private/**'] },
       // Allow access over temporary tunnels (cloudflared / localtunnel / ngrok) for phone preview.
       // A leading dot matches the domain and all its subdomains.
       allowedHosts: ['.trycloudflare.com', '.loca.lt', '.ngrok-free.app', '.ngrok.io'],

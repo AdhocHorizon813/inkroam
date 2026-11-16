@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { getTagSlug } from '~/utils/tags'
+import type { PrivateNoteMetadata } from '~/utils/private-note-metadata'
 import { courseForPath } from '~/utils/courses'
 import PdfViewer from '~/components/content/PdfViewer.vue'
 import ArticleCode from '~/components/content/ArticleCode.vue'
@@ -89,6 +90,13 @@ useSeoMeta({
   twitterDescription: post.value.description,
 })
 
+// Decrypted header data lives only in this component, never the Content cache or SEO.
+const privateMetadata = shallowRef<PrivateNoteMetadata | null>(null)
+const privateToc = shallowRef<{ id: string; text: string; depth: number }[]>([])
+const privateContent = shallowRef<HTMLElement | null>(null)
+const readable = computed(() => !post.value?.encryptedDocument || privateMetadata.value !== null)
+const displayedPost = computed(() => ({ ...post.value, ...(privateMetadata.value || {}) }))
+
 const formatDate = (date: string) =>
   new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(date))
 
@@ -157,19 +165,19 @@ watch(() => route.fullPath, async () => {
     <header class="article-header">
       <NuxtLink class="back-link" :to="course ? `/notes/${course.slug}` : '/'">← {{ course ? course.name : '返回文章' }}</NuxtLink>
       <div class="article-kicker">
-        <span>{{ course?.name || post.tags?.[0] || '随笔' }}</span>
-        <time :datetime="post.date">{{ formatDate(post.date) }}</time>
-        <span>阅读约 {{ post.readingTime }}</span>
-        <PinnedBadge v-if="post.pinned" />
-        <FeaturedBadge v-if="post.featured" />
-        <AiGeneratedBadge v-if="post.aiGenerated" />
-        <AiAssistedBadge v-if="post.aiAssisted" />
+        <span>{{ course?.name || displayedPost.tags?.[0] || '随笔' }}</span>
+        <time v-if="displayedPost.date" :datetime="displayedPost.date">{{ formatDate(displayedPost.date) }}</time>
+        <span>阅读约 {{ displayedPost.readingTime }}</span>
+        <PinnedBadge v-if="displayedPost.pinned" />
+        <FeaturedBadge v-if="displayedPost.featured" />
+        <AiGeneratedBadge v-if="displayedPost.aiGenerated" />
+        <AiAssistedBadge v-if="displayedPost.aiAssisted" />
       </div>
-      <h1>{{ post.title }}</h1>
-      <p class="article-deck">{{ post.description }}</p>
+      <h1>{{ displayedPost.title }}</h1>
+      <p class="article-deck">{{ displayedPost.description }}</p>
     </header>
 
-    <ArticleTools :key="post.path" :content="articleContent" :title="post.title">
+    <ArticleTools v-if="readable" :key="post.path" :content="post.encryptedDocument ? privateContent : articleContent" :title="displayedPost.title || post.title" :encrypted="!!post.encryptedDocument" :encrypted-document="post.encryptedDocument">
       <template #actions>
         <button data-radial-action="sidebar" class="article-copy-action article-sidebar-toggle" :class="{ 'is-collapsed': sidebarHidden }" type="button" :aria-label="sidebarHidden ? '展开侧栏' : '收起侧栏'" :aria-expanded="!sidebarHidden" aria-controls="article-sidebar" @click="toggleSidebar">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /><path class="article-sidebar-toggle__arrow" d="m16 9-3 3 3 3" /></svg>
@@ -181,25 +189,32 @@ watch(() => route.fullPath, async () => {
       </template>
     </ArticleTools>
 
-    <div class="article-grid" :class="{ 'is-sidebar-collapsed': sidebarHidden }">
+    <div class="article-grid" :class="{ 'is-sidebar-collapsed': sidebarHidden || !readable }">
       <Transition name="article-sidebar" :css="wideLayout && sidebarMotionReady">
-      <aside v-show="!sidebarHidden" id="article-sidebar" ref="sidebar" class="article-aside" :style="sidebarMotionStyle" :inert="sidebarHidden" :aria-hidden="sidebarHidden || undefined">
+      <aside v-show="!sidebarHidden && readable" id="article-sidebar" ref="sidebar" class="article-aside" :style="sidebarMotionStyle" :inert="sidebarHidden || !readable" :aria-hidden="sidebarHidden || !readable || undefined">
         <span>相关话题</span>
         <div class="tag-list">
-          <NuxtLink v-for="tag in (post.tags || [])" :key="tag" :to="`/tags/${getTagSlug(tag)}`">{{ tag }}</NuxtLink>
+          <template v-if="post.encryptedDocument">
+            <span v-for="tag in (privateMetadata?.tags || [])" :key="tag" class="article-private-tag">{{ tag }}</span>
+          </template>
+          <template v-else>
+            <NuxtLink v-for="tag in (post.tags || [])" :key="tag" :to="`/tags/${getTagSlug(tag)}`">{{ tag }}</NuxtLink>
+          </template>
         </div>
         <NuxtLink class="topic-directory-link" to="/tags">浏览全部话题 ↗</NuxtLink>
-        <ArticleToc :links="post.body?.toc?.links || []" />
+        <ArticleToc :links="post.encryptedDocument ? privateToc : (post.body?.toc?.links || [])" />
       </aside>
       </Transition>
       <article
         ref="articleContent"
         class="article-content"
         :data-article-path="post.path"
+        :data-private-document="post.encryptedDocument ? 'true' : undefined"
         @click="onContentClick"
         @keydown="onContentKeydown"
       >
-        <ContentRenderer :value="post" :components="{ 'pdf-viewer': PdfViewer, PdfViewer, 'tree-walk': TreeWalk, TreeWalk, 'algebra-explorer': AlgebraExplorer, AlgebraExplorer, 'nsga-explorer': NsgaExplorer, NsgaExplorer, pre: ArticleCode, table: ArticleTable }" />
+        <EncryptedNote v-if="post.encryptedDocument" :key="post.encryptedDocument" :document-id="post.encryptedDocument" @metadata="privateMetadata = $event" @toc="privateToc = $event" @content="privateContent = $event" />
+        <ContentRenderer v-else :value="post" :components="{ 'pdf-viewer': PdfViewer, PdfViewer, 'tree-walk': TreeWalk, TreeWalk, 'algebra-explorer': AlgebraExplorer, AlgebraExplorer, 'nsga-explorer': NsgaExplorer, NsgaExplorer, pre: ArticleCode, table: ArticleTable }" />
       </article>
     </div>
 
@@ -223,6 +238,9 @@ watch(() => route.fullPath, async () => {
 
 <style scoped>
 .article-grid { position: relative; }
+.article-private-tag { display: inline-flex; align-items: center; min-height: 32px; padding: 4px 6px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+:global(:root[data-visual='modern']) .article-private-tag { color: var(--modern-muted); }
+@media (max-width: 767.98px) { .article-private-tag { min-height: 44px; } }
 .article-sidebar-enter-active { transition: opacity 260ms var(--ease-settle, cubic-bezier(.2, .82, .22, 1)), transform 260ms var(--ease-settle, cubic-bezier(.2, .82, .22, 1)); }
 .article-page .article-grid > .article-sidebar-leave-active {
   position: absolute;

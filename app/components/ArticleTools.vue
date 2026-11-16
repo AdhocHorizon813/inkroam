@@ -3,7 +3,86 @@ import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'
 import { articleMatches } from '~/utils/article-find'
 import { pageScrollTop, scrollPageTo } from '~/utils/page-scroll'
 import { animateArticleTool } from '~/utils/article-tool-motion'
-const props = defineProps<{ content: HTMLElement | null; title: string }>()
+import { copyTextOnGesture } from '~/utils/clipboard'
+const props = defineProps<{ content: HTMLElement | null; title: string; encrypted?: boolean; encryptedDocument?: string }>()
+const baseURL = useRuntimeConfig().app.baseURL
+const exportConfirm = ref<HTMLDialogElement | null>(null)
+const pendingExport = shallowRef<{ format: 'pdf' | 'png'; section: number } | null>(null)
+const exportWarningLabel = ref('')
+const exportStep = ref<'warning' | 'key'>('warning')
+const exportKey = ref('')
+const exportKeyField = ref<HTMLInputElement | null>(null)
+const exportKeyError = ref('')
+const verifyingExport = ref(false)
+let exportAttempt = 0
+let exportRequest: AbortController | undefined
+
+function clearExportAuthorization() {
+  exportAttempt++
+  exportRequest?.abort()
+  exportRequest = undefined
+  exportKey.value = ''
+  exportKeyError.value = ''
+  verifyingExport.value = false
+  pendingExport.value = null
+}
+
+function cancelExport() {
+  clearExportAuthorization()
+  exportConfirm.value?.close()
+}
+
+function requestExport(format: 'pdf' | 'png') {
+  if (disposed || busy.value || !props.content) return
+  if (!props.encrypted) { void exportArticle(format); return }
+  clearExportAuthorization()
+  exportStep.value = 'warning'
+  pendingExport.value = { format, section: sectionIndex.value }
+  exportWarningLabel.value = `${format === 'pdf' ? 'PDF' : sectionIndex.value < 0 ? 'PNG 长图' : 'PNG 小节图片'}${sectionIndex.value < 0 ? '（整篇正文）' : '（所选小节）'}`
+  exportConfirm.value?.showModal()
+}
+
+async function confirmExport() {
+  if (!pendingExport.value || verifyingExport.value || disposed) return
+  const attempt = exportAttempt
+  exportStep.value = 'key'
+  exportKey.value = ''
+  // Explicitly requested on this click only; never touch the clipboard on page load.
+  const clipboard = copyTextOnGesture(' ').catch(() => {
+    if (attempt === exportAttempt && !disposed) exportKeyError.value = '未能替换剪贴板内容，请手动输入密钥。'
+  })
+  await nextTick()
+  if (attempt === exportAttempt && !disposed) exportKeyField.value?.focus()
+  await clipboard
+}
+
+async function verifyAndExport() {
+  const pending = pendingExport.value
+  if (!pending || exportStep.value !== 'key' || disposed || busy.value || verifyingExport.value || !props.content || !props.encryptedDocument) return
+  const attempt = ++exportAttempt
+  let key = exportKey.value.trim()
+  exportKey.value = ''
+  exportKeyError.value = ''
+  verifyingExport.value = true
+  const request = new AbortController()
+  exportRequest = request
+  try {
+    const { decryptNote, loadEncryptedNote } = await import('~/utils/encrypted-note')
+    if (attempt !== exportAttempt || disposed) return
+    const envelope = await loadEncryptedNote(baseURL, props.encryptedDocument, request.signal)
+    // Authenticate with the freshly supplied key; do not reuse the original unlock key.
+    await decryptNote(envelope, key, props.encryptedDocument)
+    if (attempt !== exportAttempt || disposed || !props.content) return
+    sectionIndex.value = pending.section
+    cancelExport()
+    void exportArticle(pending.format)
+  } catch {
+    if (attempt === exportAttempt && !disposed) exportKeyError.value = '验证失败，请确认密钥完整、正确且文件可访问。'
+  } finally {
+    key = ''
+    if (attempt === exportAttempt) verifyingExport.value = false
+  }
+}
 const root = ref<HTMLElement | null>(null)
 const mode = ref<'find' | 'export' | null>(null)
 const pointerType = ref('')
@@ -22,6 +101,7 @@ let ranges: Range[] = [], timer: ReturnType<typeof setTimeout> | undefined
 let observer: MutationObserver | undefined
 let disposed = false
 const urls = new Set<string>()
+const exportFrames = new Set<HTMLIFrameElement>()
 // Progressive enhancement: CSS Highlights preserves selection, links and Vue nodes.
 type HighlightsWindow = Window & { Highlight?: new (...ranges: Range[]) => unknown; CSS?: { highlights?: Map<string, unknown> } }
 function paint() {
@@ -59,7 +139,7 @@ watch(query, () => { clearTimeout(timer); if (mode.value === 'find') timer = set
 // long as the panel's own leave motion (180ms) runs, then release. A timer is
 // used instead of a Transition hook so the release can never be lost.
 const closing = ref(false)
-let closeTimer = 0
+let closeTimer: ReturnType<typeof setTimeout> | undefined
 function beginClose() {
   if (mode.value === null) return
   closing.value = true
@@ -125,8 +205,9 @@ function enterPanel(element: Element, done: () => void) { panelMotion(element, d
 function leavePanel(element: Element, done: () => void) { panelMotion(element, done, false) }
 function beforeLeave(element: Element) { (element as HTMLElement).inert = true }
 function afterEnter() { if (mode.value === 'find') field.value?.focus({ preventScroll: true }) }
-function keydown(event: KeyboardEvent) { if (event.key === 'Escape' && mode.value) { event.preventDefault(); close() } }
+function keydown(event: KeyboardEvent) { if (!exportConfirm.value?.open && event.key === 'Escape' && mode.value) { event.preventDefault(); close() } }
 function outside(event: PointerEvent) {
+  if (exportConfirm.value?.open) return
   if (mode.value && event.target instanceof Node && !root.value?.contains(event.target)) {
     clearTimeout(timer); beginClose(); mode.value = null; clearHighlights()
   }
@@ -147,6 +228,7 @@ watch(() => props.content, content => {
   observer.observe(content, { childList: true, subtree: true, characterData: true })
 }, { flush: 'post' })
 onBeforeUnmount(() => {
+  cancelExport()
   disposed = true; clearTimeout(timer); clearTimeout(closeTimer); observer?.disconnect(); clearHighlights()
   transitions.forEach(cancel => cancel()); transitions.clear()
   document.removeEventListener('keydown', keydown)
@@ -154,6 +236,8 @@ onBeforeUnmount(() => {
   actionsResize?.disconnect()
   window.removeEventListener('resize', positionIndicator)
   urls.forEach(url => URL.revokeObjectURL(url))
+  exportFrames.forEach(frame => frame.remove()); exportFrames.clear()
+  sections.value = []; ranges = []; query.value = ''
 })
 async function exportArticle(format: 'pdf' | 'png') {
   if (busy.value || !props.content) return
@@ -161,17 +245,22 @@ async function exportArticle(format: 'pdf' | 'png') {
   let cleanup: (() => void) | undefined
   try {
     const { createExportFrame, exportFilename } = await import('~/utils/article-export')
+    if (disposed) return
     const section = sectionIndex.value >= 0 ? sections.value[sectionIndex.value] : undefined
     const title = section ? `${props.title} · ${section.title}` : props.title
-    const { frame, content } = await createExportFrame(title, section?.body || props.content)
-    cleanup = () => frame.remove()
+    const { frame, content } = await createExportFrame(title, section?.body || props.content, frame => {
+      if (disposed) { frame.remove(); throw new Error('阅读已结束。') }
+      exportFrames.add(frame)
+    })
+    const removeFrame = () => { frame.remove(); exportFrames.delete(frame) }
+    cleanup = removeFrame
     if (disposed) return
     if (format === 'pdf') {
       const win = frame.contentWindow!
-      win.addEventListener('afterprint', () => frame.remove(), { once: true })
+      win.addEventListener('afterprint', removeFrame, { once: true })
       win.focus(); win.print()
       // Some browsers return before printing completes; retain its document briefly.
-      setTimeout(() => frame.remove(), 120000); cleanup = undefined
+      setTimeout(removeFrame, 120000); cleanup = undefined
       status.value = '在打印窗口选择“另存为 PDF”。'
     } else {
       const pixelRatio = 2
@@ -221,18 +310,54 @@ async function exportArticle(format: 'pdf' | 'png') {
       <div class="article-tools__clip">
       <div id="article-export-panel" v-glass-presence="mode === 'export'" v-experimental-glass="mode === 'export'" data-glass-module="tools" class="article-tools__panel article-tools__panel--export dropdown-surface" :inert="mode !== 'export'">
         <SearchFilterSelect class="article-tools__scope" label="导出范围" :model-value="String(sectionIndex)" :options="[{value:'-1', label:'整篇正文'}, ...sections.map((section,index) => ({value:String(index),label:section.title}))]" :enabled="mode === 'export'" :disabled="busy" @update:model-value="sectionIndex = Number($event)" />
-        <button type="button" :disabled="busy" @click="exportArticle('pdf')">PDF</button>
-        <button type="button" :disabled="busy" @click="exportArticle('png')">PNG {{ sectionIndex < 0 ? '长图' : '小节' }}</button>
+        <button type="button" :disabled="busy" @click="requestExport('pdf')">PDF</button>
+        <button type="button" :disabled="busy" @click="requestExport('png')">PNG {{ sectionIndex < 0 ? '长图' : '小节' }}</button>
         <button type="button" @click="close">关闭</button>
         <p class="article-tools__status" role="status">{{ status || '导出阅读版正文；PDF 附件与交互内容请在原页面查看。' }}</p>
       </div>
       </div>
       </div>
     </Transition>
+    <Teleport to="body">
+      <dialog
+        ref="exportConfirm"
+        v-experimental-glass="pendingExport !== null"
+        data-glass-module="confirm"
+        class="appearance-confirm"
+        aria-labelledby="private-export-title"
+        aria-describedby="private-export-description private-export-detail"
+        @cancel.prevent="cancelExport"
+        @close="clearExportAuthorization"
+        @keydown.esc.stop
+      >
+        <div class="appearance-confirm__symbol" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="m10.3 4.8-7.4 13A2 2 0 0 0 4.6 21h14.8a2 2 0 0 0 1.7-3.2l-7.4-13a2 2 0 0 0-3.4 0ZM12 9v5m0 3v.2" /></svg>
+        </div>
+        <h2 id="private-export-title">{{ exportStep === 'warning' ? '导出未加密的副本？' : '再次输入文档密钥' }}</h2>
+        <p id="private-export-description">{{ exportStep === 'warning' ? `即将导出 ${exportWarningLabel}。导出的文件不再受文档密钥保护，任何获得文件的人都可以阅读。` : `验证通过后，将导出 ${exportWarningLabel}。` }}</p>
+        <p id="private-export-detail" class="appearance-confirm__detail">{{ exportStep === 'warning' ? '请确认内容允许保存或分享，并妥善保管。重新锁定文档不会撤回已导出的副本。' : '请重新输入密钥，本次验证仅用于此次导出。' }}</p>
+        <form v-if="exportStep === 'key'" autocomplete="off" @submit.prevent="verifyAndExport">
+          <label class="visually-hidden" for="private-export-key">文档密钥</label>
+          <input id="private-export-key" ref="exportKeyField" v-model="exportKey" class="private-export-key" type="password" autocomplete="off" autocapitalize="off" :spellcheck="false" :disabled="verifyingExport" required placeholder="重新输入文档密钥" aria-describedby="private-export-key-error" />
+          <p id="private-export-key-error" class="appearance-confirm__detail" role="status">{{ exportKeyError }}</p>
+          <div class="appearance-confirm__actions">
+            <button type="button" class="appearance-confirm__accept" @click="cancelExport">取消</button>
+            <button type="submit" class="appearance-confirm__cancel" :disabled="verifyingExport || !exportKey.trim()">{{ verifyingExport ? '正在验证…' : '验证并导出' }}</button>
+          </div>
+        </form>
+        <div v-else class="appearance-confirm__actions">
+          <button type="button" class="appearance-confirm__accept" autofocus @click="cancelExport">取消</button>
+          <button type="button" class="appearance-confirm__cancel" @click="confirmExport">仍要导出</button>
+        </div>
+      </dialog>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
+.private-export-key { box-sizing: border-box; width: 100%; margin-top: 18px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--ink) 4%, transparent); color: var(--ink); font: inherit; }
+.private-export-key:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.appearance-confirm button:disabled { opacity: .5; cursor: default; }
 .article-tools { position: relative; z-index: 8; margin: 24px 0; font: 13px/1.6 var(--sans); color: var(--ink); }
 .article-tools__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; width: fit-content; max-width: 100%; border: 1px solid transparent; border-radius: 12px; }
 /* Keep controls reachable after jumping down a long article, including switching

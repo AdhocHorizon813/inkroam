@@ -1,0 +1,99 @@
+# 加密笔记：本地加密，浏览器解锁
+
+## 当前用法
+
+完整原始 Markdown（包括 frontmatter）由本机 Python 加密；`content/` 只保留通用标题、日期和密文编号。密文放在 `public/encrypted-notes/`。访问者在页面粘贴对应密钥，通过浏览器 Web Crypto 解锁；密钥不发送到服务器、不进入 URL，也不写入 localStorage、sessionStorage 或 Nuxt payload。
+
+本地私密文件统一放在仓库根目录的 `.private/encrypted-notes/`，已通过 `/.private/` 加入 `.gitignore`，不属于 `public/` 或 Nuxt Content 扫描目录：
+
+| 内容 | 本地位置 |
+| --- | --- |
+| 可编辑的原始文件 | `originals/content/notes/<course>/<slug>.md` |
+| 每篇独立的密钥 | `keys/content/notes/<course>/<slug>.key` |
+| 加密前遗留的构建缓存 | `old-build-cache-*/`、`database-cache-*/` |
+
+例如本次笔记的原文保存在 `.private/encrypted-notes/originals/content/notes/reinforcement-learning/switchgeo-lora-01-initialization-geometry.md`；密钥位于 `keys/` 下相同路径，扩展名为 `.key`。用本地编辑器打开密钥文件，复制其中整行 Base64 文本到网页解锁框。不要将密钥贴入提交、聊天记录或链接。
+
+`.private` 是 Git 排除规则，不是磁盘加密或访问控制。请为原文和密钥保留独立、安全的离线备份；清理整个工作目录会同时损失它们，Git 无法恢复忽略的文件。
+
+开发服务器另外配置 Vite `server.fs.deny` 禁止通过 `/@fs` 读取 `.private`，并保留默认环境变量、证书、Git 目录排除项；Git 忽略本身不能阻止开发服务的文件读取。本次未用浏览器验收此访问限制。
+
+## 编辑与重新加密
+
+本机可使用 `D:/anaconda3/python.exe`，需要 `cryptography`（本次为 43.0.0）。以下命令在仓库根目录运行；普通电脑可把解释器路径换成自己的 Python。
+
+首次加密一篇**未进入 Git 的**文档：
+
+```powershell
+& D:/anaconda3/python.exe scripts/encrypt-note.py encrypt content/notes/<course>/<slug>.md
+```
+
+工具先保存并核对原始字节，再生成密钥、登记受保护路径、生成密文，最后替换公开 Markdown。拒绝覆盖已有备份；拒绝直接加密已有本地 Git 记录或正在被跟踪的原文。加密不等于撤回已泄露的历史。
+
+以后**只编辑 `.private/.../originals/` 中的原文件**，然后执行：
+
+```powershell
+& D:/anaconda3/python.exe scripts/encrypt-note.py refresh content/notes/<course>/<slug>.md
+```
+
+`refresh` 沿用该文档的密钥和编号，每次重新生成随机 nonce。它不会把原文临时放回 `content/`。如原文备份误删但仍保有密文和密钥，可恢复到私密目录中的 `.recovered.md`：
+
+```powershell
+& D:/anaconda3/python.exe scripts/encrypt-note.py recover content/notes/<course>/<slug>.md
+```
+
+脚本会自检解密结果与输入逐字节一致，输出路径，不输出原文或密钥。每篇上限 5 MiB；密文不压缩，因此文件长度仍能被观察。
+
+## 发布保护
+
+`encrypted-notes.json` 登记已保护文档的公开路径和随机编号，不含密钥。`nuxt.config.ts` 在加载配置和开始构建时检查登记项：公开 `.md` 必须是精确匹配的安全占位内容，密文必须存在且格式正确。如果把原文误放回该路径或向占位文件追加正文，构建会中止。
+
+Nuxt Content、全站搜索、SEO 和服务端生成只处理占位文件。解密结果不回写 Content 数据、站点搜索或 SEO；正文仅存在当前浏览器页面内。点击“锁定文档”、离开页面或刷新会重新要求密钥。JavaScript 字符串不能承诺可靠的物理内存擦除，也不能阻止已解锁的读者复制、截图或保存正文。
+
+提交时应包含公开占位 Markdown、密文 JSON、登记文件和功能代码，**不包含 `.private/`**。此功能不修改 Git 历史、不自动提交或部署。首次转换后必须使用新生成的站点，不能发布旧 `.output`。本次发现旧 `.nuxt/content/sql_dump.txt` 收录过该路径，已隔离旧构建缓存；用户重启服务后检查了可用 SQL 导出未含原始标题。
+
+构建保护针对登记路径，不是敏感信息识别器：不要把机密复制到其他普通文章、日志、公开图片目录或附件。运行中的开发服务可能会扫描直接写入 `content/` 的文件，始终在私密原文目录编辑。
+
+## 密码学协议
+
+加密页每次点击 PDF、PNG 长图或 PNG 小节导出，都先显示沿用阅读外观确认窗样式、材质和动效的警告：导出的是未加密副本，获得文件的人无需密钥即可阅读，锁定页面不能撤回副本。“取消”使用主题色强调，导出选项为中性色。点击“仍要导出”后，按用户要求将当前剪贴板替换成一个空格，再显示密钥输入框；使用新输入的密钥对密文重新执行 AES-GCM 验证，通过后才生成所选范围的文件，不复用先前解锁密钥。取消、Esc、锁定或离页会取消验证并清空输入。普通文章不显示该流程。
+
+剪贴板替换只发生在用户点击“仍要导出”时；若浏览器拒绝写入，会显示失败提示，仍要求重新验证密钥。这不清除操作系统的剪贴板历史，也不能阻止用户从其他位置重新复制密钥；前端确认流程不构成对已解锁内容的防复制保护。
+
+- AES-256-GCM：加密同时校验完整性，密钥来自系统安全随机源，不是短口令。
+- 每次加密使用独立随机 96 位 nonce；128 位认证标签追加在 ciphertext 后，由 Python `AESGCM` 与 Web Crypto 共用。
+- 附加认证数据为 UTF-8 `inkroam-note:v1:AES-256-GCM:<id>`，绑定协议版本、算法和文档编号。
+- JSON 包含 `version`、`algorithm`、`id`、Base64 `iv` 和 Base64 `ciphertext`；没有明文摘要或密码提示。
+- 浏览器只在用户提交密钥时请求密文和加载 Markdown 渲染器。错密钥、密文损坏、编号被替换都拒绝显示正文；Web Crypto 需要 HTTPS 或 localhost。
+
+参数依据：[MDN AES-GCM 参数](https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams)。不能把“随机 256 位密钥”直接换成便于记忆的短密码；如以后支持密码，需要另行设计有盐的口令派生协议和兼容版本。
+
+## 阅读支持与边界
+
+解锁后，原文 frontmatter 中的标题、摘要、日期、阅读时长、标签和置顶/精选/AI 标记在当前页面恢复显示；锁定或离页时清空，恢复公开占位信息。使用 YAML core schema 解析，禁用别名展开，仅提取允许的显示字段；不将这些字段写入公开 Content 数据、SEO、分享元数据或浏览器存储。私密标签只显示为文字，不生成会把标签送入 URL 的站内搜索链接。
+
+解锁后，原文 frontmatter 中的标题、摘要、日期、阅读时长、标签和置顶/精选/AI 标记在当前页面恢复显示；锁定或离页时清空，恢复公开占位信息。使用 YAML core schema 解析，禁用别名展开，仅提取允许的显示字段；不将这些字段写入公开 Content 数据、SEO、分享元数据或浏览器存储。私密标签只显示为文字，不生成会把标签送入 URL 的站内搜索链接。
+
+当前支持 Markdown 段落、标题、列表、引用、链接、表格、代码块，以及 `$...$` / `$$...$$` 数学公式。Markdown 使用 Marked，HTML 经 DOMPurify 净化；公式使用 KaTeX（禁用信任扩展）。原始 HTML 显示为文本，不编译 Vue/MDC 组件。
+
+图片只显示附件说明，不自动发起图片请求；附件、PDF、自定义交互组件与 Mermaid 图**没有被这项功能加密**，不要把机密附件另存进 `public/`。Mermaid 代码目前作为代码展示。
+
+解锁后恢复普通阅读布局：标签显示在相关话题侧栏，支持侧栏收起/展开、正文查找、PDF/PNG导出以及复制本文链接。目录在浏览器根据解密后的二三级标题生成，锚点使用编号而非机密标题。复制链接只复制干净的文档地址，不附带私密选段标识。查找和导出只接收正文节点，不包含解锁状态行或锁定按钮；锁定时卸载工具、清理查找和导出预览。主动导出的文件是明文，由读者自行保存，锁定不能撤回已下载或打印的内容。私密标签不参与公开话题检索。
+
+这保护的是公开服务器与仓库中的正文。公开 URL、占位标题、发布日期、密文大小仍然可见；原文件名也可能透露主题。它依赖访问的网页代码可信、终端安全和密钥保管：被篡改的前端脚本或具有权限的浏览器扩展仍可能读取输入；持有密钥的人可以复制全文。密文发布后可以被永久下载，改密钥不能撤回旧密文与旧密钥已授予的访问。课题组要求的发布范围仍需遵守。
+
+## 本次验证记录（2026-11-16）
+
+- 原始备份与加密输入字节一致；Python AES-GCM 往返通过。
+- 用实际浏览器共用的 JS 解密函数在 Node Web Crypto 上解开 Python 密文，内容与本地原文一致；错误密钥、密文篡改、AAD 编号变更、不支持版本均被拒绝。
+- 发布保护通过真实占位文件；用虚拟明文恢复场景确认会阻止构建。
+- `EncryptedNote.vue` 通过 Vue SFC 脚本/模板编译；浏览器工具函数进行定向类型检查。
+- 开发服务 HTTP 检查：直接私密文件路径和 `/@fs/` 私密文件路径均返回 404，响应不含密钥；未把响应正文写入记录。
+- 开发服务 HTTP 检查：直接私密文件路径和 `/@fs/` 私密文件路径均返回 404，响应不含密钥；未把响应正文写入记录。
+- 未执行全站 generate、整套检查或浏览器视觉验收。单独检查 Node 侧守卫的类型时，本项目未直接安装 Node 类型声明；守卫已通过实际执行验证。
+
+发布前复核：已补齐 `@types/node` 22.20.5，修复严格模式下的正则捕获组类型与计时器类型，完整 `npm run typecheck` 通过。正文工具与选段链接检查通过；正文工具现包含加密导出的警告、替换剪贴板、再次输入密钥阶段及取消清理检查。Python/JS 互通与篡改拒绝验证通过。待提交候选文件扫描未发现整篇原文、私密标题或密钥；私密目录与缓存无被跟踪文件。未运行整站生成或浏览器验收。
+
+发布前复核：已补齐 `@types/node` 22.20.5，修复严格模式下的正则捕获组类型与计时器类型，完整 `npm run typecheck` 通过。正文工具与选段链接检查通过；正文工具现包含加密导出的警告、替换剪贴板、再次输入密钥阶段及取消清理检查。Python/JS 互通与篡改拒绝验证通过。待提交候选文件扫描未发现整篇原文、私密标题或密钥；私密目录与缓存无被跟踪文件。未运行整站生成或浏览器验收。
+
+后续维护：入口 `ArticleReader.vue` → `EncryptedNote.vue`；协议 `app/utils/encrypted-note.ts` 与 `scripts/encrypt-note.py`；私密 Markdown 渲染器 `app/utils/render-private-markdown.ts`；发布保护 `scripts/lib/encrypted-notes-guard.ts`。协议修改必须保留 Python/JS 互通与篡改拒绝验证，不能仅凭“网页出现密码框”判断保密成功。

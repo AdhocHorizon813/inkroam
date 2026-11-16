@@ -51,13 +51,14 @@ export async function cloneArticleBody(body: HTMLElement) {
   return clone
 }
 
-export async function createExportFrame(title: string, body: HTMLElement) {
+export async function createExportFrame(title: string, body: HTMLElement, onFrame?: (frame: HTMLIFrameElement) => void) {
   const clone = await cloneArticleBody(body)
   const frame = document.createElement('iframe')
   frame.title = '正文导出预览'
   frame.style.cssText = 'position:fixed;left:-12000px;top:0;width:840px;height:1000px;border:0;pointer-events:none'
   frame.setAttribute('aria-hidden', 'true')
   document.body.append(frame)
+  onFrame?.(frame)
   const doc = frame.contentDocument!
   const style = doc.createElement('style'); style.textContent = exportCss
   // Only KaTeX's font/layout rules are needed; site theme and wallpaper stay out.

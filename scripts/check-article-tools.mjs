@@ -93,15 +93,20 @@ assert.match(main, /\[data-color-mode='light'\] \.article-tools__actions \.artic
 // click must not replace touch modality, while a real mouse can restore hover.
 assert.match(descriptor.template.content, /@pointerdown\.capture="rememberPointer"/)
 assert.match(descriptor.template.content, /@pointermove\.capture="rememberPointer"/)
+const toolProps = { content: null, title: '', encrypted: false }
+const clipboardWrites = []
 const toolContext = vm.createContext({
-  defineProps: () => ({ content: null, title: '' }),
+  defineProps: () => toolProps,
+  copyTextOnGesture: async value => { clipboardWrites.push(value) },
   ref: value => ({ value }), reactive: value => value,
+  shallowRef: value => ({ value }),
+  useRuntimeConfig: () => ({ app: { baseURL: '/' } }),
   watch() {}, onMounted() {}, onBeforeUnmount() {},
   nextTick: () => Promise.resolve(), clearTimeout, setTimeout,
   window: { CSS: { highlights: new Map() } },
 })
 vm.runInContext(ts.transpile(descriptor.scriptSetup.content.replace(/^import .*$/gm, ''),
-  { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.toolInput = { pointerType, rememberPointer, toggle, mode, indicator, positionIndicator, actions, trigger };', toolContext)
+  { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.toolInput = { pointerType, rememberPointer, toggle, mode, indicator, positionIndicator, actions, trigger, requestExport, confirmExport, cancelExport, pendingExport, exportConfirm, exportStep, exportKey, busy };', toolContext)
 const toolInput = toolContext.toolInput
 toolInput.actions.value = {}
 toolInput.trigger.value = { offsetLeft: 12, offsetWidth: 96, offsetHeight: 40 }
@@ -145,5 +150,22 @@ cancel(); finish(); await Promise.resolve(); assert.equal(completions, 1, 'Cance
 element.ownerDocument.defaultView.matchMedia = () => ({ matches: true })
 animateArticleTool(element, true, () => completions++)
 assert.equal(completions, 2)
-console.log('PASS: scoped root safety, shared dropdown material, grid reveal/collapse, cancellation and reduced motion without opacity animation.')
+// A protected export must pause at the warning, then require a fresh key.
+toolProps.encrypted = true; toolProps.content = {}
+toolInput.exportConfirm.value = { showModal() {}, close() {} }
+for (const format of ['pdf', 'png']) {
+  toolInput.requestExport(format)
+  assert.equal(toolInput.pendingExport.value.format, format)
+  assert.equal(toolInput.exportStep.value, 'warning')
+  assert.equal(toolInput.busy.value, false, 'No export generation before confirmation')
+  await toolInput.confirmExport()
+  assert.equal(toolInput.exportStep.value, 'key')
+  assert.equal(clipboardWrites.at(-1), ' ', 'Explicit confirmation replaces the clipboard with a space')
+  assert.equal(toolInput.busy.value, false, 'Confirmation alone cannot export without key verification')
+  toolInput.exportKey.value = 'dummy-unsubmitted-key'
+  toolInput.cancelExport()
+  assert.equal(toolInput.pendingExport.value, null)
+  assert.equal(toolInput.exportKey.value, '', 'Cancellation clears the entered key')
+}
+console.log('PASS: tool styles, motion, cancellation, protected export warning and fresh-key gate.')
 

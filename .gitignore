@@ -8,3 +8,5 @@ dist
 docs/work-checkpoint.md
 # /content/posts/_article-template.md
 tmp
+# Confidential originals and keys: never serve or commit this directory.
+/.private/
