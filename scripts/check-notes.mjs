@@ -8,9 +8,8 @@ const html = async path => (await readFile(`${base}/${path ? `${path}/` : ''}ind
 const home = await html('')
 const notes = await html('notes')
 const archive = await html('archive')
-assert(home.indexOf('id="latest"') < home.indexOf('id="latest-notes"'), 'Notes follow recent articles')
-assert.match(home, />笔记<\/a>/)
-assert(home.indexOf('>笔记</a>') < home.indexOf('>归档</a>'), 'Navigation order')
+assert.match(home, /id="latest"[\s\S]*?id="latest-notes"/, 'Notes follow recent articles')
+assert.match(home, />笔记<\/a>[\s\S]*?>归档<\/a>/, 'Navigation order')
 for (const course of courses) {
   assert(notes.includes(`/notes/${course.slug}`), `Course link: ${course.slug}`)
   const page = await html(`notes/${course.slug}`)

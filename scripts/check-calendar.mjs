@@ -1,3 +1,4 @@
+import { setupForVm } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
@@ -32,7 +33,7 @@ assert.equal(dates.maskDateInput('202609251234'), '2026-09-25', 'The 9th digit n
 assert.equal(dates.maskDateInput('２０２６'), '', 'Full-width digits are not dates')
 
 const source = readFileSync('app/components/SearchDatePicker.vue', 'utf8')
-const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm, '')
+const script = setupForVm(source)
 const props = { label: 'Date', modelValue: '2026-09-25', enabled: true, min: '2026-09-01', max: '2026-10-31' }
 const events = [], watches = []
 const context = vm.createContext({ ...dates,

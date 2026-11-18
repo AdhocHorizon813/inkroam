@@ -1,3 +1,5 @@
+import { Window } from 'happy-dom'
+import { vmSource } from './lib/vm-source.mjs'
 import { glassSurfaceEnabled, effectiveGlassPreference } from '../app/utils/glass-settings.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -8,42 +10,31 @@ import { glassQuality } from '../app/utils/glass-quality.ts'
 
 // Exercise the real adapter with a controllable engine/DOM boundary. This checks
 // ownership, async cancellation and exact restoration, not browser optics or FPS.
-class Style {
-  values = new Map()
-  getPropertyValue(key) { return this.values.get(key)?.value || '' }
-  getPropertyPriority(key) { return this.values.get(key)?.priority || '' }
-  setProperty(key, value, priority = '') { this.values.set(key, { value, priority }) }
-  removeProperty(key) { this.values.delete(key) }
+const source = vmSource(readFileSync('app/utils/experimental-glass.ts', 'utf8'))
+const compiled = ts.transpile(source, { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS })
+const settle = () => new Promise(resolve => setImmediate(resolve))
+
+function declarations(style) {
+  return Object.fromEntries(Array.from({ length: style.length }, (_, index) => {
+    const name = style.item(index)
+    return [name, [style.getPropertyValue(name), style.getPropertyPriority(name)]]
+  }))
 }
-for (const [property, css] of Object.entries({ position: 'position', zIndex: 'z-index', backdropFilter: 'backdrop-filter', filter: 'filter' })) {
-  Object.defineProperty(Style.prototype, property, {
-    get() { return this.getPropertyValue(css) }, set(value) { this.setProperty(css, value) },
-  })
-}
-class Element {
-  constructor(module) { this.dataset = module ? { glassModule: module } : {}; this.style = new Style(); this.attrs = new Map(); this.children = []; this.isConnected = true; this.clientWidth = 380; this.clientHeight = 320 }
-  appendChild(el) { this.children.push(el); el.parent = this }
-  remove() { this.isConnected = false; if (this.parent) this.parent.children = this.parent.children.filter(el => el !== this) }
-  hasAttribute(key) { return this.attrs.has(key) }
-  closest(selector) { return selector.includes('data-glass-presence="closed"') && this.closed ? this : null }
-  getAttribute(key) { return this.attrs.get(key) ?? null }
-  setAttribute(key, value) { this.attrs.set(key, value) }
-  removeAttribute(key) { this.attrs.delete(key) }
-}
-const source = readFileSync('app/utils/experimental-glass.ts', 'utf8')
-  .replace(/^import .*$/gm, '')
-  .replace(/^type EngineModule = .*$/m, '')
-  .replace("import('../vendor/liquidglass/liquid-glass.js')", 'loadEngine()')
-  .replace('export function mountExperimentalGlass', 'function mountExperimentalGlass')
-const compiled = ts.transpile(source, { target: ts.ScriptTarget.ES2022 })
-const settle = async () => { for (let i = 0; i < 6; i++) await Promise.resolve() }
 
 function setup({ engineName = 'blink', delayed = false, decode = true } = {}) {
-  const root = new Element(), dock = new Element(), panel = new Element('music'), pill = new Element()
-  root.dataset = { visual: 'modern', experimentalLiquidGlass: 'off', navMaterial: 'liquid', musicMaterial: 'liquid' }
+  const { document } = new Window()
+  const root = document.documentElement
+  const dock = document.createElement('button')
+  dock.className = 'appearance-trigger'
+  const panel = document.createElement('section')
+  panel.dataset.glassModule = 'music'
+  const pill = document.createElement('div')
+  pill.className = 'music-pill'
+  document.body.append(dock, panel, pill)
+  Object.assign(root.dataset, { visual: 'modern', experimentalLiquidGlass: 'off', navMaterial: 'liquid', musicMaterial: 'liquid' })
   panel.style.setProperty('backdrop-filter', 'blur(7px)', 'important')
   panel.style.setProperty('filter', 'brightness(.9)')
-  const originals = [...panel.style.values].map(([k, v]) => [k, { ...v }])
+  const originals = declarations(panel.style)
   const registered = new Set([panel]), observers = new Set(), timers = new Map(), calls = []
   let loads = 0, timerId = 0, resolve
   class Observer {
@@ -66,19 +57,23 @@ function setup({ engineName = 'blink', delayed = false, decode = true } = {}) {
   const win = new EventTarget(), media = new EventTarget(); media.matches = false
   win.setTimeout = fn => { timers.set(++timerId, fn); return timerId }
   const context = vm.createContext({
-    document: { documentElement: root, querySelectorAll: () => [dock], querySelector: () => pill, createElement: () => new Element() },
+    document,
     window: win, matchMedia: () => media, glassSurfaces: registered, GLASS_SURFACES_CHANGED: 'changed', glassOptics,
     GLASS_CONTENT_SELECTOR: '.article-page', glassSurfaceEnabled, effectiveGlassPreference,
     currentGlassQuality: (w, h) => glassQuality(Number(root.dataset.glassClarity ?? 86), root.dataset.glassAntialias === 'on', w, h),
     MutationObserver: Observer, ResizeObserver: Observer,
     getComputedStyle: () => ({ position: 'static', zIndex: 'auto', borderTopLeftRadius: '12px' }),
     clearTimeout: id => timers.delete(id), console,
-    loadEngine: () => { loads++; return pending },
+    require(id) {
+      assert.equal(id, '../vendor/liquidglass/liquid-glass.js')
+      loads++
+      return pending
+    },
   })
   vm.runInContext(`${compiled}\nglobalThis.mount = mountExperimentalGlass`, context)
   const stop = context.mount()
   const enabled = value => { root.dataset.experimentalLiquidGlass = value ? 'on' : 'off'; emit(root, 'data-experimental-liquid-glass') }
-  return { root, dock, panel, originals, registered, win, media, calls, observers, timers, stop, enabled, emit,
+  return { root, dock, panel, pill, originals, registered, win, media, calls, observers, timers, stop, enabled, emit,
     loads: () => loads, resolve: () => resolve?.(engine), change: () => win.dispatchEvent(new Event('changed')) }
 }
 
@@ -92,7 +87,7 @@ assert.equal(run.panel.children.length, 0, 'clipped panels filter their backdrop
 assert.equal(run.panel.getAttribute('data-liquid-glass-active'), '')
 run.enabled(false); await settle()
 assert(run.calls.every(call => call.destroyed))
-assert.deepEqual(run.panel.style.values, new Map(run.originals), 'restore original filter values and priorities')
+assert.deepEqual(declarations(run.panel.style), run.originals, 'restore original filter values and priorities')
 assert.equal(run.panel.getAttribute('data-liquid-glass-active'), null)
 assert.equal(run.dock.children.length, 0)
 run.enabled(true); await settle()
@@ -113,7 +108,7 @@ scoped.emit(scoped.root, 'data-glass-components'); await settle()
 assert.equal(scoped.calls[0].updates.length, dockUpdates, 'Editing music does not refresh the dock optics')
 scoped.root.dataset.musicMaterial = 'mica'; scoped.emit(scoped.root, 'data-music-material'); await settle()
 assert(scoped.calls[1].destroyed, 'Material change releases experimental renderer')
-assert.deepEqual(scoped.panel.style.values, new Map(scoped.originals))
+assert.deepEqual(declarations(scoped.panel.style), scoped.originals)
 scoped.root.dataset.glassGlobal = JSON.stringify({ enabled: true, settings: { enabled: false } })
 scoped.emit(scoped.root, 'data-glass-global'); await settle()
 assert(scoped.calls.every(call => call.destroyed), 'Global disable releases all lenses')
@@ -121,6 +116,19 @@ scoped.root.dataset.glassGlobal = JSON.stringify({ enabled: false })
 scoped.emit(scoped.root, 'data-glass-global'); await settle()
 assert.equal(scoped.calls.length, 3, 'Global off restores only eligible component materials')
 scoped.stop()
+
+const playback = setup()
+playback.pill.classList.add('is-unplayed')
+const trigger = playback.pill.appendChild(playback.pill.ownerDocument.createElement('button'))
+trigger.className = 'music-trigger music-surface'
+playback.enabled(true); await settle()
+const idleLens = playback.calls.find(call => call.target === trigger)
+assert.ok(idleLens, 'Before playback the dock button owns the lens')
+playback.pill.classList.replace('is-unplayed', 'music-surface')
+playback.emit(playback.pill, 'class'); await settle()
+assert.equal(idleLens.destroyed, true)
+assert.ok(playback.calls.some(call => call.target === playback.pill && !call.destroyed), 'Playback moves the lens to the whole pill')
+playback.stop()
 
 const pending = setup({ delayed: true })
 pending.enabled(true); pending.enabled(false); pending.resolve(); await settle()
@@ -133,7 +141,7 @@ assert.equal(teardown.calls.length, 0, 'late import cannot revive an unmounted o
 const fallback = setup({ engineName: 'webkit' })
 fallback.enabled(true); await settle()
 assert.equal(fallback.calls.length, 0)
-assert.deepEqual(fallback.panel.style.values, new Map(fallback.originals))
+assert.deepEqual(declarations(fallback.panel.style), fallback.originals)
 fallback.stop()
 
 const reduced = setup()
@@ -149,7 +157,7 @@ const timeout = setup({ decode: false })
 timeout.enabled(true); await settle()
 for (const callback of [...timeout.timers.values()]) callback()
 assert(timeout.calls.every(call => call.destroyed))
-assert.deepEqual(timeout.panel.style.values, new Map(timeout.originals))
+assert.deepEqual(declarations(timeout.panel.style), timeout.originals)
 timeout.stop()
 
 const focus = setup()
@@ -167,8 +175,8 @@ console.log('PASS glass adapter: lazy loading, host ownership, exact restoration
 const sleeping = setup()
 sleeping.enabled(true); await settle()
 const existing = sleeping.calls.find(call => call.target === sleeping.panel)
-const close = () => { sleeping.panel.closed = true; sleeping.registered.delete(sleeping.panel); sleeping.change() }
-const reopen = () => { sleeping.panel.closed = false; sleeping.registered.add(sleeping.panel); sleeping.change() }
+const close = () => { sleeping.panel.dataset.glassPresence = 'closed'; sleeping.registered.delete(sleeping.panel); sleeping.change() }
+const reopen = () => { delete sleeping.panel.dataset.glassPresence; sleeping.registered.add(sleeping.panel); sleeping.change() }
 for (let i = 0; i < 25; i++) {
   close(); await settle()
   assert.equal(sleeping.panel.getAttribute('data-liquid-glass-dormant'), '')
@@ -181,7 +189,7 @@ close(); await settle()
 const updates = existing.updates.length
 sleeping.root.dataset.glassClarity = '25'; sleeping.emit(sleeping.root, 'data-glass-clarity'); await settle()
 assert.equal(existing.updates.length, updates, 'Dormant surfaces generate no quality updates')
-sleeping.panel.isConnected = false; sleeping.change(); await settle()
+sleeping.panel.remove(); sleeping.change(); await settle()
 assert(existing.destroyed, 'Route removal releases sleeping resources')
 sleeping.stop()
 assert.equal(sleeping.observers.size, 0)

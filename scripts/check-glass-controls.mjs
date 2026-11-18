@@ -1,3 +1,5 @@
+import { Window } from 'happy-dom'
+import { vmSource } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'
@@ -6,82 +8,69 @@ import { glassQuality } from '../app/utils/glass-quality.ts'
 
 // Real control adapter with deterministic DOM/engine boundaries. It verifies
 // motion inputs and cleanup, not rendered pixels or a browser performance claim.
-class Element extends EventTarget {
-  constructor(tag = 'SPAN') {
-    super(); this.tagName = tag; this.children = []; this.dataset = {}; this.attrs = new Map(); this.isConnected = true
-    this.style = { values: new Map(), setProperty(k, v, p = '') { this.values.set(k, [v, p]) },
-      getPropertyValue(k) { return this.values.get(k)?.[0] || '' }, getPropertyPriority(k) { return this.values.get(k)?.[1] || '' },
-      removeProperty(k) { this.values.delete(k) } }
-    for (const k of ['position', 'left', 'top', 'width', 'height', 'transform', 'marginLeft', 'borderRadius', 'transition', 'filter', 'backdropFilter', 'visibility']) {
-      const css = k.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`)
-      Object.defineProperty(this.style, k, { get: () => this.style.getPropertyValue(css), set: v => this.style.setProperty(css, v) })
-    }
-    this.classes = new Set(); this.classList = { contains: c => this.classes.has(c) }
-    this.offsetLeft = 0; this.offsetTop = 4; this.offsetWidth = 80; this.offsetHeight = 32; this.clientWidth = 240
+// Happy DOM resolves the production selectors and dispatches bubbling events.
+// Supply geometry and animation state because this environment has no layout engine.
+const source = vmSource(fs.readFileSync('app/utils/glass-controls.ts', 'utf8'))
+const compiled = ts.transpile(source, { target: ts.ScriptTarget.ES2022 })
+
+function sizedElement(document, tag = 'span') {
+  const el = document.createElement(tag)
+  for (const [name, value] of Object.entries({ offsetLeft: 0, offsetTop: 4, offsetWidth: 80, offsetHeight: 32, clientWidth: 240, clientLeft: 0, clientTop: 0 })) {
+    Object.defineProperty(el, name, { configurable: true, writable: true, value })
   }
-  get childNodes() { return this.children }
-  appendChild(c) { this.children.push(c); c.parentElement = this; return c }
-  insertBefore(c, ref) { const i = this.children.indexOf(ref); this.children.splice(i < 0 ? this.children.length : i, 0, c); c.parentElement = this; return c }
-  get firstChild() { return this.children[0] ?? null }
-  replaceChildren(...c) { this.children = []; c.forEach(e => this.appendChild(e)) }
-  remove() { this.parentElement.children = this.parentElement.children.filter(c => c !== this) }
-  setAttribute(k, v) { this.attrs.set(k, v) }
-  hasAttribute(k) { return this.attrs.has(k) }
-  getAttribute(k) { return this.attrs.get(k) ?? null }
-  removeAttribute(k) { this.attrs.delete(k) }
-  querySelector() { return this.children.find(e => e.tagName === 'INPUT') ?? null }
-  querySelectorAll() { return [] }
-  closest(selector) {
-    const selectors = selector.split(',').map(s => s.trim())
-    if (selectors.some(s => s === '[data-glass-presence="closed"]' ? this.dataset.glassPresence === 'closed' : s.startsWith('.') ? this.classes.has(s.slice(1)) : this.tagName === s.toUpperCase())) return this
-    return this.parentElement?.closest(selector) ?? null
-  }
-  contains(el) { return el === this || this.children.includes(el) }
-  matches() { return Boolean(this.disabled) }
-  getBoundingClientRect() { return { left: 0, width: this.clientWidth } }
-  getAnimations() { return this.animations ?? [] }
-  click() { this.clicks = (this.clicks ?? 0) + 1 }
+  Object.defineProperty(el, 'offsetParent', { get: () => el.parentElement })
+  el.getBoundingClientRect = () => ({ left: 0, width: el.clientWidth })
+  el.getAnimations = () => el.animations ?? []
+  return el
 }
-function fixture(slider = false, portaled = false, nativeAnchors = false, withSubpage = false, withDock = false, withReveal = false, musicPanel = false, startAnimating = false, articleToolbar = false) {
-  const host = new Element(), group = new Element('DIV'), window = new EventTarget()
+function fixture({ slider, portaled, nativeAnchors, withSubpage, withDock, withReveal, musicPanel, startAnimating, articleToolbar } = {}) {
+  const window = new Window()
+  const document = window.document
+  const element = tag => sizedElement(document, tag)
+  const host = element(), group = element('div')
   window.innerWidth = 1000; window.innerHeight = 800
   host.dataset.glassModule = slider ? 'thumb' : 'indicator'
-  group.classes.add(slider ? 'glass-range' : portaled ? 'segmented-control' : 'main-nav')
+  group.classList.add(slider ? 'glass-range' : portaled ? 'segmented-control' : 'main-nav')
   if (!slider) group.offsetHeight = 40
-  const first = new Element(slider ? 'INPUT' : 'A'), second = new Element('A')
+  const first = element(slider ? 'INPUT' : 'A'), second = element('A')
   first.offsetLeft = 4; second.offsetLeft = 89
-  if (slider) { first.min = '0'; first.max = '100'; first.value = '50'; first.offsetHeight = 20 }
+  if (slider) { first.type = 'range'; first.min = '0'; first.max = '100'; first.value = '50'; first.offsetHeight = 20 }
   else first.setAttribute('aria-current', 'page')
+  if (slider) {
+    const decoy = element('input')
+    decoy.type = 'hidden'
+    group.appendChild(decoy)
+  }
   group.appendChild(host); group.appendChild(first); if (!slider) group.appendChild(second)
-  const panel = new Element('SECTION'), scroller = new Element('DIV'), subpages = new Element('DIV'), page = new Element('DIV'), dock = new Element('DIV')
-  const reveal = new Element('DIV')
-  const body = new Element('BODY'), pageScroll = new Element('DIV')
+  const panel = element('SECTION'), scroller = element('DIV'), subpages = element('DIV'), page = element('DIV'), dock = element('DIV')
+  const reveal = element('DIV')
+  const body = document.body, pageScroll = element('DIV')
   if (articleToolbar) {
-    group.classes.delete('main-nav'); group.classes.add('article-tools__actions')
-    pageScroll.classes.add('page-scroll'); body.appendChild(pageScroll); pageScroll.appendChild(dock)
+    group.classList.remove('main-nav'); group.classList.add('article-tools__actions')
+    pageScroll.classList.add('page-scroll'); body.appendChild(pageScroll); pageScroll.appendChild(dock)
     pageScroll.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1000, bottom: 800, width: 1000, height: 800 })
-    dock.classes.add('article-page')
+    dock.classList.add('article-page')
   }
   if (startAnimating) panel.animations = [{ playState: 'running' }]
   if (withDock) {
-    dock.classes.add(musicPanel ? 'music-dock' : 'appearance-dock'); dock.appendChild(panel)
+    dock.classList.add(musicPanel ? 'music-dock' : 'appearance-dock'); dock.appendChild(panel)
     dock.getBoundingClientRect = () => ({ left: 360, top: 740, right: 450, bottom: 784, width: 90, height: 44 })
     dock.offsetWidth = 90; dock.offsetHeight = 44
   }
   if (withDock && !portaled) {
-    panel.classes.add(articleToolbar ? 'article-tools' : 'site-header'); panel.appendChild(group); panel.zIndex = articleToolbar ? '24' : '30'
+    panel.classList.add(articleToolbar ? 'article-tools' : 'site-header'); panel.appendChild(group); panel.zIndex = articleToolbar ? '24' : '30'
     panel.getBoundingClientRect = () => ({ left: 100, top: 100, right: 450, bottom: 200, width: 350, height: 100 })
     host.getBoundingClientRect = () => ({ left: 125, top: 150, right: 205, bottom: 182, width: 80, height: 32 })
   }
   if (articleToolbar) dock.getBoundingClientRect = () => ({ left: 100, top: 100, right: 700, bottom: 900, width: 600, height: 800 })
   if (portaled) {
-    panel.classes.add(musicPanel ? 'music-panel' : 'appearance-panel'); scroller.classes.add(musicPanel ? 'music-scroll' : 'appearance-panel__scroll')
+    panel.classList.add(musicPanel ? 'music-panel' : 'appearance-panel'); scroller.classList.add(musicPanel ? 'music-scroll' : 'appearance-panel__scroll')
     panel.appendChild(scroller)
     if (withSubpage) {
-      subpages.classes.add('appearance-subpages')
+      subpages.classList.add('appearance-subpages')
       scroller.appendChild(subpages); subpages.appendChild(page)
       if (withReveal) {
-        reveal.classes.add('glass-settings__reveal'); page.appendChild(reveal); reveal.appendChild(group)
+        reveal.classList.add('glass-settings__reveal'); page.appendChild(reveal); reveal.appendChild(group)
       } else page.appendChild(group)
     } else scroller.appendChild(group)
     panel.clientLeft = panel.clientTop = 1; panel.offsetWidth = 350; panel.offsetHeight = 600
@@ -95,6 +84,12 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     host.getBoundingClientRect = () => ({ left: 125, top: 150, right: 205, bottom: 182, width: 80, height: 32 })
     group.getBoundingClientRect = () => ({ left: 125, top: 150, right: 365, bottom: 190, width: 240, height: 40 })
   }
+  if (!group.isConnected) {
+    let ancestor = group
+    while (ancestor.parentElement) ancestor = ancestor.parentElement
+    body.appendChild(ancestor)
+  }
+  second.addEventListener('click', () => { second.clicks = (second.clicks ?? 0) + 1 })
   const observers = [], springs = [], calls = [], timers = new Map(), frames = new Map()
   let frameId = 0
   let direction = 'ltr'
@@ -114,10 +109,23 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
       update(o) { this.updates.push(o) }, flush() {}, destroy() { this.destroyed = true } }; calls.push(call); return call },
   }
   window.setTimeout = fn => { timers.set(1, fn); return 1 }
-  const source = fs.readFileSync('app/utils/glass-controls.ts', 'utf8').replace(/^import .*$/gm, '').replace(/^type Engine = .*$/m, '')
-    .replace('export function attachGlassControl', 'function attachGlassControl')
   const createElement = tag => {
-    const el = new Element(tag.toUpperCase())
+    const el = element(tag.toUpperCase())
+    // The headless CSS parser drops anchor() lengths. Keep their declarations
+    // for the geometry simulator when the fixture advertises anchor support.
+    if (nativeAnchors) {
+      const style = el.style
+      const set = style.setProperty.bind(style)
+      const get = style.getPropertyValue.bind(style)
+      const remove = style.removeProperty.bind(style)
+      style.getPropertyValue = name => get('--fixture-' + name) || get(name)
+      style.removeProperty = name => { remove('--fixture-' + name); return remove(name) }
+      style.setProperty = (name, value, priority) => {
+        if (/^anchor(?:-size)?\(/.test(value)) {
+          set('--fixture-' + name, value)
+        } else { remove('--fixture-' + name); set(name, value, priority) }
+      }
+    }
     el.getBoundingClientRect = () => {
       const anchored = el.style.left === 'anchor(left)'
       const source = (el.style.getPropertyValue('position-anchor') === host.style.getPropertyValue('anchor-name') ? host : group).getBoundingClientRect()
@@ -129,18 +137,21 @@ function fixture(slider = false, portaled = false, nativeAnchors = false, withSu
     }
     return el
   }
-  const context = vm.createContext({ HTMLElement: Element, document: { createElement, body },
+  const context = vm.createContext({ HTMLElement: window.HTMLElement, document: { createElement, body },
     window, MutationObserver: Observer, ResizeObserver: Observer, clearTimeout: id => timers.delete(id),
     cancelAnimationFrame: id => frames.delete(id), requestAnimationFrame(fn) { frames.set(++frameId, fn); return frameId },
     CSS: { supports: () => nativeAnchors },
     currentGlassQuality: (_w, _h, _theme, el) => ({ ...glassQuality(86, false),
       ...(articleToolbar && el === group ? { deform: articleTrackDeform } : {}) }),
     getComputedStyle: el => ({ opacity: el.opacity ?? '1', zIndex: el.zIndex ?? 'auto', direction, font: '500 12px sans-serif', letterSpacing: '0px', columnGap: '4px', padding: '0px', textTransform: 'none' }) })
-  vm.runInContext(ts.transpile(source, { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.attach = attachGlassControl;', context)
+  vm.runInContext(compiled + '\nglobalThis.attach = attachGlassControl;', context)
   const cleanup = context.attach(host, engine)
   const decode = () => { calls.forEach((call, i) => { call.el.style.backdropFilter = `url(#lens-${i})` }); observers[0].fn() }
-  const event = (el, name, values = {}) => { const e = new Event(name, { cancelable: true });
-    for (const [k, v] of Object.entries(values)) Object.defineProperty(e, k, { value: v }); el.dispatchEvent(e) }
+  const event = (el, name, { target = el, ...values } = {}) => {
+    const e = new window.Event(name, { bubbles: target !== el, cancelable: true })
+    for (const [k, v] of Object.entries(values)) Object.defineProperty(e, k, { value: v })
+    target.dispatchEvent(e)
+  }
   return { host, group, first, second, panel, scroller, page, dock, body, pageScroll, reveal, window, springs, calls, observers, timers, frames, cleanup, decode, event,
     flushFrame: () => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(fn => fn(0)) },
     rtl: () => { direction = 'rtl' },
@@ -267,14 +278,19 @@ for (const rangeWidth of [220, 280, 600]) {
   }
 }
 
-const range = fixture(true)
+const range = fixture({ slider: true })
 range.decode()
 assert.equal(range.calls[0].el, range.host, 'Sample actual rail; never duplicate/tint its right endpoint')
 assert.equal(range.calls[0].options.mode, 'backdrop')
 assert.equal(range.calls[0].options.opticalProfile, 'circular', 'Thumb and indicator share a rounded-boundary profile')
 assert(range.calls[0].options.blur > 0, 'Range thumbs retain their clarity-driven frosting')
 assert.equal(range.springs[0].config.stiffness, 900)
+range.first.disabled = true
+range.event(range.first, 'input')
+assert.equal(range.host.dataset.disabled, 'true')
+range.first.disabled = false
 range.first.value = '100'; range.event(range.first, 'input')
+assert.equal(range.host.dataset.disabled, 'false')
 assert.equal(range.springs[0].target, 236, 'Native half-thumb inset at maximum')
 range.rtl(); range.event(range.first, 'input')
 assert.equal(range.springs[0].target, 12, 'RTL reverses travel')
@@ -289,14 +305,14 @@ assert.equal(range.calls[0].updates.at(-1).refractionHeight, 28 * .45, 'Pressed 
 range.event(range.window, 'blur')
 assert.equal(range.springs[1].target, 0, 'Window blur releases pressure')
 range.cleanup.destroy()
-assert.equal(range.group.children.length, 2)
+assert.equal(range.group.children.length, 3)
 assert(range.springs.every(s => s.stopped))
 
-const failed = fixture(true)
+const failed = fixture({ slider: true })
 failed.timers.get(1)()
 assert(failed.calls[0].destroyed)
 assert.equal(failed.host.getAttribute('data-liquid-glass-control'), null)
-assert.equal(failed.group.children.length, 2, 'Decode timeout retains original native input')
+assert.equal(failed.group.children.length, 3, 'Decode timeout retains original native input')
 // Regression contract: the optical portal must follow only the arriving
 // appearance subpage, not every hidden control across both retained pages.
 const controlsSource = fs.readFileSync('app/utils/glass-controls.ts', 'utf8')
@@ -316,7 +332,7 @@ assert.match(managerSource, /surfaces\.get\(host\)\?\.refreshLayout\?\.\(\)/)
 // On supporting Chromium builds, the real control is a CSS anchor. The
 // portaled lens follows its compositor scroll and transform without delayed
 // scroll listeners or geometry polling. The fallback path is tested below.
-const tethered = fixture(false, true, true)
+const tethered = fixture({ portaled: true, nativeAnchors: true })
 tethered.decode()
 const tether = tethered.calls[1].el
 assert.match(tethered.group.style.getPropertyValue('anchor-name'), /^--inkroam-optic-\d+$/)
@@ -338,7 +354,7 @@ assert.equal(tethered.group.style.getPropertyValue('anchor-name'), '', 'Restore 
 // bottom-right box. Both native anchors and measured fallback must use a
 // viewport-positioned optical sibling; dock coordinates cannot reach its source.
 for (const anchored of [false, true]) {
-  const escaped = fixture(false, true, anchored, true, true)
+  const escaped = fixture({ portaled: true, nativeAnchors: anchored, withSubpage: true, withDock: true })
   escaped.decode()
   const optic = escaped.calls[0].el
   assert.notEqual(optic, escaped.host, 'Exercise the real escaped indicator path')
@@ -371,7 +387,7 @@ for (const anchored of [false, true]) {
 // the actual panel/scroll viewport should clip them horizontally; vertical
 // reveal clipping must continue to hide optics as the accordion collapses.
 for (const anchored of [false, true]) {
-  const expanded = fixture(false, true, anchored, true, true, true)
+  const expanded = fixture({ portaled: true, nativeAnchors: anchored, withSubpage: true, withDock: true, withReveal: true })
   expanded.decode()
   const optic = expanded.calls[0].el
   let rect = { left: 119, top: 150, right: 219, bottom: 190, width: 100, height: 40 }
@@ -396,7 +412,7 @@ for (const anchored of [false, true]) {
   expanded.cleanup.destroy()
 }
 
-const masked = fixture(false, true)
+const masked = fixture({ portaled: true })
 assert(masked.group.hasAttribute('data-glass-track-presentation'), 'Track CSS presentation is ready before either filter decodes')
 assert(masked.calls[1].el.hasAttribute('data-glass-track-presentation'), 'Undecoded rail already owns its final shadow and tint')
 assert(!masked.group.hasAttribute('data-glass-track-active'), 'Presentation does not falsely mark optics as decoded')
@@ -451,7 +467,7 @@ assert.equal(nav.calls[0].updates.at(-1).radius, 9, 'Navbar keeps compact corner
 console.log('PASS: clarity controls diffusion; DPR sampling independent of AA; light/dark rim tint differs.')
 
 // Inspect actual map alpha, not just a settings flag or a mocked engine call.
-const core = fs.readFileSync('app/vendor/liquidglass/liquid-glass.js', 'utf8').replace(/^export /gm, '')
+const core = vmSource(fs.readFileSync('app/vendor/liquidglass/liquid-glass.js', 'utf8'))
 const pixels = vm.createContext({ navigator: { userAgent: 'Chrome/154' },
   window: { matchMedia: () => ({ matches: false }) },
   document: { createElement: () => {
@@ -525,11 +541,11 @@ const innerTop = (6 * 700 + 350) * 4
 assert.equal(rimOnly[innerTop + 2], 128, 'No broad inward white wash: highlight stays on geometric rim')
 console.log('PASS: bounded bevel removes diagonal corner seam; rim-only highlight leaves inner surface untinted.')
 
-const outgoing = fixture(false, true, false, true)
+const outgoing = fixture({ portaled: true, withSubpage: true })
 outgoing.decode()
 assert.equal(outgoing.calls[1].el.style.clipPath, 'inset(-49px -84px -509px -24px)',
   'Rail shadow is clipped to the viewport, not its own border box during subpage motion')
-const entering = fixture(false, true, true, true)
+const entering = fixture({ portaled: true, nativeAnchors: true, withSubpage: true })
 entering.page.dataset.glassPresence = 'opening'
 entering.cleanup.refreshLayout()
 assert.equal(entering.calls[1].el.style.clipPath, 'inset(-49px -84px -509px -24px)',
@@ -561,7 +577,7 @@ console.log('PASS outgoing inert subpage retains optics/opacity, then sleeps and
 // A panel's masked viewport paints its rail after the external optical portal.
 // Thumbs must remain above their own rail in the original DOM paint order.
 for (const anchored of [false, true]) {
-  const inline = fixture(true, true, anchored)
+  const inline = fixture({ slider: true, portaled: true, nativeAnchors: anchored })
   inline.decode()
   assert.equal(inline.calls[0].el, inline.host, 'Panel slider samples its own rail on the original thumb')
   assert.equal(inline.panel.children.length, 1, 'No optical thumb underneath the scroll viewport')
@@ -582,7 +598,7 @@ console.log('PASS panel slider optics stay above their own rail, preserve press 
 // The real thumb/cap stays inline. A cap-free projection samples the finished
 // panel outside its backdrop root and has no independent entry motion.
 for (const anchored of [false, true]) for (const music of [false, true]) {
-  const inline = fixture(true, true, anchored, true, true, true, music, true)
+  const inline = fixture({ slider: true, portaled: true, nativeAnchors: anchored, withSubpage: true, withDock: true, withReveal: true, musicPanel: music, startAnimating: true })
   const optic = inline.calls[0].el
   assert.notEqual(optic, inline.host, 'Sampling must escape the filtered/masked panel')
   assert.equal(optic.parentElement, inline.dock)
@@ -622,7 +638,7 @@ assert.match(railCss, /\[data-glass-module='thumb'\]::after/,
   'Only the inline thumb paints the white cap')
 console.log('PASS: range caps remain inline; cap-free refraction samples outside the panel, starts aligned and follows closing/dormancy.')
 
-const delayedTrack = fixture(false, true, true, true, true)
+const delayedTrack = fixture({ portaled: true, nativeAnchors: true, withSubpage: true, withDock: true })
 delayedTrack.calls[0].el.style.backdropFilter = 'url(#indicator-first)'
 delayedTrack.observers[0].fn()
 assert(!delayedTrack.group.hasAttribute('data-glass-track-active'))
@@ -633,7 +649,7 @@ delayedTrack.cleanup.destroy()
 
 // A glass toolbar already owns its border and background. Its indicator must
 // sample outside that backdrop root, without adding another full-row rail.
-const article = fixture(false, false, true, false, true, false, false, false, true)
+const article = fixture({ nativeAnchors: true, withDock: true, articleToolbar: true })
 article.decode()
 const articleOptic = article.calls[0].el
 assert.equal(article.calls.length, 1, 'Article toolbar must not get a duplicate track filter/bottom rim')
@@ -676,7 +692,7 @@ console.log('PASS: article indicator samples outside toolbar/card roots, retains
 // it, just like a pointer click. HTMLElement.click() alone leaves the old tool
 // focused, even after its expanded/selected presentation has changed.
 {
-  const tools = fixture(false, false, true, false, true, false, false, false, true)
+  const tools = fixture({ nativeAnchors: true, withDock: true, articleToolbar: true })
   tools.first.removeAttribute('aria-current')
   tools.first.setAttribute('aria-expanded', 'true')
   tools.second.setAttribute('aria-expanded', 'false')
@@ -706,8 +722,10 @@ console.log('PASS: article indicator samples outside toolbar/card roots, retains
   assert.deepEqual(events, ['focus:export', 'click:export'])
 
   // Copy is a nested action, rather than one of the two panel triggers.
-  const copy = tools.group.appendChild(new Element('DIV')).appendChild(new Element('BUTTON'))
-  const copyIcon = copy.appendChild(new Element('SVG'))
+  const document = tools.body.ownerDocument
+  const wrapper = tools.group.appendChild(document.createElement('div'))
+  const copy = wrapper.appendChild(document.createElement('button'))
+  const copyIcon = copy.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'svg'))
   let copies = 0
   tools.group.addEventListener('click', event => {
     if (event.target === copy && !event.defaultPrevented) copies++
@@ -747,7 +765,7 @@ console.log('PASS: article indicator samples outside toolbar/card roots, retains
 }
 
 for (const anchored of [false, true]) {
-  const header = fixture(false, false, anchored, false, true)
+  const header = fixture({ nativeAnchors: anchored, withDock: true })
   header.decode()
   const optic = header.calls[0].el
   assert.equal(optic.parentElement, header.dock, 'Navbar lens escapes the filtered header to sample page/cards')

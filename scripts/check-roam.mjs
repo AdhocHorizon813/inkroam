@@ -1,3 +1,4 @@
+import { setupForVm } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
@@ -33,7 +34,7 @@ for (const raw of [null, '', '{bad', '{}', '1', '[1]', '[null]']) assert.equal(r
 assert.deepEqual(readRoamHistory('["/posts/a"]'), ['/posts/a'])
 
 const component = readFileSync('app/components/RoamLink.vue', 'utf8')
-const script = component.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/import[^\n]+\n/, '')
+const script = setupForVm(component)
 const code = ts.transpile(script, { target: ts.ScriptTarget.ES2022 })
 async function mount({ raw = null, blocked = false, memory = ref([]), items = entries } = {}) {
   let mounted, saved, rolls = 0

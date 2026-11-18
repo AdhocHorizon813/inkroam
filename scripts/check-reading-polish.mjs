@@ -3,31 +3,55 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parse } from 'devalue'
 import { courseNeighbours } from '../app/utils/course-sequence.ts'
+import { checkStages } from './lib/check-stages.mjs'
 
-const make = (slug, date, order, course = 'a', draft = false) => ({ path: `/notes/${course}/${slug}`, date, order, draft })
-const notes = [make('late', '2026-02-01'), make('second', '2026-03-01', 2), make('first', '2026-05-01', 1), make('early', '2026-01-01'), make('hidden', '2026-01-01', 0, 'a', true), make('other', '2026-01-01', 0, 'b')]
-assert.equal(courseNeighbours('/notes/a/second', notes).previous.path, '/notes/a/first')
-assert.equal(courseNeighbours('/notes/a/second', notes).next.path, '/notes/a/early')
-assert.equal(courseNeighbours('/notes/a/first', notes).previous, undefined)
-assert.equal(courseNeighbours('/notes/a/late', notes).next, undefined)
-assert.equal(courseNeighbours('/posts/a', notes).next, undefined)
-assert.equal(courseNeighbours('/notes/a/missing', notes).next, undefined)
-assert.equal(courseNeighbours('/notes/a/one', [make('one', '2026-01-01')]).previous, undefined)
-assert.equal(courseNeighbours('/notes/a/early', notes).next.path, '/notes/a/late')
+const stages = checkStages()
 
-const sequence = [0, 1, 2, 9, 10, 17].map(n => make(`lesson-${n}`, '2026-01-01', String(n)))
-const shuffled = [...sequence].reverse()
-for (let i = 0; i < sequence.length; i++) {
-  const neighbours = courseNeighbours(sequence[i].path, shuffled)
-  assert.equal(neighbours.previous?.path, sequence[i - 1]?.path)
-  assert.equal(neighbours.next?.path, sequence[i + 1]?.path)
+if (stages.source) {
+  const make = (slug, date, order, course = 'a', draft = false) => ({ path: `/notes/${course}/${slug}`, date, order, draft })
+  const notes = [make('late', '2026-02-01'), make('second', '2026-03-01', 2), make('first', '2026-05-01', 1), make('early', '2026-01-01'), make('hidden', '2026-01-01', 0, 'a', true), make('other', '2026-01-01', 0, 'b')]
+  assert.equal(courseNeighbours('/notes/a/second', notes).previous.path, '/notes/a/first')
+  assert.equal(courseNeighbours('/notes/a/second', notes).next.path, '/notes/a/early')
+  assert.equal(courseNeighbours('/notes/a/first', notes).previous, undefined)
+  assert.equal(courseNeighbours('/notes/a/late', notes).next, undefined)
+  assert.equal(courseNeighbours('/posts/a', notes).next, undefined)
+  assert.equal(courseNeighbours('/notes/a/missing', notes).next, undefined)
+  assert.equal(courseNeighbours('/notes/a/one', [make('one', '2026-01-01')]).previous, undefined)
+  assert.equal(courseNeighbours('/notes/a/early', notes).next.path, '/notes/a/late')
+
+  const sequence = [0, 1, 2, 9, 10, 17].map(n => make(`lesson-${n}`, '2026-01-01', String(n)))
+  const shuffled = [...sequence].reverse()
+  for (let i = 0; i < sequence.length; i++) {
+    const neighbours = courseNeighbours(sequence[i].path, shuffled)
+    assert.equal(neighbours.previous?.path, sequence[i - 1]?.path)
+    assert.equal(neighbours.next?.path, sequence[i + 1]?.path)
+  }
+  assert.deepEqual(shuffled, [...sequence].reverse(), 'Sorting must not mutate query data')
+  for (const order of [undefined, null, '', ' ', 'invalid', -1, 1.5]) {
+    assert.equal(courseNeighbours(sequence.at(-1).path, [...sequence, make('unordered', '2025-01-01', order)]).next?.path, '/notes/a/unordered')
+  }
+  console.log('PASS: course ordering, boundaries, drafts and course isolation.')
 }
-assert.deepEqual(shuffled, [...sequence].reverse(), 'Sorting must not mutate query data')
-for (const order of [undefined, null, '', ' ', 'invalid', -1, 1.5]) {
-  assert.equal(courseNeighbours(sequence.at(-1).path, [...sequence, make('unordered', '2025-01-01', order)]).next?.path, '/notes/a/unordered')
+
+// Table of contents: clamped destinations and manual scroll. Consolidated from check-toc-active.mjs; assertions preserved.
+if (stages.source) {
+  const bottom = [
+    { id: '范数收敛', top: -80, margin: 100 },
+    { id: '范数练习', top: 155, margin: 100 },
+    { id: 'pdf-内嵌测试', top: 320, margin: 100 },
+  ]
+  assert.equal(resolveActiveHeading(bottom, '#pdf-%E5%86%85%E5%B5%8C%E6%B5%8B%E8%AF%95', 700, 700, 100), 'pdf-内嵌测试')
+  assert.equal(resolveActiveHeading(bottom, '#范数练习', 700, 700, 100), '范数练习', 'Two clamped destinations remain distinguishable by hash')
+  assert.equal(resolveActiveHeading(bottom, '', 700, 700, 100), 'pdf-内嵌测试', 'Manual scrolling to the bottom')
+  assert.equal(resolveActiveHeading(bottom, '#pdf-内嵌测试', 500, 900, 100), '范数收敛', 'An old hash does not lock manual scroll')
+  assert.equal(resolveActiveHeading([{ id: 'a', top: 100, margin: 100 }], '#a', 200, 900, 100), 'a')
+  assert.equal(resolveActiveHeading(bottom, '', 0, 0, 100), '范数收敛', 'Short unscrollable page starts with first heading')
+  assert.equal(resolveActiveHeading(bottom, '#%xx', 500, 900, 100), '范数收敛')
+  assert.equal(resolveActiveHeading([], '#a', 0, 0, 100), '')
+  console.log('PASS: clamped anchors, encoded IDs, bottom detection, manual scroll and empty/short pages.')
 }
 
-if (process.argv.includes('--built')) {
+if (stages.built) {
   const load = path => parse(readFileSync(`.output/public/${path}_payload.json`, 'utf8'), {
     ShallowReactive: value => value, ShallowRef: value => value,
     Reactive: value => value, Ref: value => value,
@@ -58,12 +82,12 @@ if (process.argv.includes('--built')) {
     const links = [...sequenceNav.matchAll(/href="([^"]+)"/g)].map(match => match[1].replace(/^\/inkroam(?=\/)/, ''))
     assert.deepEqual(links, ['/notes/data-structures', lessons[i - 1]?.path, lessons[i + 1]?.path].filter(Boolean), `${lessons[i].path}: rendered previous/next links`)
   }
+  console.log('PASS: generated payloads and course navigation.')
 }
-console.log('PASS: course order, boundaries, drafts, course isolation and requested payload checks.')
 
-if (process.argv.includes('--live')) {
+if (stages.live) {
   const page = async path => {
-    const response = await fetch(`http://127.0.0.1:3000${path}`)
+    const response = await fetch(`http://127.0.0.1:3000${path}`, { signal: AbortSignal.timeout(15_000) })
     assert.equal(response.status, 200)
     const html = await response.text()
     return html.match(/<main[\s\S]*?<\/main>/)?.[0] || ''
@@ -76,23 +100,4 @@ if (process.argv.includes('--live')) {
   assert(directory.includes('gpt-6-astra') && !/class="topic-name"[^>]*>思考/.test(directory), 'Directory query restored from URL')
   assert(!(await page('/tags?q=unknown-topic-9876')).includes('class="topic-link"'), 'Empty filter from URL')
   console.log('PASS: direct URL type/name filters and directory backlink (SSR).')
-}
-
-
-// Table of contents: clamped destinations and manual scroll. Consolidated from check-toc-active.mjs; assertions preserved.
-{
-  const bottom = [
-    { id: '范数收敛', top: -80, margin: 100 },
-    { id: '范数练习', top: 155, margin: 100 },
-    { id: 'pdf-内嵌测试', top: 320, margin: 100 },
-  ]
-  assert.equal(resolveActiveHeading(bottom, '#pdf-%E5%86%85%E5%B5%8C%E6%B5%8B%E8%AF%95', 700, 700, 100), 'pdf-内嵌测试')
-  assert.equal(resolveActiveHeading(bottom, '#范数练习', 700, 700, 100), '范数练习', 'Two clamped destinations remain distinguishable by hash')
-  assert.equal(resolveActiveHeading(bottom, '', 700, 700, 100), 'pdf-内嵌测试', 'Manual scrolling to the bottom')
-  assert.equal(resolveActiveHeading(bottom, '#pdf-内嵌测试', 500, 900, 100), '范数收敛', 'An old hash does not lock manual scroll')
-  assert.equal(resolveActiveHeading([{ id: 'a', top: 100, margin: 100 }], '#a', 200, 900, 100), 'a')
-  assert.equal(resolveActiveHeading(bottom, '', 0, 0, 100), '范数收敛', 'Short unscrollable page starts with first heading')
-  assert.equal(resolveActiveHeading(bottom, '#%xx', 500, 900, 100), '范数收敛')
-  assert.equal(resolveActiveHeading([], '#a', 0, 0, 100), '')
-  console.log('PASS: clamped anchors, encoded IDs, bottom detection, manual scroll and empty/short pages.')
 }

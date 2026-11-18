@@ -1,36 +1,16 @@
-import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '../app/utils/glass-defaults.ts'
-import { normalizeGlassPreferences, normalizeGlassGlobal } from '../app/utils/glass-settings.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
-import ts from 'typescript'
-import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
+import { compilePanel, createPanelContext } from './lib/appearance-panel-vm.mjs'
 
-const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
-const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-  .replace(/^import .*glass-(?:settings|defaults).*$/gm, '')
-  .replace(/^import .*\.vue'$/gm, '')
-  .replace("import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'", '')
-  // Radial-shortcut composable + window-level radial events, stubbed for the VM.
-  .replace(/^import .*useRadialShortcut.*$/gm, '')
-  .replace(/^/, `const useRadialShortcut = () => ({ recording: { value: false }, shortcut: { value: null } })
-if (typeof globalThis.window === 'undefined') globalThis.window = { matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) }
-if (!window.addEventListener) { window.addEventListener = () => {}; window.removeEventListener = () => {}; window.dispatchEvent = () => {} }
-if (typeof globalThis.onBeforeUnmount === 'undefined') globalThis.onBeforeUnmount = typeof globalThis.onUnmounted === 'function' ? globalThis.onUnmounted : () => {}
-`)
-// This harness tests count preferences, not browser PDF capabilities or scrolling.
-const compiled = ts.transpile(source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'false'), { target: ts.ScriptTarget.ES2022 })
+const compiled = compilePanel({ client: false })
 
 function mount(saved) {
   const shared = {}
   const mounted = []
   const watchers = []
   let stored
-  const context = vm.createContext({
-    decodeAppearanceStorage, normalizeGlassPreferences, normalizeGlassGlobal, createDefaultGlassGlobal, createDefaultGlassPreferences,
-    /* 面板自绘滑条的组合式函数要真 DOM 与滚动事件，本套件不测滚动，桩成空实现。 */
-    usePageScrollable: () => ({}),
-    supportsEmbeddedPdf: () => false,
+  const context = createPanelContext({
     ref: value => ({ value }), reactive: value => value,
     // The panel derives the default canvas from colorMode + system appearance; lazy stub is enough here.
     computed: compute => ({ get value() { return compute() } }),

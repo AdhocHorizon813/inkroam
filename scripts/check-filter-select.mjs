@@ -1,11 +1,11 @@
+import { setupForVm } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
 
 const source = readFileSync('app/components/SearchFilterSelect.vue', 'utf8')
-const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-  .replace("import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'", '')
+const script = setupForVm(source)
 const events = []
 const watches = []
 const props = { label: '标签', modelValue: 'math', enabled: true, options: [

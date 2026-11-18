@@ -1,3 +1,5 @@
+import { Window } from 'happy-dom'
+import { setupForVm } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { findPdfMatches } from '../app/utils/pdf-search.ts'
 import { readFileSync } from 'node:fs'
@@ -18,24 +20,22 @@ assert.equal(findPdfMatches([{ str: '<script>' }], '<script>', 1).length, 1)
 console.log('PASS: PDF matching across items/lines, case, whitespace, ligatures, Unicode offsets and empty text.')
 
 const source = readFileSync('app/components/PdfCanvasReader.vue', 'utf8')
-const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-  .replace(/^import [^\n]+\n/gm, '')
+const script = setupForVm(source)
+const { document, HTMLElement } = new Window()
+HTMLElement.prototype.getBoundingClientRect = () => ({ top: 100, left: 30 })
 const context = vm.createContext({
   findPdfMatches, setTimeout,
   defineProps: () => ({ src: '/pdfs/test.pdf' }), defineEmits: () => () => {},
   ref: value => ({ value }), computed: fn => ({ get value() { return fn() } }),
   nextTick: async () => {}, onMounted() {}, onBeforeUnmount() {},
   localStorage: { setItem() {} },
-  document: {
-    createTextNode: text => ({ textContent: text }),
-    createElement: () => ({ textContent: '', className: '', getBoundingClientRect: () => ({ top: 100, left: 30 }) }),
-  },
+  document,
 })
 vm.runInContext(ts.transpile(script, { target: ts.ScriptTarget.ES2022 }) + `
 globalThis.s = { query, matches, selectedMatch, searching, searchedPages, searchNotice, searchOpen,
  searchDocument, invalidateSearch, toggleSearch, selectMatch, pageNumber, textCache, paintMatches, frame,
  setLayer(value, page) { textLayer = value; layerPage = page },
- setPdf(value) { pdf = value; pageCount.value = value.numPages }, dispose() { disposed = true; searchToken++ } };`, context)
+ setPdf(value) { pdf = value; pageCount.value = value.numPages } };`, context)
 const s = context.s
 let reads = 0
 s.setPdf({ numPages: 3, getPage: async page => ({ getTextContent: async () => {
@@ -69,18 +69,20 @@ s.query.value = 'beta'
 await s.toggleSearch()
 assert.equal(s.query.value, '')
 assert.equal(s.searching.value, false)
-const div = { textContent: '', children: [], replaceChildren() { this.children = [] }, append(value) { this.children.push(value) } }
+const div = document.createElement('span')
 let scroll
 s.frame.value = { scrollTop: 0, scrollLeft: 0, getBoundingClientRect: () => ({ top: 0, left: 0, height: 80, width: 60 }), scrollTo: value => { scroll = value } }
 s.pageNumber.value = 1
 s.matches.value = findPdfMatches([{ str: 'one <two> three' }], '<two>', 1)
 s.setLayer({ textDivs: [div], textContentItemsStr: ['one <two> three'], cancel() {} }, 1)
 s.selectMatch(0)
-assert.equal(div.children.map(child => child.textContent).join(''), 'one <two> three')
-assert.equal(div.children[1].className, 'is-current')
+assert.equal(div.textContent, 'one <two> three')
+assert.equal(div.querySelector('mark.is-current')?.textContent, '<two>')
+assert.equal(div.childElementCount, 1, 'Matched text remains literal text inside the highlight')
 assert.equal(scroll.top, 60, 'only reader-local scroll coordinates are used')
 s.invalidateSearch()
 assert.equal(div.textContent, 'one <two> three', 'clearing query restores original text')
+assert.equal(div.childElementCount, 0)
 assert.match(source, /data-main-rotation='90'/)
 assert.match(source, /prefers-reduced-motion/)
 console.log('PASS: reader search progress/cache, partial failure, match cycling/jump, cancellation and close cleanup (mock PDF).')

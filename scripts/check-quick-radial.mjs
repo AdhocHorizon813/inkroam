@@ -1,8 +1,9 @@
+import { vmSource } from './lib/vm-source.mjs'
 /* 快捷轮盘（QuickRadialMenu）契约检查：动作表、默认槽位、槽位归一化、
    快捷键编码白名单、默认快捷键，以及菜单源码里的关键行为约束。
    纯逻辑 + 源码断言，不启动浏览器，不改动任何产品文件。
    用法：node --experimental-strip-types scripts/check-quick-radial.mjs
-   如需并入总套件，在 scripts/check-all.mjs 的列表里加一行 'check-quick-radial'。 */
+   如需并入总套件，在 scripts/lib/check-runner.mjs 的分组里加一行 'check-quick-radial'。 */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
@@ -48,8 +49,7 @@ assert.equal(normalizeRadialSlots([...defaultRadialSlots(), 'top']).length, 6,
 assert.equal(normalizeRadialSlots(['none', 'top'])[0], 'none', 'The empty slot is a legal choice')
 
 /* 快捷键编码白名单（与组合键记录器同一份实现） ------------------------- */
-const source = readFileSync('app/composables/useRadialShortcut.ts', 'utf8')
-  .replace(/^import .*$/gm, '').replace(/^export /gm, '')
+const source = vmSource(readFileSync('app/composables/useRadialShortcut.ts', 'utf8'))
 const context = vm.createContext({ defaultRadialSlots, useState: (_key, init) => ({ value: init() }) })
 vm.runInContext(ts.transpile(source, { target: ts.ScriptTarget.ES2022 })
   + '\nglobalThis.api = { isRadialCode, defaultRadialShortcut }', context)

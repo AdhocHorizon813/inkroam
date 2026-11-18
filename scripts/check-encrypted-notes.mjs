@@ -1,3 +1,4 @@
+import { vmSource } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { randomBytes, webcrypto } from 'node:crypto'
@@ -61,8 +62,7 @@ for (let index = 0; index < keys.length; index++) {
 
 const listeners = new Map()
 const context = vm.createContext({ shallowRef, window: { addEventListener: (event, callback) => listeners.set(event, callback) } })
-const source = readFileSync('app/composables/useUnlockedNotes.ts', 'utf8')
-  .replace(/^import .*$/gm, '').replaceAll('import.meta.client', 'true').replace('export function', 'function')
+const source = vmSource(readFileSync('app/composables/useUnlockedNotes.ts', 'utf8')).replaceAll('import.meta.client', 'true')
 vm.runInContext(ts.transpile(source, { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.session = useUnlockedNotes()', context)
 const session = context.session
 const original = { path: '/notes/demo/a', title: 'Encrypted note' }

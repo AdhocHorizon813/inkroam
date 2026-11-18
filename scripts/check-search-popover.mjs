@@ -1,23 +1,26 @@
+import { Window } from 'happy-dom'
+import { vmSource } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
 
-const source = readFileSync('app/composables/useSearchPopover.ts', 'utf8').replace(/^import .*$/gm, '').replace('export function', 'function')
+const source = vmSource(readFileSync('app/composables/useSearchPopover.ts', 'utf8'))
 let watchOpen, cleanup
 let finishClose, cancelledClose = 0
 const listeners = {}
-const properties = {}
+const { document } = new Window()
 const open = { value: true }
 let rect = { left: 850, top: 100, bottom: 139, width: 300 }
 let shown = 0, hidden = 0
 const root = { value: { getBoundingClientRect: () => rect } }
-const popup = { value: {
-  style: { setProperty: (key, value) => { properties[key] = value } },
-  dataset: {},
-  querySelector: () => ({ offsetHeight: 320 }),
-  showPopover: () => shown++, hidePopover: () => hidden++,
-} }
+const popup = { value: document.createElement('div') }
+const surface = document.createElement('div')
+surface.className = 'dropdown-surface'
+popup.value.appendChild(surface)
+Object.defineProperty(surface, 'offsetHeight', { writable: true, value: 320 })
+popup.value.showPopover = () => shown++
+popup.value.hidePopover = () => hidden++
 const viewport = { innerHeight: 800, addEventListener: (name, cb) => { listeners[name] = cb }, removeEventListener: name => { delete listeners[name] } }
 const doc = { documentElement: { clientWidth: 1200 } }
 const context = vm.createContext({ afterGlassMotion: (_, callback) => {
@@ -30,21 +33,24 @@ vm.runInContext(ts.transpile(source, { target: ts.ScriptTarget.ES2022 }), contex
 context.useSearchPopover(root, popup, open, 270)
 await watchOpen(true)
 assert.equal(shown, 1)
-assert.equal(properties['--popup-width'], '300px')
-assert.equal(properties['--popup-left'], '850px')
-assert.equal(properties['--popup-top'], '145px')
+assert.equal(popup.value.style.getPropertyValue('--popup-width'), '300px')
+assert.equal(popup.value.style.getPropertyValue('--popup-left'), '850px')
+assert.equal(popup.value.style.getPropertyValue('--popup-top'), '145px')
 assert.equal(popup.value.dataset.flip, 'down', 'Roomy below the field opens downward')
 rect = { left: 1000, top: 650, bottom: 689, width: 300 }
 listeners.scroll()
-assert.equal(properties['--popup-left'], '888px', 'Clamp right edge')
-assert.equal(properties['--popup-bottom'], '156px', 'Flip above near bottom')
-assert.equal(properties['--popup-top'], 'auto')
+assert.equal(popup.value.style.getPropertyValue('--popup-left'), '888px', 'Clamp right edge')
+assert.equal(popup.value.style.getPropertyValue('--popup-bottom'), '156px', 'Flip above near bottom')
+assert.equal(popup.value.style.getPropertyValue('--popup-top'), 'auto')
 assert.equal(popup.value.dataset.flip, 'up', 'Flipped popovers pin the field side')
+surface.offsetHeight = 40
+listeners.resize()
+assert.equal(popup.value.dataset.flip, 'down', 'A short menu fits below the same field')
 doc.documentElement.clientWidth = 320
 rect = { left: 170, top: 100, bottom: 139, width: 130 }
 listeners.resize()
-assert.equal(properties['--popup-width'], '270px')
-assert.equal(properties['--popup-left'], '38px', 'Keep mobile calendar within viewport')
+assert.equal(popup.value.style.getPropertyValue('--popup-width'), '270px')
+assert.equal(popup.value.style.getPropertyValue('--popup-left'), '38px', 'Keep mobile calendar within viewport')
 open.value = false
 await watchOpen(false)
 assert.equal(hidden, 0, 'Keep top-layer ownership through exit')

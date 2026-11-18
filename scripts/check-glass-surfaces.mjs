@@ -1,3 +1,4 @@
+import { vmSource } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { afterGlassMotion } from '../app/utils/glass-motion.ts'
 import { readFileSync } from 'node:fs'
@@ -13,7 +14,7 @@ win.setTimeout = (callback, delay) => { timers.set(++id, {callback, delay}); ret
 globalThis.clearTimeout = token => timers.delete(token)
 globalThis.requestAnimationFrame = callback => { frames.set(++id, callback); return id }
 globalThis.cancelAnimationFrame = token => frames.delete(token)
-const source = readFileSync('app/utils/glass-surfaces.ts', 'utf8').replace(/^import .*$/gm, '').replaceAll('export ', '')
+const source = vmSource(readFileSync('app/utils/glass-surfaces.ts', 'utf8'))
 const { glassSurfaces, GLASS_SURFACES_CHANGED, vExperimentalGlass, vGlassPresence } = new Function('afterGlassMotion',
   ts.transpile(source, {target: ts.ScriptTarget.ES2022}) + '\nreturn { glassSurfaces, GLASS_SURFACES_CHANGED, vExperimentalGlass, vGlassPresence }')(afterGlassMotion)
 win.addEventListener(GLASS_SURFACES_CHANGED, () => notifications++)

@@ -1,3 +1,5 @@
+import { Window } from 'happy-dom'
+import { vmSource } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
@@ -8,7 +10,7 @@ const source = readFileSync('app/components/CopyArticleLink.vue', 'utf8')
 const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
 // The component's selection/status contract is independent of the platform
 // clipboard adapter; its actual sync/API/timeout paths are tested separately.
-const compiled = ts.transpile('function copyTextOnGesture(text) { return navigator.clipboard.writeText(text) }\n' + script.replace(/^import .*$/gm, ''), { target: ts.ScriptTarget.ES2022 })
+const compiled = ts.transpile('function copyTextOnGesture(text) { return navigator.clipboard.writeText(text) }\n' + vmSource(script), { target: ts.ScriptTarget.ES2022 })
 const hooks = { onMounted() {}, onBeforeUnmount() {}, defineProps: () => ({ feedback: false }), clearTimeout, setTimeout, passageUrl, selectedPassage }
 async function test(href, clipboard, expected, failed = false) {
   let focused = false
@@ -72,11 +74,15 @@ console.log('PASS: root/subpath links, query/hash removal, success, rejection, m
 
 let active = { heading: '基本定义', passage: 'v1-12345678-c' }, copied, mounted, cleanup
 const listeners = new Map()
+const { document } = new Window()
+const article = document.createElement('article')
+article.className = 'article-content'
+document.body.appendChild(article)
 const selectionContext = vm.createContext({
   ...hooks, URL, ref: value => ({ value }), nextTick: async () => {},
-  selectedPassage: () => active,
+  selectedPassage: element => { assert.equal(element, article); return active },
   onMounted: callback => { mounted = callback }, onBeforeUnmount: callback => { cleanup = callback },
-  document: { querySelector: () => ({}), addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: name => listeners.delete(name) },
+  document: { querySelector: document.querySelector.bind(document), addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: name => listeners.delete(name) },
   window: { location: { href: 'https://example.com/inkroam/posts/a?private=1#old' }, getSelection: () => ({}) },
   navigator: { clipboard: { writeText: async value => { copied = value } } },
 })
@@ -135,7 +141,7 @@ console.log('PASS: toolbar-only copied label, 2400ms reset, repeated copy, failu
 
 // Exercise the real platform adapter, including a native Promise that never
 // settles (observed while browser automation was attached).
-const adapter = ts.transpile(readFileSync('app/utils/clipboard.ts', 'utf8').replace(/export /g, ''), { target: ts.ScriptTarget.ES2022 })
+const adapter = ts.transpile(vmSource(readFileSync('app/utils/clipboard.ts', 'utf8')), { target: ts.ScriptTarget.ES2022 })
 async function adapterCase(write, syncResult, expire = false) {
   const timers = new Map(), actions = []
   let field, commandValue

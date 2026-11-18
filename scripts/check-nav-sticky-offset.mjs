@@ -1,72 +1,26 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import postcss from 'postcss'
 
 /* 滚动时导航只允许「变宽」：吸顶位置（.site-header 的 top）必须等于静止位置
    （.site-shell 的 padding-top）。两者写在不同的媒体块里，任何一边单独改动，
    导航都会在页面一开始滚动时额外向上顶一段（非桌面尺寸尤其明显）。
    这里不跑浏览器：把媒体查询按真实视口样例展开，逐个语境比对两处取值。 */
 
-/* 注释里的花括号与冒号会污染声明解析：先整体换成空格（保留换行）。 */
-const css = readFileSync('app/assets/css/main.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
-const DECLARATION = /^-{0,2}[a-z][a-z-]*$/
-
-function matchingBrace(text, open) {
-  let depth = 0
-  for (let i = open; i < text.length; i += 1) {
-    const ch = text[i]
-    if (ch === '"' || ch === "'") {
-      const quote = ch
-      for (i += 1; i < text.length && text[i] !== quote; i += 1) {
-        if (text[i] === '\\') i += 1
-      }
-      continue
-    }
-    if (ch === '{') depth += 1
-    else if (ch === '}') {
-      depth -= 1
-      if (!depth) return i
-    }
-  }
-  throw new Error('CSS 括号不配对')
-}
-
-function parseDeclarations(body) {
-  const decls = new Map()
-  for (const chunk of body.split(';')) {
-    const at = chunk.indexOf(':')
-    if (at === -1) continue
-    const prop = chunk.slice(0, at).trim()
-    if (!DECLARATION.test(prop)) continue
-    decls.set(prop, chunk.slice(at + 1).replace(/!important/g, '').trim())
-  }
-  return decls
-}
-
-/* 逐层收集：只保留「选择器规则 + 它所在的 @media 链」，@keyframes 之类的内部块不会命中目标选择器。 */
+const css = postcss.parse(readFileSync('app/assets/css/main.css', 'utf8'))
 const rules = []
-function walk(text, start, end, chain) {
-  let i = start
-  while (i < end) {
-    const open = text.indexOf('{', i)
-    if (open === -1 || open >= end) return
-    const close = matchingBrace(text, open)
-    const head = text.slice(i, open).replace(/\s+/g, ' ').trim()
-    const isMedia = /^@media\b/i.test(head)
-    if (head.startsWith('@')) {
-      walk(text, open + 1, close, isMedia ? [...chain, head.replace(/^@media\s*/i, '')] : chain)
-    } else if (head) {
-      rules.push({ selector: head, chain, decls: parseDeclarations(text.slice(open + 1, close)) })
-    }
-    i = close + 1
+css.walkRules(rule => {
+  const chain = []
+  for (let parent = rule.parent; parent; parent = parent.parent) {
+    if (parent.type === 'atrule' && parent.name === 'media') chain.unshift(parent.params)
   }
-}
-walk(css, 0, css.length, [])
+  const decls = new Map(rule.nodes.filter(node => node.type === 'decl').map(node => [node.prop, node.value]))
+  rules.push({ selector: rule.selector, chain, decls })
+})
 
 const SHELL = rules.filter(r => r.selector.includes(":root[data-visual='modern']") && r.selector.includes('.site-shell') && r.decls.has('padding-top'))
 const HEADER = rules.filter(r => r.selector.includes(":root[data-visual='modern']") && r.selector.includes('.site-header') && r.decls.has('top'))
 assert(SHELL.length && HEADER.length, '仍是现代外观的 shell/header 结构')
-/* 解析器一旦漏读规则，下面的比对会变成假通过：这里钉住两侧规则的下限。 */
-assert(SHELL.length >= 5 && HEADER.length >= 5, `shell/header 偏移规则解析不完整（shell ${SHELL.length} 条、header ${HEADER.length} 条）`)
 
 const px = (value, where) => {
   const match = /^(\d+(?:\.\d+)?)px$/.exec(value)

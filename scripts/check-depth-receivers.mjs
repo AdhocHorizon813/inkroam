@@ -1,3 +1,5 @@
+import { Window } from 'happy-dom'
+import { setupForVm } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
@@ -30,11 +32,27 @@ postcss.parse(compiled.code).walkRules(rule => {
     if (decl.prop === 'filter') assert(/\.depth-receivers__(near|far|elevation)/.test(rule.selector), 'Blur only decorative SVG shapes')
   })
 })
-const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm, '')
-const root = { dataset: { visual: 'modern', depth: 'off' }, clientWidth: 1000 }
-const element = initial => ({ reads: 0, box: initial, getBoundingClientRect() { this.reads++; const b = this.box; return { left: b.x, top: b.y, width: b.width, height: b.height } }, parentElement: { closest: () => null } })
-const nav = element({ x: 30, y: 18, width: 900, height: 54 })
-const card = element(box)
+const script = setupForVm(source)
+const { document } = new Window()
+const root = document.documentElement
+Object.assign(root.dataset, { visual: 'modern', depth: 'off' })
+Object.defineProperty(root, 'clientWidth', { writable: true, value: 1000 })
+function element(className, box, parent = document.body) {
+  const el = document.createElement('div')
+  el.className = className
+  el.box = box
+  el.reads = 0
+  el.getBoundingClientRect = () => {
+    el.reads++
+    const { x: left, y: top, width, height } = el.box
+    return { left, top, width, height }
+  }
+  parent.appendChild(el)
+  return el
+}
+const nav = element('site-header', { x: 30, y: 18, width: 900, height: 54 })
+const card = element('article-page', box)
+const nested = element('standard-page', box, card)
 const raf = new Map()
 const resizeListeners = new Set()
 let nextFrame = 0, mounted, unmounted, settingCallback, scrollCallback, routeCallback
@@ -56,7 +74,7 @@ const context = vm.createContext({
   watch: (_, fn) => { routeCallback = fn }, nextTick: () => Promise.resolve(),
   ResizeObserver: FakeResizeObserver,
   MutationObserver: class { constructor(fn) { settingCallback = fn } observe() {} disconnect() { settingCallback = null } },
-  document: { documentElement: root, querySelector: selector => selector === '.site-header' ? nav : null, querySelectorAll: () => [card] },
+  document,
   window: { innerHeight: 800, addEventListener: (_, fn) => resizeListeners.add(fn), removeEventListener: (_, fn) => resizeListeners.delete(fn) },
   getComputedStyle: () => ({ borderTopLeftRadius: '18px' }),
   requestAnimationFrame: fn => { const id = ++nextFrame; raf.set(id, fn); return id },
@@ -72,6 +90,9 @@ root.dataset.depth = 'soft'; settingCallback(); flush()
 assert.equal(root.dataset.depthReceivers, 'true')
 assert.equal(resizeListeners.size, 1)
 assert.equal(observers[0].targets.length, 2)
+assert.ok(observers[0].targets.includes(nav))
+assert.ok(observers[0].targets.includes(card))
+assert.equal(nested.reads, 0, 'Nested cards share their outer projection surface')
 assert.equal(vm.runInContext('viewport.value.height', context), 244, 'Limit masks and output to the navigation light band')
 const initialCardReads = card.reads
 scrollTop = 20

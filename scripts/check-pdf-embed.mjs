@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
+import { checkStages } from './lib/check-stages.mjs'
 
 const route = 'notes/functional-analysis/test-norm-and-distance'
 // 附件与图片一致：pdfs/notes/<课程英文名>/<笔记标识>/…，用子目录区分同一课程的不同笔记
@@ -8,7 +9,7 @@ const attachment = 'pdfs/notes/functional-analysis/test-norm-and-distance/linear
 // 预渲染 / SSR 的 HTML 里必须是「打开 PDF」卡片：只有浏览器报告能内嵌 PDF
 // （navigator.pdfViewerEnabled）时，组件才会在挂载后替换成 <object>，
 // 因此产物里既不应该有 <object>，也不应该残留未解析的 ::pdf-viewer 指令文字。
-const page = await fetch(`http://localhost:3000/${route}`)
+const page = await fetch(`http://localhost:3000/${route}`, { signal: AbortSignal.timeout(15_000) })
 assert.equal(page.status, 200)
 const html = await page.text()
 assert(html.includes('class="pdf-viewer__fallback"'), 'MDC renders the PDF viewer component')
@@ -19,14 +20,14 @@ assert(html.includes(`href="/${attachment}"`), 'Attachment link keeps the local 
 assert(!html.includes('::pdf-viewer'), 'The directive is not left as plain text')
 assert(!html.includes('<object'), 'No <object> in the prerendered HTML')
 
-const response = await fetch(`http://localhost:3000/${attachment}`)
+const response = await fetch(`http://localhost:3000/${attachment}`, { signal: AbortSignal.timeout(15_000) })
 assert.equal(response.status, 200)
 assert(response.headers.get('content-type').includes('application/pdf'))
 const bytes = Buffer.from(await response.arrayBuffer())
 assert.equal(bytes.subarray(0, 5).toString(), '%PDF-')
 assert.deepEqual(bytes, readFileSync(`public/${attachment}`))
 
-if (process.argv.includes('--built')) {
+if (checkStages().built) {
   const built = readFileSync(`.output/public/${route}/index.html`, 'utf8')
   assert(built.includes('class="pdf-viewer__fallback"'), 'Built page ships the viewer card')
   assert(!built.includes('<object'), 'Built page has no prerendered <object>')

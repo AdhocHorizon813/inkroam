@@ -1,60 +1,91 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import vm from 'node:vm'
+import { readFileSync, readdirSync } from 'node:fs'
+import { runChecks } from './lib/check-runner.mjs'
+import { parse } from 'yaml'
+import { checkStages } from './lib/check-stages.mjs'
 
-// Contract checks, not an execution of GitHub Actions or a YAML interpreter.
-const workflow = readFileSync('.github/workflows/deploy.yml', 'utf8')
-const steps = ['npm ci', 'npm run typecheck', 'npm run check\n', 'npm run generate', 'npm run check -- --built-only', 'actions/upload-pages-artifact@']
+const workflow = parse(readFileSync('.github/workflows/deploy.yml', 'utf8'))
+const { build, deploy } = workflow.jobs
+assert.equal(build['runs-on'], 'ubuntu-latest')
+assert.equal(build.env.BASE_PATH, '/${{ github.event.repository.name }}/')
+assert.equal(deploy.needs, 'build')
+const commands = build.steps.map(step => step.run?.trim() || step.uses?.split('@')[0])
 let previous = -1
-for (const step of steps) {
-  const position = workflow.replaceAll('\r\n', '\n').indexOf(step)
-  assert(position > previous, `Release step missing or out of order: ${step}`)
+for (const command of ['npm ci', 'npm run typecheck', 'npm run check', 'npm run generate', 'npm run check -- --built-only', 'actions/upload-pages-artifact']) {
+  const position = commands.indexOf(command)
+  assert(position > previous, `Release step missing or out of order: ${command}`)
   previous = position
 }
-assert.match(workflow, /build:\s+ runs-on: ubuntu-latest\s+env:\s+BASE_PATH: \/\$\{\{ github.event.repository.name \}\}\//)
-assert.match(workflow, /deploy:\s+needs: build/)
-assert.doesNotMatch(workflow, /continue-on-error:|if:\s*\$?\{?\{?\s*always\(|\|\|\s*(true|exit 0)/)
+for (const job of [build, deploy]) {
+  for (const step of [job, ...job.steps]) {
+    assert(!step['continue-on-error'], 'Release failures must propagate')
+    assert.doesNotMatch(String(step.if ?? ''), /\balways\(/)
+    assert.doesNotMatch(step.run ?? '', /\|\|\s*(true|exit 0)/)
+  }
+}
 
-// Inject failures into the real runner without changing any product/test file.
-const runner = readFileSync('scripts/check-all.mjs', 'utf8')
-  .replace(/^import .*$/gm, '')
-  .replaceAll('import.meta.url', JSON.stringify(new URL('./check-all.mjs', import.meta.url).href))
 function runSelection(args, secondResult = { status: 0 }) {
-  const processMock = { argv: ['node', 'check-all.mjs', ...args], execPath: process.execPath }
   const calls = []
-  vm.runInNewContext(runner, {
-    process: processMock, URL, fileURLToPath: () => '.', console: { log() {}, error() {} },
-    spawnSync: (_exec, args) => {
-      calls.push(Array.from(args))
+  const exitCode = runChecks(args, {
+    output: { log() {}, error() {} },
+    spawn(_exec, args) {
+      calls.push(args)
       return calls.length === 2 ? secondResult : { status: 0 }
     },
   })
-  return { processMock, calls }
+  return { exitCode, calls }
 }
 for (const result of [{ status: 0 }, { status: 1 }, { status: null, signal: 'SIGTERM' }, { error: new Error('spawn failed') }]) {
-  const { processMock, calls } = runSelection(['--built-only'], result)
+  const { exitCode, calls } = runSelection(['--built-only'], result)
   assert(calls.length > 2, 'Runner continues collecting regression results')
-  assert.equal(processMock.exitCode, result.status === 0 ? 0 : 1, 'Any failed suite must fail the release command')
+  assert.equal(exitCode, result.status === 0 ? 0 : 1, 'Any failed suite must fail the release command')
 }
-const artifact = runSelection(['--built-only']).calls
-assert.equal(artifact.length, 11, 'Every generated-content branch remains selected')
-assert(artifact.every(args => args.includes('--built')))
-assert(!artifact.some(args => args.includes('scripts/check-glass-controls.mjs')), 'Do not repeat source-only optics checks after generate')
-const source = runSelection([]).calls
-assert.equal(source.length, 38, 'Consolidated source suites plus encrypted-note coverage remain selected')
-assert.equal(source.filter(args => args.includes('scripts/check-encrypted-notes.mjs')).length, 1, 'Encrypted-note checks run exactly once in the source stage')
-assert(!artifact.some(args => args.includes('scripts/check-encrypted-notes.mjs')), 'Do not repeat source-only encryption checks after generate')
-assert(!source.some(args => args.includes('scripts/check-notes.mjs')), 'Default checks do not require generated output')
-const glass = runSelection(['--group=glass']).calls
-assert.equal(glass.length, 5)
-assert(glass.every(args => args[1].startsWith('scripts/check-glass-')))
-assert.equal(runSelection(['--group=glass', '--group=glass']).calls.length, 5, 'Repeated group flags never duplicate a process')
-assert.equal(runSelection(['--built']).calls.length, 42, 'Legacy --built still includes source and artifact checks')
-const live = runSelection(['--live-only']).calls
-assert.equal(live.length, 5)
-assert(live.find(args => args[1] === 'scripts/check-reading-polish.mjs').includes('--live'), 'Existing live reading checks receive their flag')
+const suiteName = args => args[1].slice('scripts/check-'.length, -'.mjs'.length)
+function names(calls) {
+  const files = calls.map(suiteName)
+  assert.equal(new Set(files).size, files.length, 'Start each suite once per command')
+  return new Set(files)
+}
+const manual = ['all', 'css-cleanup', 'study-code', 'quick-radial', 'nsga-ii']
+const builtOnly = ['notes', 'search-math', 'built-links', 'glass-built']
+const liveOnly = ['note-search', 'pdf-embed']
+const expectedSource = readdirSync('scripts')
+  .filter(file => /^check-.*\.mjs$/.test(file))
+  .map(file => file.slice('check-'.length, -'.mjs'.length))
+  .filter(name => ![...manual, ...builtOnly, ...liveOnly].includes(name))
+const source = names(runSelection([]).calls)
+assert.deepEqual(source, new Set(expectedSource), 'Each automatic source suite is registered')
+assert(source.has('encrypted-notes'), 'The source gate protects encrypted notes')
+
+const artifactCalls = runSelection(['--built-only']).calls
+const artifact = names(artifactCalls)
+assert.deepEqual(artifact, new Set([...builtOnly, 'reading-polish', 'reading-links', 'topics',
+  'error-page', 'competition-algebra', 'technical-prose', 'about-resident']))
+assert(artifactCalls.every(args => args.includes('--built-only')))
+const liveCalls = runSelection(['--live-only']).calls
+const live = names(liveCalls)
+assert.deepEqual(live, new Set([...liveOnly, 'error-page', 'search-filters', 'reading-polish']))
+assert(liveCalls.every(args => args.includes('--live-only')))
+
+for (const [flag, extra] of [['--built', artifact], ['--live', live]]) {
+  const calls = runSelection([flag]).calls
+  assert.deepEqual(names(calls), new Set([...source, ...extra]))
+  for (const args of calls) {
+    assert(checkStages(args).source, 'Inclusive modes retain source assertions')
+    assert.equal(args.includes(flag), extra.has(suiteName(args)))
+  }
+}
+const glass = names(runSelection(['--group=glass']).calls)
+assert.deepEqual(glass, new Set([...source].filter(name => name.startsWith('glass-'))))
+assert.deepEqual(names(runSelection(['--group=glass', '--group=glass']).calls), glass)
 const combined = runSelection(['--built-only', '--live-only']).calls
-assert(combined.find(args => args[1] === 'scripts/check-pdf-embed.mjs').includes('--built'), 'Combined stages retain PDF artifact assertions')
+assert.deepEqual(names(combined), new Set([...artifact, ...live]))
+for (const args of combined) {
+  const name = suiteName(args)
+  assert.deepEqual(checkStages(args), {
+    source: false, built: artifact.has(name) || name === 'pdf-embed', live: live.has(name),
+  }, name)
+}
 assert.equal(runSelection(['--list']).calls.length, 0, 'Listing never spawns a check')
 assert.equal(runSelection(['--help']).calls.length, 0)
 assert.throws(() => runSelection(['--group=missing']), /Unknown group/)

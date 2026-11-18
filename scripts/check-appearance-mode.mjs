@@ -1,38 +1,19 @@
-import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '../app/utils/glass-defaults.ts'
-import { normalizeGlassPreferences, normalizeGlassGlobal } from '../app/utils/glass-settings.ts'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
-import ts from 'typescript'
 import { ref, reactive, computed, watch, nextTick, effectScope } from 'vue'
 import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
+import { panel, compilePanel, createPanelContext } from './lib/appearance-panel-vm.mjs'
 
-const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
-// Template directive is exercised in check-glass-surfaces, not this VM script.
-const script = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-  .replace(/^import .*glass-(?:settings|defaults).*$/gm, '')
-  .replace(/^import .*\.vue'$/gm, '')
-  .replace("import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'", '')
-  // The panel now pulls the radial shortcut composable and listens for
-  // window-level radial events; this harness only mounts the appearance state.
-  .replace(/^import .*useRadialShortcut.*$/gm, '')
-  .replace(/^/, `const useRadialShortcut = () => ({ recording: { value: false }, shortcut: { value: null } })
-if (typeof globalThis.window === 'undefined') globalThis.window = { matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) }
-if (!window.addEventListener) { window.addEventListener = () => {}; window.removeEventListener = () => {}; window.dispatchEvent = () => {} }
-if (typeof globalThis.onBeforeUnmount === 'undefined') globalThis.onBeforeUnmount = typeof globalThis.onUnmounted === 'function' ? globalThis.onUnmounted : () => {}
-`)
-const compiled = ts.transpile(script.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'true'), { target: ts.ScriptTarget.ES2022 })
+const compiled = compilePanel({ client: true })
+
 async function mount(saved, dark = false, options = {}) {
   const mounted = [], cleanup = [], shared = {}, media = { matches: dark, addEventListener() {}, removeEventListener() {} }
   const properties = new Map()
   const root = { dataset: {}, style: { setProperty(k, v) { properties.set(k, v) }, removeProperty(k) { properties.delete(k) }, getPropertyValue(k) { return properties.get(k) } } }
   let stored
   const reads = []
-  const context = vm.createContext({ ref, reactive, computed, watch, nextTick,
-    decodeAppearanceStorage, normalizeGlassPreferences, normalizeGlassGlobal, createDefaultGlassGlobal, createDefaultGlassPreferences,
-    /* 面板自绘滑条的组合式函数要真 DOM 与滚动事件，本套件不测滚动，桩成空实现。 */
-    usePageScrollable: () => ({}),
-    supportsEmbeddedPdf: () => false, onMounted: fn => mounted.push(fn), onUnmounted: fn => cleanup.push(fn),
+  const context = createPanelContext({ ref, reactive, computed, watch, nextTick,
+    onMounted: fn => mounted.push(fn), onUnmounted: fn => cleanup.push(fn),
     useState: (key, init) => shared[key] ||= ref(init()),
     window: { matchMedia: () => media }, document: { documentElement: root },
     localStorage: { getItem: key => {

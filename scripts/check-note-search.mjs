@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 async function search(query) {
-  const response = await fetch(`http://localhost:3000/search?q=${encodeURIComponent(query)}`)
+  const response = await fetch(`http://localhost:3000/search?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(15_000) })
   assert.equal(response.status, 200)
   const html = await response.text()
   return html.match(/<main[\s\S]*?<\/main>/)?.[0] || ''

@@ -1,3 +1,4 @@
+import { Window } from 'happy-dom'
 import { readFileSync } from 'node:fs'
 import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '../app/utils/glass-defaults.ts'
 import assert from 'node:assert/strict'
@@ -20,15 +21,24 @@ const corrupt = normalizeGlassPreferences({ music: { clarity: Infinity, resoluti
 assert.deepEqual(corrupt.music, { clarity: 86, resolution: 0, pixelBudget: 1.5, aaScale: 1, enabled: false, antialias: false,
   maxSide: 4096, maxFps: 0, settleDelay: 0, deform: true })
 
-const host = (module, context = '') => ({ dataset: { glassModule: module }, matches: () => false,
-  closest: selector => context && selector.includes(context) ? {} : null })
+const { document } = new Window()
+function host(module, ownerClass) {
+  const element = document.createElement('span')
+  element.dataset.glassModule = module
+  if (ownerClass) {
+    const owner = document.createElement('div')
+    owner.className = ownerClass
+    owner.appendChild(element)
+  }
+  return element
+}
 const data = { navMaterial: 'liquid', musicMaterial: 'mica', dropdownMaterial: 'acrylic', material: 'liquid', glassComponents: JSON.stringify(normalizeGlassPreferences()) }
 assert(glassSurfaceEnabled(host('navbar'), data))
 assert(!glassSurfaceEnabled(host('music'), data), 'Mica must not be overridden')
 assert(!glassSurfaceEnabled(host('dropdown'), data), 'Acrylic must not be overridden')
-assert.equal(glassMaterialKey(host('thumb', '.music-panel')), 'musicMaterial')
-assert(!glassSurfaceEnabled(host('thumb', '.music-panel'), data))
-assert(glassSurfaceEnabled(host('indicator', '.site-header'), data))
+assert.equal(glassMaterialKey(host('thumb', 'music-panel')), 'musicMaterial')
+assert(!glassSurfaceEnabled(host('thumb', 'music-panel'), data))
+assert(glassSurfaceEnabled(host('indicator', 'site-header'), data))
 const disabled = normalizeGlassPreferences()
 disabled.indicator.enabled = false
 assert(!glassSurfaceEnabled(host('indicator'), { ...data, glassComponents: JSON.stringify(disabled) }))

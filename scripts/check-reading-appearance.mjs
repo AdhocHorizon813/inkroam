@@ -1,24 +1,8 @@
-import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '../app/utils/glass-defaults.ts'
-import { normalizeGlassPreferences, normalizeGlassGlobal } from '../app/utils/glass-settings.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
-import ts from 'typescript'
-import { decodeAppearanceStorage } from '../app/utils/appearance-storage.ts'
+import { source, template, compilePanel, createPanelContext } from './lib/appearance-panel-vm.mjs'
 
-const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
-const source = panel.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-  .replace(/^import .*glass-(?:settings|defaults).*$/gm, '')
-  .replace(/^import .*\.vue'$/gm, '')
-  .replace("import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'", '')
-  // Radial-shortcut composable + window-level radial events, stubbed for the VM.
-  .replace(/^import .*useRadialShortcut.*$/gm, '')
-  .replace(/^/, `const useRadialShortcut = () => ({ recording: { value: false }, shortcut: { value: null } })
-if (typeof globalThis.window === 'undefined') globalThis.window = { matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) }
-if (!window.addEventListener) { window.addEventListener = () => {}; window.removeEventListener = () => {}; window.dispatchEvent = () => {} }
-if (typeof globalThis.onBeforeUnmount === 'undefined') globalThis.onBeforeUnmount = typeof globalThis.onUnmounted === 'function' ? globalThis.onUnmounted : () => {}
-`)
-const template = panel.match(/<template>([\s\S]*)<\/template>/)[1]
 const css = readFileSync('app/assets/css/main.css', 'utf8')
 
 /* 背景氛围的顺序与名称是产品决定，不是实现细节：改动顺序或改名都必须先改这里。 */
@@ -50,11 +34,6 @@ assert.deepEqual(
 assert(atmosphere.includes('@click="openFilePicker"'))
 assert(atmosphere.includes("customBackgroundName || (customBackgroundPreview ? '已上传图片' : '上传图片')"))
 assert(!/state\.background === '/.test(template), 'Cards must not compare the raw preference')
-const bootBlock = source.slice(source.indexOf('onMounted(() =>'), source.indexOf('onUnmounted('))
-assert(
-  bootBlock.indexOf('systemPrefersDark.value =') < bootBlock.indexOf('applyAppearance()'),
-  'The system theme is read before the first applyAppearance',
-)
 
 /* 夕空町市必须随包发布：只留在 gitignore 的 tmp 里，部署出去就是一张空底图。 */
 const png = readFileSync(new URL('../public/images/backgrounds/yuzoramachi.png', import.meta.url))
@@ -76,14 +55,15 @@ assert(!css.includes(":root[data-visual='modern'][data-background='flat'] .ambie
 assert(!css.includes("[data-background]:not([data-background='flat'])"), 'Glass opt-out covers both flat canvases')
 
 /* 脚本重跑一遍真实逻辑：默认画布怎么解析、旧存储怎么迁移、手选之后还跟不跟随。 */
-const compiled = ts.transpile(
-  source.replace("import { supportsEmbeddedPdf } from '~/utils/pdf-embed'", '').replace("import { decodeAppearanceStorage } from '~/utils/appearance-storage'", '').replace("import { usePageScrollable } from '~/composables/usePageScrollable'", '').replaceAll('import.meta.client', 'true'),
-  { target: ts.ScriptTarget.ES2022 },
-)
+const compiled = compilePanel({ client: true })
 
 function mount(saved, { systemDark = false, defer = false } = {}) {
+  const appliedModes = []
   const root = {
-    dataset: {},
+    dataset: {
+      set colorMode(value) { appliedModes.push(value) },
+      get colorMode() { return appliedModes.at(-1) },
+    },
     style: { setProperty: (key, value) => { root.style[key] = value }, removeProperty: key => { delete root.style[key] } },
     classList: { add: () => {}, remove: () => {} },
   }
@@ -94,11 +74,7 @@ function mount(saved, { systemDark = false, defer = false } = {}) {
      这里直接改 matches 再调 onSystemThemeChange()，就能复现切换浏览器深浅色的那条路径。 */
   const media = { matches: systemDark, addEventListener: () => {}, removeEventListener: () => {} }
   let stored = null
-  const context = vm.createContext({
-    decodeAppearanceStorage, normalizeGlassPreferences, normalizeGlassGlobal, createDefaultGlassGlobal, createDefaultGlassPreferences,
-    /* 面板自绘滑条的组合式函数要真 DOM 与滚动事件，本套件不测滚动，桩成空实现。 */
-    usePageScrollable: () => ({}),
-    supportsEmbeddedPdf: () => false,
+  const context = createPanelContext({
     ref: value => ({ value }), reactive: value => value,
     computed: compute => ({ get value() { return compute() } }),
     useState: (key, init) => shared[key] ||= { value: init() },
@@ -119,6 +95,7 @@ function mount(saved, { systemDark = false, defer = false } = {}) {
   return {
     state: exposed.state,
     dataset: root.dataset,
+    appliedModes,
     resolved: () => exposed.resolvedBackground.value,
     boot,
     systemDark: dark => { exposed.systemPrefersDark.value = dark },
@@ -162,6 +139,7 @@ for (const [, selector, declaration] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
 }
 assert.equal(cold.resolved(), 'dusk', 'First client paint matches the server render')
 cold.boot()
+assert.equal(cold.appliedModes[0], 'dark', 'The first theme written to the page honors the system preference')
 assert.equal(cold.resolved(), 'art', 'The real system theme takes over right after mount')
 assert.equal(cold.dataset.background, 'art', 'The canvas is right on the first mounted frame')
 
@@ -310,8 +288,7 @@ assert.deepEqual(readDefaults(darkReset), DARK_DEFAULTS, 'Reset restores the def
 assert.equal(darkReset.state.defaultSettings, true, 'Reset also turns the switch back on')
 
 /* 模板契约：开关在外观模式上方，受管项跟着它禁用，氛围色与它无关，纸媒下开关自己也被禁用。 */
-assert(template.indexOf('视觉风格') < template.indexOf('默认设置'), 'The switch follows the visual style')
-assert(template.indexOf('默认设置') < template.indexOf('外观模式'), 'The switch sits above the appearance mode')
+assert.match(template, />视觉风格<[\s\S]*?>默认设置<[\s\S]*?>外观模式</, 'The three setting labels appear in reading order')
 assert.equal(
   [...template.matchAll(/<fieldset class="setting-group" :disabled="managedDisabled">/g)].length,
   7,

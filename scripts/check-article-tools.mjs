@@ -1,3 +1,4 @@
+import { vmSource } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
@@ -105,7 +106,7 @@ const toolContext = vm.createContext({
   nextTick: () => Promise.resolve(), clearTimeout, setTimeout,
   window: { CSS: { highlights: new Map() } },
 })
-vm.runInContext(ts.transpile(descriptor.scriptSetup.content.replace(/^import .*$/gm, ''),
+vm.runInContext(ts.transpile(vmSource(descriptor.scriptSetup.content),
   { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.toolInput = { pointerType, rememberPointer, toggle, mode, indicator, positionIndicator, actions, trigger, requestExport, confirmExport, cancelExport, pendingExport, exportConfirm, exportStep, exportKey, busy };', toolContext)
 const toolInput = toolContext.toolInput
 toolInput.actions.value = {}
