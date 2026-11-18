@@ -1,14 +1,26 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { randomBytes, webcrypto } from 'node:crypto'
+import { createRequire } from 'node:module'
 import vm from 'node:vm'
 import ts from 'typescript'
 import { shallowRef } from 'vue'
 import { parseNoteKeys } from '../app/utils/note-keys.ts'
 import { decryptNote } from '../app/utils/encrypted-note.ts'
 import { assertEncryptedNotes } from './lib/encrypted-notes-guard.ts'
-import { importNoteKeyFiles } from '../app/utils/import-note-keys.ts'
 import { zipSync, strToU8 } from 'fflate'
+
+// Nuxt resolves extensionless TS imports; Node's strip-types loader does not.
+// Adapt only this check harness rather than changing application TS settings.
+const require = createRequire(import.meta.url)
+const importExports = {}
+const importCode = ts.transpileModule(readFileSync('app/utils/import-note-keys.ts', 'utf8'), {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+}).outputText
+new Function('require', 'exports', importCode)(
+  name => name === './note-keys' ? { parseNoteKeys } : require(name), importExports,
+)
+const { importNoteKeyFiles } = importExports
 
 // Synthetic keys only: checks must never read a contributor's private backups.
 const keys = [randomBytes(32), randomBytes(32)].map(bytes => bytes.toString('base64'))

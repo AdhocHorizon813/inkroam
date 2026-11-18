@@ -1,4 +1,4 @@
-import { parseNoteKeys } from './note-keys.ts'
+import { parseNoteKeys } from './note-keys'
 
 const keyFile = /\.(key|txt|json)$/i
 // Byte limits protect archive extraction; there is no key/file/document count limit.
