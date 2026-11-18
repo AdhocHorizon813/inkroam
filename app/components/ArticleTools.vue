@@ -355,6 +355,7 @@ async function exportArticle(format: 'pdf' | 'png') {
 </template>
 
 <style scoped>
+/* Tool control resets must not override the shared Teleported confirmation dialog. */
 .private-export-key { box-sizing: border-box; width: 100%; margin-top: 18px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--ink) 4%, transparent); color: var(--ink); font: inherit; }
 .private-export-key:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .appearance-confirm button:disabled { opacity: .5; cursor: default; }
@@ -364,13 +365,13 @@ async function exportArticle(format: 'pdf' | 'png') {
    from find to export. Closed tools retain their normal place in the article. */
 .article-tools--open { position: sticky; top: 78px; z-index: 24; }
 .article-tools--open .article-tools__actions { border-color: var(--line); background: var(--paper); }
-button { position: relative; min-height: 36px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; font: inherit; color: inherit; cursor: pointer; }
-button:disabled { opacity: .45; cursor: default; }
+:where(.article-tools) button { position: relative; min-height: 36px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; font: inherit; color: inherit; cursor: pointer; }
+:where(.article-tools) button:disabled { opacity: .45; cursor: default; }
 @media(hover:hover) and (pointer:fine) {
   :where(.article-tools:not([data-pointer-type='touch'])) button:not(.article-action, .article-copy-action):hover { color: var(--accent); }
 }
-button { transition: color 220ms var(--ease-fluid), border-color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
-button:active:not(:disabled) { transform: translateY(1px); }
+:where(.article-tools) button { transition: color 220ms var(--ease-fluid), border-color 220ms var(--ease-fluid), transform 160ms var(--ease-settle); }
+:where(.article-tools) button:active:not(:disabled) { transform: translateY(1px); }
 .article-tools__reveal { position: absolute; top: calc(100% + 10px); left: 0; z-index: 1; width: min(760px, 100%); display: grid; grid-template-rows: 1fr; }
 .article-tools__reveal--export { width: max-content; max-width: 100%; }
 .article-tools__clip { min-width: 0; min-height: 0; overflow: hidden; border-radius: 12px; }
@@ -386,14 +387,14 @@ button:active:not(:disabled) { transform: translateY(1px); }
 :global(:root[data-visual='modern'][data-depth] .article-tools .dropdown-surface) { background-image: none; }
 .article-tools__panel--export { display: grid; grid-template-columns: minmax(0, 380px) repeat(3, max-content); align-items: end; }
 .article-tools__panel--export .article-tools__status { grid-column: 1 / -1; contain: inline-size; }
-input,select { min-width: 0; max-width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); font: inherit; }
-input { flex: 1 1 210px; font-size: 16px; }select { flex: 1 1 180px; }option { background: var(--paper); color: var(--ink); }
+:where(.article-tools) input,:where(.article-tools) select { min-width: 0; max-width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); font: inherit; }
+:where(.article-tools) input { flex: 1 1 210px; font-size: 16px; }:where(.article-tools) select { flex: 1 1 180px; }:where(.article-tools) option { background: var(--paper); color: var(--ink); }
 .article-tools__scope { flex: 0 1 380px; min-width: 0; width: 100%; }
 .article-tools__count { color: var(--muted); font-variant-numeric: tabular-nums; }.article-tools__status { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 12px; }
-:is(button,input,select):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-@media(max-width:767.98px) { .article-tools__panel { gap: 10px; }button { min-height:44px; } }
+:where(.article-tools) :is(button,input,select):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media(max-width:767.98px) { .article-tools__panel { gap: 10px; }:where(.article-tools) button { min-height:44px; } }
 @media(max-width:599.98px) { .article-tools__panel--export { display: flex; }.article-tools__scope { flex-basis: 100%; } }
-@media(prefers-reduced-motion:reduce) { button { transition-duration:.01ms; } }
+@media(prefers-reduced-motion:reduce) { :where(.article-tools) button { transition-duration:.01ms; } }
 </style>
 
 <style>

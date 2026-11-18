@@ -142,12 +142,13 @@ const appearancePages = [
   { id: 'depth', title: '层次与光效' },
   { id: 'glass', title: '漫光玻璃设置' },
   { id: 'shortcuts', title: '快捷操作' },
+  { id: 'decrypt', title: '批量解密' },
 ] as const
 type AppearancePage = 'main' | typeof appearancePages[number]['id']
 const appearancePage = ref<AppearancePage>('main')
 const isSubpage = computed(() => appearancePage.value !== 'main')
 const appearanceTitle = computed(() => appearancePages.find(page => page.id === appearancePage.value)?.title || '阅读外观')
-const settingsScroll: Record<AppearancePage, number> = { main: 0, reading: 0, materials: 0, depth: 0, glass: 0, shortcuts: 0 }
+const settingsScroll: Record<AppearancePage, number> = { main: 0, reading: 0, materials: 0, depth: 0, glass: 0, shortcuts: 0, decrypt: 0 }
 const pageDirection = ref(1)
 let pageHeightMotion: Animation | undefined
 let pageNavigation = 0
@@ -1059,6 +1060,11 @@ function resetAppearance() {
         <Transition name="appearance-subpage">
           <div v-glass-presence="appearancePage === 'shortcuts'" v-show="appearancePage === 'shortcuts'" :inert="appearancePage !== 'shortcuts'" :data-glass-page-hidden="appearancePage !== 'shortcuts' ? 'true' : undefined">
 <RadialShortcutSettings :active="isOpen && appearancePage === 'shortcuts'" @preview="previewRadial" />
+          </div>
+        </Transition>
+        <Transition name="appearance-subpage">
+          <div v-glass-presence="appearancePage === 'decrypt'" v-show="appearancePage === 'decrypt'" :inert="appearancePage !== 'decrypt'" :data-glass-page-hidden="appearancePage !== 'decrypt' ? 'true' : undefined">
+            <BatchDecryptSettings :active="isOpen && appearancePage === 'decrypt'" />
           </div>
         </Transition>
         </div>

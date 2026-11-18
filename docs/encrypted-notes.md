@@ -20,6 +20,51 @@
 
 ## 编辑与重新加密
 
+### 批量解锁
+
+阅读外观 → **批量解密**。可以直接粘贴多个密钥（换行或逗号分隔），选择多个 `.key` 文件，也可以选择一个含多条密钥的 `.txt` / `.json` 文件。JSON 字符串数组、对象中的密钥字符串均可识别；密钥仍为每篇生成的完整 Base64 值，不要求文件名与文档名对应。重复密钥自动去重。导入仅在本机读取，不上传文件。
+
+点击“确定批量解密”会先弹出沿用阅读外观样式及漫光玻璃的确认窗。只有选择“继续解密”才下载密文并逐篇验证，错误密钥不会显示乱码，也不会中断其他文档。处理结束显示成功、已解锁跳过、未匹配和处理失败数量；设置中列出成功文档，可直接打开或逐篇锁定，也可以“全部锁定”。
+
+成功解锁的原文与元数据保留在**当前标签页内存**中，不写入浏览器存储、Nuxt payload、公开 Content 数据或公共搜索索引；密钥只在批处理期间使用，结束后释放引用。站内切换文章无需重复输入，首页、课程/归档列表、上一篇/下一篇恢复原始标题与阅读元数据。单篇手动解锁也加入这一会话。刷新、关闭标签页或离开网站触发 `pagehide` 时清空；锁定时恢复占位。现有导出仍需要警告确认与再次输入密钥。
+
+支持“导入文件夹”，由浏览器递归枚举所有子目录中的 `.key` / `.txt` / `.json` 文件及 ZIP；“导入文件 / ZIP”可多选文件。ZIP 在浏览器本地解压，遍历包内任意层级目录的密钥文本，忽略无关文件，不写入磁盘；不递归解压包内嵌套压缩包，不支持加密 ZIP、RAR、7z。解压库按需加载。
+
+已取消密钥数、文件数、加密文档数和会话32MiB上限，顺序下载处理；实际容量取决于浏览器内存。仅保留导入文件的体积保护：单个密钥文本2MiB、单个ZIP32MiB、每个ZIP中选中的文本解压总量64MiB；这些限制不限制文件或密钥数量。关闭设置、离开此子菜单或点击停止会取消尚未完成的处理，已成功解锁的文档保留。公共搜索与话题索引保持公开内容范围，不自动将私密正文加入公共搜索。
+
+```text
+<第一篇的完整 Base64 密钥>
+<第二篇的完整 Base64 密钥>
+```
+
+不要把这种密钥合集放进公开目录或提交到Git。
+
+### 本地加密命令
+
+从下载目录等私密来源导入新笔记，建议使用 `--source`，全过程不把明文放进 Content 扫描目录：
+
+```powershell
+& D:/anaconda3/python.exe scripts/encrypt-note.py encrypt content/notes/<course>/<new-slug>.md --source 'C:/path/to/private-note.md'
+```
+
+目标公开路径必须尚不存在；原始字节备份、独立密钥和 AES-GCM 加密流程与普通导入一致。
+
+2026-11-18 已加入第一讲的数学基础补充笔记，公开路径为 `content/notes/reinforcement-learning/switchgeo-lora-01-mathematical-foundations.md`。下载文件的逐字节副本保存在忽略目录 `.private/encrypted-notes/imports/lora-mathematical-foundations-original.md`；可编辑版本保存在 `originals/`，新增标题、阅读元数据与第一讲回链，原正文保留。第一讲也增加补充阅读入口，并沿用原密钥重新加密。补充笔记使用独立密钥（`keys/` 下同路径 `.key`），两篇可以批量解锁。解锁后读取私密 `order` 排序，锁定状态不公开这项元数据。
+
+导出警告窗的按钮统一使用共享 `appearance-confirm` 样式：正文工具的通用按钮和输入框规则限定在 `.article-tools` 内，避免 Vue scoped 属性随 Teleport 保留而污染弹窗。取消仍为主题色，继续导出/验证为中性样式。
+
+从下载目录等私密来源导入新笔记，建议使用 `--source`，全过程不把明文放进 Content 扫描目录：
+
+```powershell
+& D:/anaconda3/python.exe scripts/encrypt-note.py encrypt content/notes/<course>/<new-slug>.md --source 'C:/path/to/private-note.md'
+```
+
+目标公开路径必须尚不存在；原始字节备份、独立密钥和 AES-GCM 加密流程与普通导入一致。
+
+2026-11-18 已加入第一讲的数学基础补充笔记，公开路径为 `content/notes/reinforcement-learning/switchgeo-lora-01-mathematical-foundations.md`。下载文件的逐字节副本保存在忽略目录 `.private/encrypted-notes/imports/lora-mathematical-foundations-original.md`；可编辑版本保存在 `originals/`，新增标题、阅读元数据与第一讲回链，原正文保留。第一讲也增加补充阅读入口，并沿用原密钥重新加密。补充笔记使用独立密钥（`keys/` 下同路径 `.key`），两篇可以批量解锁。解锁后读取私密 `order` 排序，锁定状态不公开这项元数据。
+
+导出警告窗的按钮统一使用共享 `appearance-confirm` 样式：正文工具的通用按钮和输入框规则限定在 `.article-tools` 内，避免 Vue scoped 属性随 Teleport 保留而污染弹窗。取消仍为主题色，继续导出/验证为中性样式。
+
 本机可使用 `D:/anaconda3/python.exe`，需要 `cryptography`（本次为 43.0.0）。以下命令在仓库根目录运行；普通电脑可把解释器路径换成自己的 Python。
 
 首次加密一篇**未进入 Git 的**文档：
@@ -48,7 +93,7 @@
 
 `encrypted-notes.json` 登记已保护文档的公开路径和随机编号，不含密钥。`nuxt.config.ts` 在加载配置和开始构建时检查登记项：公开 `.md` 必须是精确匹配的安全占位内容，密文必须存在且格式正确。如果把原文误放回该路径或向占位文件追加正文，构建会中止。
 
-Nuxt Content、全站搜索、SEO 和服务端生成只处理占位文件。解密结果不回写 Content 数据、站点搜索或 SEO；正文仅存在当前浏览器页面内。点击“锁定文档”、离开页面或刷新会重新要求密钥。JavaScript 字符串不能承诺可靠的物理内存擦除，也不能阻止已解锁的读者复制、截图或保存正文。
+Nuxt Content、全站搜索、SEO 和服务端生成只处理占位文件。解密结果不回写 Content 数据、站点搜索或 SEO；正文仅存在当前标签页内存中。站内切页保留解锁；点击“锁定文档”或“全部锁定”、离开网站、刷新后重新要求密钥。JavaScript 字符串不能承诺可靠的物理内存擦除，也不能阻止已解锁的读者复制、截图或保存正文。
 
 提交时应包含公开占位 Markdown、密文 JSON、登记文件和功能代码，**不包含 `.private/`**。此功能不修改 Git 历史、不自动提交或部署。首次转换后必须使用新生成的站点，不能发布旧 `.output`。本次发现旧 `.nuxt/content/sql_dump.txt` 收录过该路径，已隔离旧构建缓存；用户重启服务后检查了可用 SQL 导出未含原始标题。
 

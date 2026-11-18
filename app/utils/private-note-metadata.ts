@@ -5,6 +5,7 @@ export interface PrivateNoteMetadata {
   description?: string
   date?: string
   readingTime?: string
+  order?: number
   tags?: string[]
   pinned?: boolean
   featured?: boolean
@@ -23,6 +24,7 @@ export function splitPrivateNote(source: string): { body: string, metadata: Priv
   const metadata: PrivateNoteMetadata = {}
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
     const fields = raw as Record<string, unknown>
+    if (typeof fields.order === 'number' && Number.isSafeInteger(fields.order) && fields.order >= 0) metadata.order = fields.order
     for (const name of ['title', 'description', 'readingTime'] as const) {
       if (typeof fields[name] === 'string') metadata[name] = fields[name]
     }

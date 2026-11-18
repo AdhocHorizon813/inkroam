@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const groups = {
   glass: ['check-glass-settings', 'check-glass-surfaces', 'check-glass-adapter', 'check-glass-controls', 'check-glass-boundary', 'check-glass-built'],
   appearance: ['check-appearance-mode', 'check-reading-appearance', 'check-display-mode', 'check-depth', 'check-depth-receivers', 'check-css-cascade'],
-  reading: ['check-reading-links', 'check-reading-polish', 'check-recent-counts', 'check-copy-link', 'check-passage-link', 'check-article-images', 'check-article-tools'],
+  reading: ['check-reading-links', 'check-reading-polish', 'check-recent-counts', 'check-copy-link', 'check-passage-link', 'check-article-images', 'check-article-tools', 'check-encrypted-notes'],
   content: ['check-c2-note', 'check-competition-algebra', 'check-technical-prose', 'check-about-resident', 'check-topics', 'check-roam', 'check-notes', 'check-search-math'],
   navigation: ['check-page-scroll', 'check-nav-sticky-offset', 'check-scroll-writes', 'check-scroll-lifecycle', 'check-error-page'],
   search: ['check-search-filters', 'check-filter-select', 'check-calendar', 'check-search-popover', 'check-note-search'],

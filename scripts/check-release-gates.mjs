@@ -41,13 +41,15 @@ assert.equal(artifact.length, 11, 'Every generated-content branch remains select
 assert(artifact.every(args => args.includes('--built')))
 assert(!artifact.some(args => args.includes('scripts/check-glass-controls.mjs')), 'Do not repeat source-only optics checks after generate')
 const source = runSelection([]).calls
-assert.equal(source.length, 37, 'Four small source suites consolidated without dropping their assertions')
+assert.equal(source.length, 38, 'Consolidated source suites plus encrypted-note coverage remain selected')
+assert.equal(source.filter(args => args.includes('scripts/check-encrypted-notes.mjs')).length, 1, 'Encrypted-note checks run exactly once in the source stage')
+assert(!artifact.some(args => args.includes('scripts/check-encrypted-notes.mjs')), 'Do not repeat source-only encryption checks after generate')
 assert(!source.some(args => args.includes('scripts/check-notes.mjs')), 'Default checks do not require generated output')
 const glass = runSelection(['--group=glass']).calls
 assert.equal(glass.length, 5)
 assert(glass.every(args => args[1].startsWith('scripts/check-glass-')))
 assert.equal(runSelection(['--group=glass', '--group=glass']).calls.length, 5, 'Repeated group flags never duplicate a process')
-assert.equal(runSelection(['--built']).calls.length, 41, 'Legacy --built still includes source and artifact checks')
+assert.equal(runSelection(['--built']).calls.length, 42, 'Legacy --built still includes source and artifact checks')
 const live = runSelection(['--live-only']).calls
 assert.equal(live.length, 5)
 assert(live.find(args => args[1] === 'scripts/check-reading-polish.mjs').includes('--live'), 'Existing live reading checks receive their flag')

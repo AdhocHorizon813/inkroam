@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { entrySummaryFields } from '~/utils/entry-summary'
+const { displayEntry } = useUnlockedNotes()
 useSeoMeta({
   title: '首页',
   description: '关于技术、生活与长期思考的个人博客。',
@@ -31,15 +32,20 @@ type LatestPostCount = 5 | 10 | 'all'
 const latestPostCount = useState<LatestPostCount>('latest-post-count', () => 10)
 const latestNoteCount = useState<LatestPostCount>('latest-note-count', () => 10)
 const visiblePosts = computed(() => {
-  const allPosts = posts.value || []
+  const allPosts = (posts.value || []).map(displayEntry).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.date.localeCompare(a.date))
   return latestPostCount.value === 'all'
     ? allPosts
     : allPosts.slice(0, latestPostCount.value)
 })
 
-const visibleNotes = computed(() => latestNoteCount.value === 'all'
-  ? notes.value || []
-  : (notes.value || []).slice(0, latestNoteCount.value))
+const visibleNotes = computed(() => {
+  const entries = (notes.value || []).map(displayEntry).sort((a, b) => b.date.localeCompare(a.date))
+  return latestNoteCount.value === 'all' ? entries : entries.slice(0, latestNoteCount.value)
+})
+const visibleFeaturedPosts = computed(() => {
+  const entries = new Map([...(featuredPosts.value || []), ...(posts.value || [])].map(entry => [entry.path, displayEntry(entry)]))
+  return [...entries.values()].filter(entry => entry.featured).sort((a, b) => b.date.localeCompare(a.date))
+})
 
 const formatDate = (date: string) => date.replaceAll('-', '.')
 </script>
@@ -75,11 +81,11 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
           <p class="eyebrow">SELECTED NOTES</p>
           <h2 id="featured-heading">精选文章</h2>
         </div>
-        <span class="issue-number">{{ featuredPosts?.length || 0 }} 篇</span>
+        <span class="issue-number">{{ visibleFeaturedPosts.length }} 篇</span>
       </div>
 
       <NuxtLink
-        v-for="(post, index) in featuredPosts"
+        v-for="(post, index) in visibleFeaturedPosts"
         :key="post.path"
         :to="post.path"
         class="story-row"

@@ -3,12 +3,13 @@ import { courseForPath } from '~/utils/courses'
 import { courseNeighbours } from '~/utils/course-sequence'
 import { resolveReadingLinks, type ReadingLink } from '~/utils/reading-links'
 const props = defineProps<{ path: string; readingLinks?: ReadingLink[] | null }>()
+const { displayEntry } = useUnlockedNotes()
 const course = courseForPath(props.path)
 const { data } = await useAsyncData(`course-sequence-${course?.slug}`, () =>
   queryCollection('posts').where('draft', '=', false).where('path', 'LIKE', `/notes/${course?.slug}/%`).select('path', 'title', 'date', 'order').all(),
 )
-const neighbours = computed(() => courseNeighbours(props.path, data.value || []))
-const reading = computed(() => resolveReadingLinks(props.path, props.readingLinks, data.value || []))
+const neighbours = computed(() => courseNeighbours(props.path, (data.value || []).map(displayEntry)))
+const reading = computed(() => resolveReadingLinks(props.path, props.readingLinks, (data.value || []).map(displayEntry)))
 const extraReading = computed(() => reading.value.filter(link => link.path !== neighbours.value.previous?.path && link.path !== neighbours.value.next?.path))
 const relationLabel = (kind: ReadingLink['kind']) => kind === 'review' ? '需要时回顾' : '接着探索'
 const reasonFor = (path: string) => {

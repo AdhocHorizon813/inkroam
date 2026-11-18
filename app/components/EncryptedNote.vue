@@ -3,6 +3,8 @@ import { decryptNote, loadEncryptedNote } from '~/utils/encrypted-note'
 import type { PrivateNoteMetadata } from '~/utils/private-note-metadata'
 
 const props = defineProps<{ documentId: string }>()
+const session = useUnlockedNotes()
+const route = useRoute()
 const emit = defineEmits<{
   metadata: [value: PrivateNoteMetadata | null]
   toc: [value: { id: string; text: string; depth: number }[]]
@@ -18,7 +20,7 @@ const error = ref('')
 let generation = 0
 let request: AbortController | undefined
 
-function lock() {
+function clearView() {
   generation++
   request?.abort()
   request = undefined
@@ -30,6 +32,30 @@ function lock() {
   unlocked.value = false
   busy.value = false
   error.value = ''
+}
+
+function lock() { session.lock(props.documentId); clearView() }
+
+async function showSessionNote() {
+  const note = session.documents.value[props.documentId]
+  if (!note) { clearView(); return }
+  const current = ++generation
+  request?.abort()
+  busy.value = true
+  keyInput.value = ''
+  try {
+    const { renderPrivateMarkdown } = await import('~/utils/render-private-markdown')
+    if (generation !== current) return
+    const rendered = renderPrivateMarkdown(note.source)
+    html.value = rendered.html
+    emit('metadata', rendered.metadata)
+    emit('toc', rendered.toc)
+    unlocked.value = true
+    await nextTick()
+    if (generation === current) emit('content', bodyElement.value)
+  } catch {
+    if (generation === current) { session.lock(props.documentId); error.value = '文档未能显示，请重新解锁。' }
+  } finally { if (generation === current) busy.value = false }
 }
 
 async function unlock() {
@@ -50,15 +76,9 @@ async function unlock() {
     let plaintext = await decryptNote(envelope, secret, props.documentId)
     secret = ''
     try {
-      const { renderPrivateMarkdown } = await import('~/utils/render-private-markdown')
+      const { splitPrivateNote } = await import('~/utils/private-note-metadata')
       if (generation !== current) return
-      const rendered = renderPrivateMarkdown(plaintext)
-      html.value = rendered.html
-      emit('metadata', rendered.metadata)
-      emit('toc', rendered.toc)
-      unlocked.value = true
-      await nextTick()
-      if (generation === current) emit('content', bodyElement.value)
+      session.remember({ id: props.documentId, path: route.path, source: plaintext, metadata: splitPrivateNote(plaintext).metadata })
     } finally {
       plaintext = ''
     }
@@ -70,12 +90,13 @@ async function unlock() {
   }
 }
 
-onMounted(() => window.addEventListener('pagehide', lock))
+onMounted(() => { window.addEventListener('pagehide', clearView); void showSessionNote() })
 onBeforeUnmount(() => {
-  lock()
-  window.removeEventListener('pagehide', lock)
+  clearView()
+  window.removeEventListener('pagehide', clearView)
 })
-watch(() => props.documentId, lock)
+watch(() => session.documents.value[props.documentId], () => { void showSessionNote() })
+watch(() => props.documentId, () => { clearView(); void showSessionNote() })
 </script>
 
 <template>

@@ -51,6 +51,16 @@ onBeforeUnmount(() => { disposed = true; stopPageFinish(); destroy?.() })
 }
 /* Visited optics keep their decoded map, but no hidden backdrop is composited.
    Wake removes this gate before paint, without another asynchronous decode. */
+/* Match the dialog's starting/closing shadow to its native top-layer motion.
+   The resting optical shadow above stays unchanged. */
+:root[data-visual='modern'] .appearance-confirm[data-liquid-glass-active]:not([open]) {
+  box-shadow: none !important;
+}
+@starting-style {
+  :root[data-visual='modern'] .appearance-confirm[data-liquid-glass-active][open] {
+    box-shadow: none !important;
+  }
+}
 [data-liquid-glass-dormant] {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;

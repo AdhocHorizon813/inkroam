@@ -3,10 +3,11 @@ import { entrySummaryFields } from '~/utils/entry-summary'
 import type { EntrySummary } from '~/utils/entry-summary'
 import { relatedEntries } from '~/utils/topics'
 const props = defineProps<{ current: EntrySummary }>()
+const { displayEntry } = useUnlockedNotes()
 const { data } = await useAsyncData('related-public-entries', () =>
   queryCollection('posts').select(...entrySummaryFields).where('draft', '=', false).order('date', 'DESC').all(),
 )
-const related = computed(() => relatedEntries(props.current, data.value || []))
+const related = computed(() => relatedEntries(displayEntry(props.current), (data.value || []).map(displayEntry)))
 </script>
 
 <template>

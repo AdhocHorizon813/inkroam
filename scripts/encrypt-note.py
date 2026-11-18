@@ -57,6 +57,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['encrypt', 'refresh', 'recover'])
     parser.add_argument('note', help='The public content/notes/<course>/<slug>.md path')
+    parser.add_argument('--source', help='Import a private Markdown file without placing plaintext in content/')
     args = parser.parse_args()
     note = Path(args.note).resolve()
     relative = note.relative_to(ROOT)
@@ -70,7 +71,9 @@ def main():
         if ignored.returncode:
             raise ValueError('Private directory must be Git-ignored and untracked before proceeding')
 
-    source = note.read_bytes()
+    if args.source and (args.action != 'encrypt' or note.exists()):
+        raise ValueError('--source requires encrypt and a new destination')
+    source = Path(args.source).resolve().read_bytes() if args.source else note.read_bytes()
     registry = json.loads(MANIFEST.read_text(encoding='utf-8')) if MANIFEST.exists() else {}
     marker = re.search(rb'^encryptedDocument: ([a-f0-9]{32})\r?$', source, re.M)
     if args.action == 'encrypt':
