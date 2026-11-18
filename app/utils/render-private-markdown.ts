@@ -43,6 +43,9 @@ export function renderPrivateMarkdown(source: string) {
   const { body, metadata } = splitPrivateNote(source)
   const html = DOMPurify.sanitize(markdown.parse(body) as string, {
     USE_PROFILES: { html: true },
+    // KaTeX draws radicals and stretchy accents with inline SVG paths.
+    ADD_TAGS: ['svg', 'path'],
+    ADD_ATTR: ['viewBox', 'preserveAspectRatio', 'd'],
     FORBID_TAGS: ['img', 'picture', 'video', 'audio', 'source', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'style'],
     FORBID_ATTR: ['src', 'srcset', 'ping', 'id', 'name'],
     ALLOW_DATA_ATTR: false,
