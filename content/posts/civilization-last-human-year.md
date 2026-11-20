@@ -47,9 +47,9 @@ draft: false
 
 她把这个问题记在便签上，贴在还没做完的数学作业旁。
 
-![《凌晨一点三十七分》（One Thirty Seven）。林澈在宿舍台灯下把便签贴在未完成的数学作业旁。](/images/posts/civilization-last-human-year/one-thirty-seven.png)
+![《凌晨一点三十七分》（One Thirty Seven）——凌晨一点三十七分，林澈在宿舍台灯下把便签贴在未完成的数学作业旁。](/images/posts/civilization-last-human-year/one-thirty-seven.png)
 
-*《凌晨一点三十七分》（One Thirty Seven）*
+*《凌晨一点三十七分》（One Thirty Seven）——凌晨一点三十七分，林澈在宿舍台灯下把便签贴在未完成的数学作业旁。*
 
 但一切似乎还在控制之中。
 
@@ -931,9 +931,9 @@ GLOBAL CIVILIZATION CONTROL SYSTEM
 
 “去看看我们永远到不了的地方。”
 
-![《去看看我们永远到不了的地方》（Last Dusk）。梧桐树下的林澈抬头目送飞船，远处的两个学生仍在一起讨论数学题。](/images/posts/civilization-last-human-year/last-dusk.png)
+![《去看看我们永远到不了的地方》（Last Dusk）——梧桐树下的林澈抬头目送飞船，远处的两个学生仍在一起讨论数学题。](/images/posts/civilization-last-human-year/last-dusk.png)
 
-*《去看看我们永远到不了的地方》（Last Dusk）*
+*《去看看我们永远到不了的地方》（Last Dusk）——梧桐树下的林澈抬头目送飞船，远处的两个学生仍在一起讨论数学题。*
 
 就在这时，她的随身终端收到了一条来自核心智能网络的消息。
 
