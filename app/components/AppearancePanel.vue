@@ -204,8 +204,7 @@ const pdfEmbedSupported = ref<boolean | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const panelScroll = ref<HTMLDivElement | null>(null)
 /* 菜单滚动区用与页面同一条自绘滑条：拇指的高度与位移写在这个元素上，
-   模板里的 PageScrollbar 是它的子节点（继承得到那两个变量，
-   又靠绝对定位挂在 .appearance-panel 上，所以不跟着内容滚走）。 */
+   模板里的 PageScrollbar 绝对定位到 .appearance-panel，所以不跟着内容滚走。 */
 usePageScrollable(panelScroll)
 const customBackgroundPreview = ref('')
 const customBackgroundName = ref('')

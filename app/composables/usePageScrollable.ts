@@ -22,6 +22,7 @@ export function usePageScrollable(scroller: Ref<HTMLElement | null>) {
   let resizeObserver: ResizeObserver | undefined
   let mutationObserver: MutationObserver | undefined
   let stopScrollListener: (() => void) | undefined
+  let thumb: HTMLElement | null = null
   let frame = 0
   const fadeFrames = new Set<number>()
 
@@ -38,7 +39,7 @@ export function usePageScrollable(scroller: Ref<HTMLElement | null>) {
       element.setAttribute(PAGE_SCROLLABLE_ATTRIBUTE, scrollable)
     }
     allowFadeDelay(element)
-    syncThumb(element)
+    syncThumb(element, thumb)
   }
 
   /* 滚动一帧最多算一次：一次手势里滚动事件会来好几次。 */
@@ -46,23 +47,24 @@ export function usePageScrollable(scroller: Ref<HTMLElement | null>) {
     if (frame) return
     frame = requestAnimationFrame(() => {
       frame = 0
-      if (scroller.value) syncThumb(scroller.value)
+      if (scroller.value) syncThumb(scroller.value, thumb)
     })
   }
 
   /* 高度按可视比例、位移按滚动比例。不能滚时给满高——此刻它已经淡到 0 了，
      但下一次「变长再淡回来」时尺寸得是对的。 */
-  function syncThumb(element: HTMLElement) {
+  function syncThumb(element: HTMLElement, thumb: HTMLElement | null) {
+    if (!thumb) return
     const track = element.clientHeight
     const range = element.scrollHeight - track
     let size = track
     if (track > 0 && range > 1) {
       size = Math.min(track, Math.max(MIN_THUMB_SIZE, Math.round((track * track) / element.scrollHeight)))
-      writeThumbProperty(element, PAGE_SCROLLBAR_OFFSET_PROPERTY, `${Math.round((element.scrollTop / range) * (track - size))}px`)
+      writeThumbProperty(thumb, PAGE_SCROLLBAR_OFFSET_PROPERTY, `${Math.round((element.scrollTop / range) * (track - size))}px`)
     } else {
-      writeThumbProperty(element, PAGE_SCROLLBAR_OFFSET_PROPERTY, '0px')
+      writeThumbProperty(thumb, PAGE_SCROLLBAR_OFFSET_PROPERTY, '0px')
     }
-    writeThumbProperty(element, PAGE_SCROLLBAR_SIZE_PROPERTY, `${size}px`)
+    writeThumbProperty(thumb, PAGE_SCROLLBAR_SIZE_PROPERTY, `${size}px`)
   }
 
   // Compare the final serialized inline value, not computed style or a geometry
@@ -94,6 +96,8 @@ export function usePageScrollable(scroller: Ref<HTMLElement | null>) {
   function watchChildren() {
     const element = scroller.value
     if (!element) return
+    // Keep per-scroll style changes on the leaf, outside the header's inheritance path.
+    thumb = element.querySelector<HTMLElement>(':scope > .page-scrollbar > .page-scrollbar__thumb')
     resizeObserver?.disconnect()
     for (const child of element.children) resizeObserver?.observe(child)
     measure()

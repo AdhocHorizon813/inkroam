@@ -108,8 +108,8 @@ html { scroll-behavior: smooth; overflow-y: scroll; }
 }
 
 /* 外观菜单的滚动区用同一套自绘滑条：同一个 PageScrollbar 组件、同一个 usePageScrollable
-   （写在滚动元素上的 --page-scrollbar-thumb-size/-offset 由组件继承）。
-   它必须是滚动元素的子节点才继承得到变量，但又不能跟着内容滚走 —— 所以绝对定位到
+   （高度与位移变量直接写到拇指上）。
+   滑条在滚动元素内部，但不能跟着内容滚走，所以绝对定位到
    .appearance-panel（包含块在滚动容器之外，滚不带走它）。面板的 padding 是 0
    （line 2206 的 padding: 0 !important），right: 0 正好落在滚动区预留的 10px 槽位上。
    手机上（指针粗、无 hover）整段不生效，保持原生覆盖式滑条；Firefox 没有

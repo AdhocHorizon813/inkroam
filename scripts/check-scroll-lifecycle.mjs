@@ -25,11 +25,15 @@ function harness({ available = true, present = true } = {}) {
     hasAttribute: key => attributes.has(key),
     setAttribute: (key, value) => attributes.set(key, value),
     removeAttribute: key => attributes.delete(key),
-    style: {
+    querySelector: selector => {
+      assert.equal(selector, ':scope > .page-scrollbar > .page-scrollbar__thumb')
+      return { style: thumbStyle }
+    },
+  }
+  const thumbStyle = {
       getPropertyValue: key => properties.get(key) ?? '',
       getPropertyPriority: () => '',
       setProperty: (key, value) => properties.set(key, value),
-    },
   }
   const context = vm.createContext({
     exports: {},

@@ -43,18 +43,18 @@ function original(el) {
 const before = element(), after = element()
 for (let i = 0; i < 600; i++) {
   before.scrollTop = after.scrollTop = i / 4
-  original(before); sync(after)
+  original(before); sync(after, after)
   assert.deepEqual(after.values, before.values)
 }
 console.log(`600 deterministic updates: CSS writes ${before.calls.length} -> ${after.calls.length}; size writes 600 -> ${after.calls.filter(([key]) => key === sizeKey).length}`)
 for (const [height, content, top] of [[800,800,0],[800,801,1],[800,802,2],[400,10000,9600],[0,0,0],[800,4800,-12],[800,4800,4200]]) {
   Object.assign(before, { clientHeight: height, scrollHeight: content, scrollTop: top })
   Object.assign(after, { clientHeight: height, scrollHeight: content, scrollTop: top })
-  original(before); sync(after); assert.deepEqual(after.values, before.values)
+  original(before); sync(after, after); assert.deepEqual(after.values, before.values)
 }
-after.values.clear(); sync(after); assert.deepEqual(after.values, before.values, 'Cleared inline styles recover')
-after.priorities.set(sizeKey, 'important'); sync(after); assert.equal(after.priorities.has(sizeKey), false)
-const replacement = element(); sync(replacement); assert.equal(replacement.values.size, 2, 'New element always initializes')
+after.values.clear(); sync(after, after); assert.deepEqual(after.values, before.values, 'Cleared inline styles recover')
+after.priorities.set(sizeKey, 'important'); sync(after, after); assert.equal(after.priorities.has(sizeKey), false)
+const replacement = element(); sync(after, replacement); assert.equal(replacement.values.size, 2, 'New thumb always initializes')
 
 let top = 0, writes = 0
 const dataset = new Proxy({ scrolled: 'true' }, {
@@ -87,7 +87,7 @@ function measuredElement() {
 }
 const scroller = { value: measuredElement() }
 const measure = vm.runInNewContext(functions(readFileSync('app/composables/usePageScrollable.ts', 'utf8'), ['measure']) + '\nmeasure', {
-  scroller, PAGE_SCROLLABLE_ATTRIBUTE, PAGE_SCROLLABLE_SETTLED_ATTRIBUTE, PAGE_SCROLL_QUERY, pageNeedsScroll,
+  scroller, thumb: {}, PAGE_SCROLLABLE_ATTRIBUTE, PAGE_SCROLLABLE_SETTLED_ATTRIBUTE, PAGE_SCROLL_QUERY, pageNeedsScroll,
   window: { matchMedia: query => { assert.equal(query, PAGE_SCROLL_QUERY); return { matches: desktop } } },
   allowFadeDelay: () => { fades++ }, syncThumb: () => { thumbs++ },
 })
