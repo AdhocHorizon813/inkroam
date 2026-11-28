@@ -270,7 +270,6 @@ function onSystemThemeChange() {
   /* 启用「默认设置」时受管项跟着换一套（浅色 14 / 5 / 4 / 0，深色 12 / 10 / 12 / 4）；
      禁用时这里什么都不做——用户自己调的材质与模糊不会因为切系统深浅色被改掉。 */
   if (state.defaultSettings) commitManagedDefaults()
-  applyAppearance()
 }
 
 onMounted(() => {
@@ -288,12 +287,17 @@ onMounted(() => {
   } catch {
     status.value = '外观偏好未能读取，已使用默认设置。'
   }
+  previousAppearance = discreteAppearance()
   applyAppearance()
   prefersDark?.addEventListener('change', onSystemThemeChange)
 })
 
 onUnmounted(() => {
   prefersDark?.removeEventListener('change', onSystemThemeChange)
+  if (vtSeq) {
+    vtSeq++
+    document.documentElement.classList.remove('no-transition')
+  }
 })
 
 let vtSeq = 0
@@ -307,12 +311,20 @@ watch(() => state.colorMode, () => {
 
 const DISCRETE_FIELDS = ['visual', 'colorMode', 'defaultSettings', 'backgroundTint', 'depth', 'navMaterial', 'musicMaterial', 'contentMaterial', 'codeMaterial', 'dropdownMaterial', 'backgroundMaterial', 'background', 'accent'] as const
 
-watch(state, (_state, from) => {
-  /* 背景氛围比的是解析后的画布：follow 状态下切明暗会换图，而点当前已生效的那一项不该触发空转场。 */
-  const discreteChanged =
-    !!from && DISCRETE_FIELDS.some((key) => key === 'background'
-      ? resolvedBackground.value !== resolveBackground(from.background, resolvedMode.value)
-      : state[key] !== from![key])
+function discreteAppearance() {
+  return DISCRETE_FIELDS.map(key => {
+    if (key === 'background') return resolvedBackground.value
+    if (key === 'colorMode') return resolvedMode.value
+    return state[key]
+  })
+}
+let previousAppearance: ReturnType<typeof discreteAppearance> | undefined
+
+watch([state, resolvedMode], () => {
+  // Vue's deep watcher shares the reactive object between old and new values.
+  const current = discreteAppearance()
+  const discreteChanged = previousAppearance?.some((value, i) => value !== current[i])
+  previousAppearance = current
   const apply = () => {
     sharedLatestPostCount.value = state.latestPostCount
     sharedLatestNoteCount.value = state.latestNoteCount
@@ -337,7 +349,7 @@ watch(state, (_state, from) => {
     const seq = ++vtSeq
     root.classList.add('no-transition')
     const transition = document.startViewTransition(() => {
-      apply()
+      if (seq === vtSeq) apply()
     })
     const release = () => {
       // 仅当仍是最近一次切换才处理，防止快速连点时被上一次的收尾干扰。

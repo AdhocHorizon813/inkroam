@@ -15,7 +15,9 @@ async function mount(saved, dark = false, options = {}) {
   const context = createPanelContext({ ref, reactive, computed, watch, nextTick,
     onMounted: fn => mounted.push(fn), onUnmounted: fn => cleanup.push(fn),
     useState: (key, init) => shared[key] ||= ref(init()),
-    window: { matchMedia: () => media }, document: { documentElement: root },
+    window: { matchMedia: query => query.includes('reduced-motion') ? { matches: !!options.reduced } : media },
+    document: { documentElement: root, startViewTransition: options.transition },
+    requestAnimationFrame: callback => callback(),
     localStorage: { getItem: key => {
       reads.push(key)
       if (options.blockStorage) throw new Error('Storage unavailable')
@@ -25,6 +27,7 @@ async function mount(saved, dark = false, options = {}) {
     },
       setItem: (_, value) => { stored = JSON.parse(value) }, removeItem() {} },
   })
+  root.classList = { add() {}, remove() {} }
   const scope = effectScope()
   scope.run(() => vm.runInContext(`${compiled}\nglobalThis.exposed = { state, status, isOpen, panelScroll, resetAppearance, initialState: { ...state }, normalizeStoredAppearance, onSystemThemeChange, requestDefaultSettings, confirmDefaultSettings };`, context))
   mounted.forEach(fn => fn())
@@ -33,6 +36,23 @@ async function mount(saved, dark = false, options = {}) {
     system: async value => { media.matches = value; context.exposed.onSystemThemeChange(); await nextTick() },
     stop: () => { cleanup.forEach(fn => fn()); scope.stop() },
   }
+}
+for (const reduced of [false, true]) {
+  let transitions = 0
+  const panel = await mount({ defaultSettings: false, colorMode: 'auto' }, false, {
+    reduced, transition(update) { transitions++; update(); return { finished: Promise.resolve() } },
+  })
+  try {
+    assert.equal(transitions, 0, 'Restoring preferences on mount skips the transition')
+    await panel.system(true)
+    assert.equal(panel.root.dataset.colorMode, 'dark')
+    assert.equal(transitions, Number(!reduced), 'Auto follows an actual OS appearance change')
+    panel.state.colorMode = 'dark'; await nextTick()
+    panel.state.contentBlur++; await nextTick()
+    assert.equal(transitions, Number(!reduced), 'Equivalent modes and slider input apply directly')
+    panel.state.colorMode = 'light'; await nextTick()
+    assert.equal(transitions, reduced ? 0 : 2, 'A manual theme switch uses one transition')
+  } finally { panel.stop() }
 }
 const controlled = ['navMaterial','contentMaterial','dropdownMaterial','backgroundMaterial','navBlur','contentBlur','dropdownBlur','backgroundBlur','backgroundOverlay','codeMaterial','codeBlur','diagramScale']
 const componentState = await mount({ glassClarity: 32, glassAntialias: true })

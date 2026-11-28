@@ -91,6 +91,7 @@ function mount(saved, { systemDark = false, defer = false } = {}) {
   })
   vm.runInContext(`${compiled}\nglobalThis.exposed = { state, systemPrefersDark, resolvedBackground, resetAppearance, commitManagedDefaults, requestDefaultSettings, confirmDefaultSettings, closeDefaultSettingsConfirm, onSystemThemeChange }`, context)
   const exposed = context.exposed
+  const flushAppearance = () => watchers.find(([target]) => Array.isArray(target) && target.includes(exposed.state))[1]()
   const boot = () => mounted.forEach(callback => callback())
   if (!defer) boot()
   return {
@@ -101,14 +102,14 @@ function mount(saved, { systemDark = false, defer = false } = {}) {
     boot,
     systemDark: dark => { exposed.systemPrefersDark.value = dark },
     /* 模拟「切换浏览器深浅色」：先改 matchMedia 给的答案，再走一次组件里的 change 处理。 */
-    flipSystemAppearance: dark => { media.matches = dark; exposed.onSystemThemeChange() },
+    flipSystemAppearance: dark => { media.matches = dark; exposed.onSystemThemeChange(); flushAppearance() },
     request: enabled => exposed.requestDefaultSettings(enabled),
     confirm: () => exposed.confirmDefaultSettings(),
     cancel: () => exposed.closeDefaultSettingsConfirm(),
     reset: () => exposed.resetAppearance(),
     /* watcher 只负责把状态写回 data-* 与 localStorage，这里手动推进一次。 */
     save: () => {
-      watchers.find(([target]) => target === exposed.state)[1](exposed.state, exposed.state)
+      flushAppearance()
       return stored
     },
   }
