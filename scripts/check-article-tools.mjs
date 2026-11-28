@@ -1,3 +1,4 @@
+import { readSiteStyles } from './lib/site-styles.mjs'
 import { vmSource } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -53,7 +54,7 @@ assert(hoverColorRules > 0, 'Genuine mouse hover remains available')
 assert(unconditionalSelectionColor, 'Selected tool colours must remain available to touch and keyboard users')
 assert(noDepthHighlight, 'Depth mode radial highlights must also be removed for every material')
 assert.equal((descriptor.template.content.match(/class="[^"]*article-tools__panel[^"\n]*dropdown-surface/g) || []).length, 2, 'Both panels use the shared dropdown material')
-const main = readFileSync('app/assets/css/main.css', 'utf8')
+const main = readSiteStyles()
 assert.match(main, /\.dropdown-surface\s*\{[^}]*backdrop-filter:\s*blur\(var\(--dropdown-blur\)\)/)
 assert.match(descriptor.template.content, /:css="false"/)
 assert.match(descriptor.template.content, /@leave="leavePanel"/)

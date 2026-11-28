@@ -1,3 +1,4 @@
+import { readSiteStyles } from './lib/site-styles.mjs'
 import { setupForVm } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -65,7 +66,7 @@ assert.match(advanced, /:disabled="modelValue\.type !== 'notes'"/, 'Course filte
 assert.doesNotMatch(advanced, /next\.type = 'notes'/, 'Course must not silently switch the content type to notes')
 assert.match(advanced, /if \(key === 'type' && value !== 'notes'\) next\.course = ''/, 'Leaving the notes type must clear the course filter')
 /* 下拉浮层与日期框的观感契约（源码层，浏览器渲染不在本脚本范围内）。 */
-const materials = readFileSync('app/assets/css/main.css', 'utf8')
+const materials = readSiteStyles()
 assert.match(source, /filter-surface dropdown-surface/)
 assert.match(materials, /blur\(var\(--dropdown-blur\)\)/, 'Shared material uses its own blur channel')
 assert.doesNotMatch(source, /blur\(var\(--(?:nav|content)-blur\)\)/, 'Dropdown blur must not borrow the nav or content blur')
@@ -93,5 +94,5 @@ for (const material of ['liquid', 'acrylic']) assert(materials.includes(`[data-d
 assert.match(readFileSync('app/utils/appearance-defaults.ts', 'utf8'), /dropdownBlur: number/, 'Appearance state carries an independent dropdown blur')
 assert.match(panel, /setProperty\('--dropdown-blur', `\$\{state\.dropdownBlur\}px`\)/, 'The dropdown blur must be written to the custom property')
 assert.match(panel, /v-model\.number="state\.dropdownBlur"/, 'The appearance panel exposes a dropdown blur control')
-assert.match(readFileSync('app/assets/css/main.css', 'utf8'), /--dropdown-blur: 12px/, 'The dropdown blur needs a default before the panel hydrates')
+assert.match(materials, /--dropdown-blur: 12px/, 'The dropdown blur needs a default before the panel hydrates')
 console.log('PASS: searchable filter selection, empty states, keyboard confirmation/Escape, collapse cleanup, the course-only-for-notes gate, and the dropdown-blur / date-field contracts. Visual animation is not tested.')

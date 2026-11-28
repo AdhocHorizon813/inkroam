@@ -134,19 +134,21 @@ PDF 附件的呈现偏好也走共享状态：`useState('pdf-fallback', () => 'c
 
 ### 样式入口
 
-[全站入口](../app/assets/css/site.css)依次加载页面滚动、主体主题和图片查看器。Nuxt 在此后加载层次投影。正文技术排版随文章阅读器导入；播放器、玻璃适配器和导航光带各自拥有组件样式。
+[全站入口](../app/assets/css/site.css)依次加载页面滚动、主体主题、确认弹窗、下拉浮层和图片查看器。Nuxt 随后加载层次投影。正文技术排版随文章阅读器导入；播放器、玻璃适配器和导航光带各自拥有组件样式。
 
 | 要修改的效果 | 从哪里开始 |
 | --- | --- |
 | 页面与显示面板滚动槽、拇指几何和淡出 | [page-scroll.css](../app/assets/css/page-scroll.css)；JS 向拇指写入位移与高度。 |
-| 纸媒与现代主题、卡片、确认窗、底部入口间距 | [main.css](../app/assets/css/main.css)。两侧入口共用 `--dock-bottom-inset`；设置与私密导出按各自意图指定主题色按钮。 |
+| 纸媒与现代主题、卡片、底部入口间距 | [main.css](../app/assets/css/main.css)。两侧入口共用 `--dock-bottom-inset`。 |
+| 确认窗、遮罩、按钮强调与窄屏排列 | [confirm-dialog.css](../app/assets/css/confirm-dialog.css)。调用方为按钮指定 `__accent` 或 `__neutral`。 |
+| 下拉面材质、原生 popover 的定位和向上收起时的对齐 | [dropdown.css](../app/assets/css/dropdown.css)。搜索、日历和正文工具共用 `.dropdown-surface`。向上贴边的规则只作用于带 `data-flip="up"` 的搜索浮层。 |
 | 正文图片点击提示、图片查看器、缩放和进退场 | [image-lightbox.css](../app/assets/css/image-lightbox.css)，同一组规则包含窄屏与减少动态效果分支。 |
 | 出厂材质与首屏衔接 | [appearance-defaults.ts](../app/utils/appearance-defaults.ts) 提供深浅预设与旧偏好兜底。Nuxt 取深色材质生成初始 HTML；面板挂载后将解析后的偏好写入根元素。CSS 的挂载前模糊值与图表比例由阅读外观专项对照。 |
 | 导航展宽与光效 | main.css 的 `--nav-width-duration` 决定展宽时间，也供 [depth.css](../app/assets/css/depth.css) 的桌面延迟光效引用。按压折射由玻璃控件负责，实际投影表面由 DepthReceivers 定位。 |
 
 **调整移动端两个入口的底距。** 在 main.css 的 `max-width: 767.98px` 分支修改 `--dock-bottom-inset`。音乐与显示入口共用它；显示面板的底边再加 56px 给按钮留位。全屏音乐的内容内边距由 MusicPlayer 自己控制。
 
-**调整确认窗。** 在 main.css 找 `.appearance-confirm__actions`。宽于 380px 时两列等宽，380px 及以下排成一列。`__accent` 与 `__neutral` 只指定视觉强调；默认设置弹窗强调“采用”，批量解密与导出明文强调“取消”。二次验钥的输入、提交与取消逻辑由 ArticleTools 负责。
+**调整确认窗。** 在 confirm-dialog.css 找 `.appearance-confirm__actions`。宽于 380px 时两列等宽，380px 及以下排成一列。默认设置弹窗强调“采用”，批量解密与导出明文强调“取消”。二次验钥的输入、提交与取消逻辑由 ArticleTools 负责。
 
 ### 媒体资源与轮盘入口
 
