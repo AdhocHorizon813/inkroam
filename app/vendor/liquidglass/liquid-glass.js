@@ -365,11 +365,17 @@ function bendScale(px, w, h) {
   return { scale: (2 * px) / w, kx: 1, ky: 1 };
 }
 
+// Reassigning an identical SVG attribute still notifies the live filter graph.
+function setFilterAttribute(node, name, value) {
+  const text = String(value);
+  if (node.getAttribute(name) !== text) node.setAttribute(name, text);
+}
+
 function setRect(n, x, y, w, h) {
-  n.setAttribute('x', x);
-  n.setAttribute('y', y);
-  n.setAttribute('width', w);
-  n.setAttribute('height', h);
+  setFilterAttribute(n, 'x', x);
+  setFilterAttribute(n, 'y', y);
+  setFilterAttribute(n, 'width', w);
+  setFilterAttribute(n, 'height', h);
 }
 
 /* ------------------------------------------------------------------------------------------------ */
@@ -536,17 +542,17 @@ export function createGlass(target, options = {}) {
     if (graph.rimMix) {
       const ambient = Math.min(1, Math.max(0, p.specularAmbient));
       const opacity = Math.min(1, Math.max(0, p.rimOpacity));
-      graph.rimMix.setAttribute('k2', (1 - ambient) * opacity);
-      graph.rimMix.setAttribute('k3', ambient * opacity);
+      setFilterAttribute(graph.rimMix, 'k2', (1 - ambient) * opacity);
+      setFilterAttribute(graph.rimMix, 'k3', ambient * opacity);
     }
     const { scale: k, kx, ky } = bendScale(p.refraction, W, H);
     const scales = graph.displace.length === 3 ? [k, k * (1 + p.chroma / 2), k * (1 + p.chroma)] : [k];
-    graph.displace.forEach((n, i) => n.setAttribute('scale', scales[i]));
+    graph.displace.forEach((n, i) => setFilterAttribute(n, 'scale', scales[i]));
     if (graph.aspect) {
-      graph.aspect.setAttribute('values', `${kx} 0 0 0 ${(1 - kx) / 2}  0 ${ky} 0 0 ${(1 - ky) / 2}  0 0 1 0 0  0 0 0 1 0`);
+      setFilterAttribute(graph.aspect, 'values', `${kx} 0 0 0 ${(1 - kx) / 2}  0 ${ky} 0 0 ${(1 - ky) / 2}  0 0 1 0 0  0 0 0 1 0`);
     }
     if (graph.blur) {
-      graph.blur.setAttribute('stdDeviation', `${p.blur / W} ${p.blur / H}`);
+      setFilterAttribute(graph.blur, 'stdDeviation', `${p.blur / W} ${p.blur / H}`);
       const pad = Math.ceil(p.refraction * (1 + p.chroma) + 3 * p.blur);
       setRect(graph.blur, (x - pad) / W, (y - pad) / H, (w + 2 * pad) / W, (h + 2 * pad) / H);
     }
