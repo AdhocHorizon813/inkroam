@@ -5,7 +5,7 @@ import katex from 'katex'
 import { splitPrivateNote } from './private-note-metadata'
 import 'katex/dist/katex.min.css'
 
-export function renderPrivateMarkdown(source: string) {
+export function renderPrivateMarkdown(source: string, baseURL: string) {
   const markdown = new Marked({ gfm: true, async: false })
   const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
   markdown.use({
@@ -15,7 +15,7 @@ export function renderPrivateMarkdown(source: string) {
       image: token => `<span class="private-attachment">[附件：${escape(token.text || '图片')}，未自动加载]</span>`,
       link(token) {
         const label = this.parser.parseInline(token.tokens)
-        return `<a href="${escape(token.href)}" rel="noreferrer noopener" target="_blank">${label}</a>`
+        return `<a href="${escape(token.href)}" rel="noreferrer noopener">${label}</a>`
       },
     },
     extensions: [
@@ -52,6 +52,19 @@ export function renderPrivateMarkdown(source: string) {
   })
   const template = document.createElement('template')
   template.innerHTML = html
+  const base = baseURL.replace(/\/$/, '')
+  for (const link of template.content.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+    const href = link.getAttribute('href')!
+    if (href.startsWith('#')) continue
+    let url: URL
+    try { url = new URL(href, window.location.href) } catch { continue }
+    if (url.origin === window.location.origin && /^\/(?![\\/])/.test(href) &&
+        url.pathname !== base && !url.pathname.startsWith(base + '/')) {
+      url.pathname = base + url.pathname
+      link.href = url.href
+    }
+    if (url.origin !== window.location.origin) link.target = '_blank'
+  }
   const toc = Array.from(template.content.querySelectorAll('h2, h3')).map((heading, index) => {
     // Opaque local anchors: never put confidential heading text in a URL.
     heading.id = `private-section-${index + 1}`

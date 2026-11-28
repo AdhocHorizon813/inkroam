@@ -5,6 +5,7 @@ import type { PrivateNoteMetadata } from '~/utils/private-note-metadata'
 const props = defineProps<{ documentId: string }>()
 const session = useUnlockedNotes()
 const route = useRoute()
+const router = useRouter()
 const emit = defineEmits<{
   metadata: [value: PrivateNoteMetadata | null]
   toc: [value: { id: string; text: string; depth: number }[]]
@@ -36,6 +37,21 @@ function clearView() {
 
 function lock() { session.lock(props.documentId); clearView() }
 
+function followNoteLink(event: MouseEvent) {
+  if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+  const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null
+  if (!link || link.target || link.origin !== location.origin || link.getAttribute('href')?.startsWith('#')) return
+  const base = baseURL.replace(/\/$/, '')
+  if (link.pathname !== base && !link.pathname.startsWith(base + '/')) return
+  const path = link.pathname.slice(base.length) || '/'
+  if (path.startsWith('//')) return
+  const destination = router.resolve(path + link.search + link.hash)
+  // Assets and unknown paths belong to the browser. The site's catch-all only renders a 404.
+  if (!destination.matched.length || destination.matched.some(record => record.path.includes('(.*)'))) return
+  event.preventDefault()
+  void router.push(destination.fullPath)
+}
+
 async function showSessionNote() {
   const note = session.documents.value[props.documentId]
   if (!note) { clearView(); return }
@@ -46,7 +62,7 @@ async function showSessionNote() {
   try {
     const { renderPrivateMarkdown } = await import('~/utils/render-private-markdown')
     if (generation !== current) return
-    const rendered = renderPrivateMarkdown(note.source)
+    const rendered = renderPrivateMarkdown(note.source, baseURL)
     html.value = rendered.html
     emit('metadata', rendered.metadata)
     emit('toc', rendered.toc)
@@ -116,7 +132,7 @@ watch(() => props.documentId, () => { clearView(); void showSessionNote() })
     <template v-else>
       <div class="encrypted-note__status"><span>已在本机解锁</span><button class="text-link" type="button" @click="lock">锁定文档</button></div>
       <!-- Sanitized Markdown only. No Vue compilation, remote images or custom embeds. -->
-      <div ref="bodyElement" class="encrypted-note__body" v-html="html" />
+      <div ref="bodyElement" class="encrypted-note__body" @click="followNoteLink" v-html="html" />
     </template>
   </section>
 </template>
