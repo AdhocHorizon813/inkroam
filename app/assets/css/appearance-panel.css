@@ -32,6 +32,17 @@
   color: var(--ink);
   box-shadow: 0 12px 32px rgba(0, 0, 0, .14);
   cursor: pointer;
+  transition: color 200ms var(--ease-fluid);
+}
+:root[data-visual='modern'] .appearance-trigger {
+  transition: all 420ms var(--ease-fluid), color 200ms var(--ease-fluid);
+}
+@media (hover: hover) and (pointer: fine) {
+  .appearance-trigger:hover,
+  :root[data-visual='modern'] .appearance-trigger:hover,
+  :root[data-visual='modern'][data-color-mode='light'] .appearance-trigger:hover {
+    color: var(--accent);
+  }
 }
 .appearance-panel {
   position: absolute;
@@ -169,11 +180,11 @@
 
 :root[data-visual='modern'][data-material='liquid'] .appearance-trigger {
   overflow: hidden;
-  transition: transform 520ms var(--ease-settle);
+  transition: transform 520ms var(--ease-settle), color 200ms var(--ease-fluid);
 }
 :root[data-visual='modern'][data-material='liquid'] .appearance-trigger:active {
   transform: scale(.965);
-  transition-duration: 110ms;
+  transition-duration: 110ms, 200ms;
 }
 :root[data-visual='modern'][data-material='liquid'] .appearance-trigger > span { position: relative; z-index: 1; }
 
