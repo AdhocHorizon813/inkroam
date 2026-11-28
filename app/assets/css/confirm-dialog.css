@@ -1,0 +1,70 @@
+/* 「默认设置」的二次确认弹窗：借用面板的材质、圆角与阴影，靠 <dialog> 的 top layer 盖住任何叠层。
+   面板在打开时是 inert 之外的元素，弹窗由面板里的按钮唤起，两者可以同时在场。 */
+.appearance-confirm {
+  width: min(380px, calc(100vw - 40px));
+  max-height: calc(100dvh - 40px);
+  box-sizing: border-box;
+  padding: 28px 26px 22px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: center;
+  --confirm-resting-shadow: 0 24px 70px rgb(0 0 0 / .2);
+  box-shadow: none;
+  opacity: 0;
+  transform: translateY(6px) scale(.97);
+  transition: opacity 160ms var(--ease-exit), transform 160ms var(--ease-exit), box-shadow 160ms var(--ease-exit),
+    overlay 160ms allow-discrete, display 160ms allow-discrete;
+}
+.appearance-confirm[open] {
+  box-shadow: var(--confirm-resting-shadow);
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition-duration: 420ms;
+  transition-timing-function: var(--ease-settle);
+}
+.appearance-confirm::backdrop {
+  background: rgb(8 12 20 / .22);
+  opacity: 0;
+  transition: opacity 160ms var(--ease-exit), overlay 160ms allow-discrete, display 160ms allow-discrete;
+}
+.appearance-confirm[open]::backdrop { opacity: 1; transition-duration: 420ms; transition-timing-function: var(--ease-settle); }
+@starting-style {
+  .appearance-confirm[open] { opacity: 0; transform: translateY(8px) scale(.96); box-shadow: none; }
+  .appearance-confirm[open]::backdrop { opacity: 0; }
+}
+:root[data-visual='modern'] .appearance-confirm {
+  border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  --confirm-resting-shadow: inset 0 1px 0 rgb(255 255 255 / .14), 0 24px 70px rgb(0 0 0 / .24);
+  backdrop-filter: blur(28px) saturate(135%);
+  -webkit-backdrop-filter: blur(28px) saturate(135%);
+}
+:root[data-visual='modern'][data-color-mode='light'] .appearance-confirm {
+  /* Let blurred background colours remain visible instead of washing them out. */
+  background: rgb(250 250 248 / .68);
+  border-color: rgb(255 255 255 / .65);
+  --confirm-resting-shadow: inset 0 1px 0 rgb(255 255 255 / .8), 0 22px 64px rgb(24 32 44 / .18);
+}
+.appearance-confirm__symbol { display: grid; place-items: center; width: 46px; height: 46px; margin: 0 auto 18px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.appearance-confirm__symbol svg { width: 24px; height: 24px; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; }
+.appearance-confirm__knobs { stroke: var(--ink); stroke-width: 3; }
+.appearance-confirm h2 { margin: 0 0 12px; font: 650 19px/1.4 var(--sans); letter-spacing: -.025em; }
+.appearance-confirm p { margin: 0; color: var(--ink); font: 13px/1.75 var(--sans); text-wrap: pretty; }
+.appearance-confirm p.appearance-confirm__detail { margin-top: 10px; color: var(--muted); font-size: 12px; }
+.appearance-confirm__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
+.appearance-confirm__actions button { min-height: 42px; padding: 10px 12px; border-radius: 13px; font: 550 13px/1.4 var(--sans); cursor: pointer; transition: background-color 180ms var(--ease-fluid), transform 160ms var(--ease-settle); }
+.appearance-confirm__actions button:active { transform: scale(.975); }
+.appearance-confirm__neutral { border: 1px solid var(--line); background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
+.appearance-confirm__neutral:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.appearance-confirm__accent { border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 22%, var(--paper)); color: var(--ink); }
+.appearance-confirm__accent:hover { background: color-mix(in srgb, var(--accent) 32%, var(--paper)); }
+.appearance-confirm__actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 380px) { .appearance-confirm { padding: 24px 20px 20px; } .appearance-confirm__actions { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) {
+  .appearance-confirm, .appearance-confirm[open], .appearance-confirm::backdrop, .appearance-confirm[open]::backdrop, .appearance-confirm__actions button { transition-duration: .01ms; transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-visual='modern'] .appearance-confirm { background: var(--paper); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}

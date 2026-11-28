@@ -1,10 +1,11 @@
+import { readSiteStyles } from './lib/site-styles.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import postcss from 'postcss'
 import { source, template, compilePanel, createPanelContext } from './lib/appearance-panel-vm.mjs'
 
-const css = readFileSync('app/assets/css/main.css', 'utf8')
+const css = readSiteStyles()
 
 /* 背景氛围的顺序与名称是产品决定，不是实现细节：改动顺序或改名都必须先改这里。 */
 const ORDER = ['flat', 'theme', 'aurora', 'art', 'dusk', 'custom']
