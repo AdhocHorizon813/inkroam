@@ -77,9 +77,26 @@ function setup({ engineName = 'blink', delayed = false, decode = true } = {}) {
     loads: () => loads, resolve: () => resolve?.(engine), change: () => win.dispatchEvent(new Event('changed')) }
 }
 
+const empty = setup()
+empty.dock.remove()
+empty.registered.clear()
+empty.enabled(true); await settle()
+assert.equal(empty.loads(), 0, 'No eligible surface keeps the optical engine unloaded')
+empty.registered.add(empty.panel); empty.change(); await settle()
+assert.equal(empty.calls.length, 1)
+empty.registered.clear(); empty.change(); await settle()
+assert(empty.calls[0].destroyed, 'Removing the final target releases the last controller')
+empty.stop()
+
 const run = setup()
 assert.equal(run.loads(), 0, 'default off does not import the engine')
 run.enabled(true); await settle()
+const liveDocument = run.panel.ownerDocument
+const queryAll = liveDocument.querySelectorAll.bind(liveDocument)
+let scans = 0
+liveDocument.querySelectorAll = selector => { scans++; return queryAll(selector) }
+run.change(); run.change(); await settle()
+assert.equal(scans, 1, 'Overlapping warm notifications reconcile the latest targets once')
 assert.equal(run.calls.length, 2)
 assert.equal(run.dock.children.length, 0, 'dock has no injected negative-z layer or extra flex item')
 assert.equal(run.calls[0].target, run.dock, 'dock optics filter backdrop on host, never label content')

@@ -127,14 +127,18 @@ export function mountExperimentalGlass() {
 
   async function sync() {
     const current = ++sequence
-    if (disposed || !wantsGlass() || candidates().length === 0) { detachAll(); return }
+    if (disposed || !wantsGlass()) { detachAll(); return }
     try {
-      modulePromise ??= import('../vendor/liquidglass/liquid-glass.js')
+      if (!modulePromise) {
+        if (!candidates().length) return
+        modulePromise = import('../vendor/liquidglass/liquid-glass.js')
+      }
       const engine = await modulePromise
       if (disposed || current !== sequence || !wantsGlass()) return
       // Do not replace existing materials with the library's fallback blur.
       if (engine.engine !== 'blink') { detachAll(); return }
       const targets = new Set(candidates())
+      if (!targets.size) { detachAll(); return }
       for (const [host, surface] of surfaces) {
         if (targets.has(host)) {
           if (host.hasAttribute('data-liquid-glass-dormant')) surface.setDormant?.(false)
