@@ -18,12 +18,6 @@ const center = reactive({ x: 0, y: 0 })
 const size = ref(320)
 const available = ref<boolean[]>([])
 const actions = computed(() => normalizeRadialSlots(shortcut.value.slots).map(id => RADIAL_ACTIONS.find(action => action.id === id)!))
-const selectors: Record<string, string> = {
-  appearance: '.appearance-trigger', music: '.music-trigger',
-  find: '[aria-controls="article-find-panel"]', sidebar: '.article-sidebar-toggle, .article-toc__toggle',
-  export: '[aria-controls="article-export-panel"]',
-  copy: '.article-tools__actions .copy-article-link--inline button, .article-tools__actions button.copy-article-link--inline',
-}
 const pressed = new Set<string>()
 let origin: HTMLElement | null = null
 let pointer = { x: 0, y: 0 }
@@ -31,7 +25,7 @@ let releaseCode = ''
 let stopSave: (() => void) | undefined
 function editable(target: EventTarget | null) { return target instanceof Element && !!target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"]') }
 function targetFor(id: string) {
-  return Array.from(document.querySelectorAll<HTMLButtonElement>(selectors[id] || '[data-radial-action="none"]')).find(el => !el.disabled && !el.closest('[inert]') && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden')
+  return Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-radial-action="${id}"]`)).find(el => !el.disabled && !el.closest('[inert]') && el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden')
 }
 function dismiss(restore = true) {
   open.value = false; selected.value = -1; releaseCode = ''; pressed.clear()
@@ -59,7 +53,7 @@ function execute(index = selected.value) {
   else if (action.id === 'top') scrollPageTo(0, matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth')
   else {
     target?.click()
-    if (action.id === 'sidebar' && target?.classList.contains('article-toc__toggle')) {
+    if (action.id === 'sidebar' && target?.getAttribute('aria-controls') === 'article-toc-links') {
       target.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
       target.focus({ preventScroll: true })
     }

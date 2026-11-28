@@ -94,7 +94,8 @@ onBeforeUnmount(() => {
   morphSequence++
   morphAnimations.forEach(animation => animation.cancel())
   audio.value?.pause()
-  audio.value?.removeAttribute('src')
+  clearResource()
+  for (const probe of probing.values()) probe.abort()
   labelObserver?.disconnect()
   bodyObserver?.disconnect()
   heightAnimation?.cancel()
@@ -102,7 +103,6 @@ onBeforeUnmount(() => {
   coverRequest++
   if (coverSrc.value) URL.revokeObjectURL(coverSrc.value)
   restoreModal?.()
-  if (objectUrl) URL.revokeObjectURL(objectUrl)
   document.removeEventListener('pointerdown', outside)
   document.removeEventListener('keydown', keydown)
   document.removeEventListener('visibilitychange', scheduleProgress)
@@ -222,28 +222,43 @@ async function refreshCover() {
 // gets a src on a real play gesture (preload=none), so nothing knew the length before
 // playing. A throwaway metadata-only probe reads it from the stored blob: no network,
 // and the playable element still never loads before the user presses play.
-const probing = new Set<string>()
+const probing = new Map<string, AbortController>()
 async function probeDuration(track: Track) {
   if (!track.local || track.duration || probing.has(track.id)) return
-  probing.add(track.id)
+  const request = new AbortController()
+  probing.set(track.id, request)
   let url = ''
+  let probe: HTMLAudioElement | undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
     const file = await localMusicFile(track.id)
-    if (!file || disposed) return
+    if (!file || request.signal.aborted) return
     url = URL.createObjectURL(file)
-    const probe = new Audio()
+    probe = new Audio()
     probe.preload = 'metadata'
-    const duration = await new Promise<number>((resolve, reject) => {
-      probe.addEventListener('loadedmetadata', () => resolve(probe.duration), { once: true })
-      probe.addEventListener('error', () => reject(new Error('metadata')), { once: true })
-      probe.src = url
+    const media = probe
+    const duration = await new Promise<number>(resolve => {
+      media.onloadedmetadata = () => resolve(media.duration)
+      media.onerror = () => resolve(0)
+      request.signal.addEventListener('abort', () => resolve(0), { once: true })
+      timer = setTimeout(() => resolve(0), 20000)
+      media.src = url
     })
-    if (disposed || !Number.isFinite(duration) || duration <= 0) return
+    if (request.signal.aborted || !Number.isFinite(duration) || duration <= 0) return
     const target = tracks.value.find(item => item.id === track.id)
     if (target) target.duration = duration
     if (current.value.id === track.id) { actualDuration.value = duration; syncTime() }
   } catch { /* An undecodable file keeps the percentage fallback. */ }
-  finally { probing.delete(track.id); if (url) URL.revokeObjectURL(url) }
+  finally {
+    clearTimeout(timer)
+    if (probe) {
+      probe.onloadedmetadata = probe.onerror = null
+      probe.removeAttribute('src')
+      probe.load()
+    }
+    if (url) URL.revokeObjectURL(url)
+    probing.delete(track.id)
+  }
 }
 // Embedded tags (title/artist/album/length) are read once per imported file. The
 // parser is loaded on demand inside readMusicTags, so the page pays nothing until an
@@ -522,6 +537,7 @@ async function removeTrack(id: string) {
   importing.value = true
   try {
     if (track.local) await deleteLocalMusic(id)
+    probing.get(id)?.abort()
     if (disposed) return
     const active = current.value.id
     if (id === active) { pause(); clearResource(); elapsed.value = 0; pendingSeek.value = null; actualDuration.value = 0; loaded.value = false }
@@ -727,7 +743,7 @@ function onPlaying() {
     </section>
     <span ref="labelMeasure" class="music-measure" aria-hidden="true">{{ dockTitle }}</span>
     <div class="music-pill" :class="{ 'music-surface': hasPlayed, 'is-unplayed': !hasPlayed }" :inert="expanded" :aria-hidden="expanded" :style="{ width: `${labelWidth + 64 + (hasPlayed ? 40 : 0)}px`, '--music-label-width': `${labelWidth}px` }">
-      <button ref="trigger" class="music-trigger" :class="{ 'music-surface': !hasPlayed }" type="button" :aria-expanded="open" aria-controls="music-panel" @click="open ? close() : open = true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2" /><ellipse cx="6" cy="18" rx="3" ry="2" /><ellipse cx="17" cy="16" rx="3" ry="2" /></svg><span class="music-name"><Transition name="music-name"><span :key="dockTitle">{{ dockTitle }}</span></Transition></span></button>
+      <button ref="trigger" class="music-trigger" data-radial-action="music" :class="{ 'music-surface': !hasPlayed }" type="button" :aria-expanded="open" aria-controls="music-panel" @click="open ? close() : open = true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2" /><ellipse cx="6" cy="18" rx="3" ry="2" /><ellipse cx="17" cy="16" rx="3" ry="2" /></svg><span class="music-name"><Transition name="music-name"><span :key="dockTitle">{{ dockTitle }}</span></Transition></span></button>
       <Transition name="music-control"><button v-if="hasPlayed" class="music-quick-play" type="button" :disabled="!tracks.length" :aria-busy="loading" :aria-label="loading ? '取消加载音乐' : showPause ? '暂停音乐' : '播放音乐'" @click="togglePlay"><Transition name="music-icon" mode="out-in"><svg :key="showPause ? 'pause' : 'play'" viewBox="0 0 24 24" aria-hidden="true"><path v-if="showPause" d="M8 6v12M16 6v12" /><path v-else d="m8 4 12 8-12 8Z" /></svg></Transition></button></Transition>
     </div>
   </div>

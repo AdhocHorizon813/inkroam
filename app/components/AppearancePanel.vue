@@ -568,7 +568,7 @@ function resetAppearance() {
 <template>
   <div class="appearance-dock">
     <button
-      class="appearance-trigger"
+      class="appearance-trigger" data-radial-action="appearance"
       type="button"
       :aria-expanded="isOpen"
       aria-controls="appearance-panel"

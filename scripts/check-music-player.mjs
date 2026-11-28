@@ -40,12 +40,15 @@ const blobUrls = {
   revokeObjectURL(url) { objectUrls.delete(url) },
 }
 const probes = []
+let deliverMetadata = true
 class MetadataAudio extends window.EventTarget {
   duration = 93
   set src(url) {
     probes.push({ preload: this.preload, file: objectUrls.get(url) })
-    queueMicrotask(() => this.dispatchEvent(new window.Event('loadedmetadata')))
+    if (deliverMetadata) queueMicrotask(() => this.onloadedmetadata?.())
   }
+  removeAttribute() {}
+  load() {}
 }
 const tags = { title: 'Imported title', artist: 'Local artist', album: 'Fixture album', cover: new window.Blob(['image']) }
 const modules = new Map([
@@ -73,7 +76,7 @@ vm.runInNewContext(compiled, {
   onMounted: vue.onMounted, onBeforeUnmount: vue.onBeforeUnmount,
   useRuntimeConfig: () => ({ app: { baseURL: '/inkroam/' } }),
   window, document, localStorage, ResizeObserver: window.ResizeObserver,
-  getComputedStyle: window.getComputedStyle.bind(window), URL: blobUrls, Audio: MetadataAudio, File: window.File,
+  getComputedStyle: window.getComputedStyle.bind(window), URL: blobUrls, Audio: MetadataAudio, File: window.File, AbortController, setTimeout, clearTimeout,
   HTMLElement: window.HTMLElement, Node: window.Node,
   requestAnimationFrame: window.requestAnimationFrame.bind(window),
   cancelAnimationFrame: window.cancelAnimationFrame.bind(window),
@@ -283,6 +286,7 @@ async function checkPlayback() {
 }
 
 async function checkReload() {
+  deliverMetadata = false
   // A new instance restores imported tags from storage before the local track plays.
   const reloaded = vue.createApp(exports.default)
   reloaded.component('GlassRange', passThrough)
@@ -297,6 +301,8 @@ async function checkReload() {
   } finally {
     reloaded.unmount()
   }
+  await settle()
+  assert.equal(objectUrls.size, 0, 'Unmount releases cover and stalled metadata URLs')
 }
 
 try {

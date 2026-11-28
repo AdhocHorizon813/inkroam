@@ -147,3 +147,7 @@ PDF 附件的呈现偏好也走共享状态：`useState('pdf-fallback', () => 'c
 **调整移动端两个入口的底距。** 在 main.css 的 `max-width: 767.98px` 分支修改 `--dock-bottom-inset`。音乐与显示入口共用它；显示面板的底边再加 56px 给按钮留位。全屏音乐的内容内边距由 MusicPlayer 自己控制。
 
 **调整确认窗。** 在 main.css 找 `.appearance-confirm__actions`。宽于 380px 时两列等宽，380px 及以下排成一列。`__accent` 与 `__neutral` 只指定视觉强调；默认设置弹窗强调“采用”，批量解密与导出明文强调“取消”。二次验钥的输入、提交与取消逻辑由 ArticleTools 负责。
+
+### 媒体资源与轮盘入口
+
+MusicPlayer 持有活动音频地址与各本地曲目的时长探测，移除曲目和销毁组件时应一起取消探测。PdfCanvasReader 分开保存正在读取的页文本与已完成的文本。快捷轮盘从原生操作按钮的 data-radial-action 取执行目标，新入口应在实际可点击的控件上标记。
