@@ -301,6 +301,7 @@ onUnmounted(() => {
 })
 
 let vtSeq = 0
+let awaitingSnapshot = false
 
 // Manual light/dark/auto selection must update managed controls before applying
 // and persisting appearance. Keep the normal batched flush so stored preferences
@@ -320,22 +321,21 @@ function discreteAppearance() {
 }
 let previousAppearance: ReturnType<typeof discreteAppearance> | undefined
 
-watch([state, resolvedMode], () => {
+watch([state, resolvedMode, customBackgroundPreview], () => {
   // Vue's deep watcher shares the reactive object between old and new values.
   const current = discreteAppearance()
   const discreteChanged = previousAppearance?.some((value, i) => value !== current[i])
   previousAppearance = current
-  const apply = () => {
-    sharedLatestPostCount.value = state.latestPostCount
-    sharedLatestNoteCount.value = state.latestNoteCount
-    sharedPdfFallback.value = state.pdfFallback
-    applyAppearance()
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-    } catch {
-      status.value = '浏览器未能保存这次设置。'
-    }
+  sharedLatestPostCount.value = state.latestPostCount
+  sharedLatestNoteCount.value = state.latestNoteCount
+  sharedPdfFallback.value = state.pdfFallback
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    status.value = '浏览器未能保存这次设置。'
   }
+  // The pending callback reads the latest state after the old pixels are captured.
+  if (awaitingSnapshot) return
   if (
     discreteChanged &&
     typeof document !== 'undefined' &&
@@ -348,8 +348,11 @@ watch([state, resolvedMode], () => {
     const root = document.documentElement
     const seq = ++vtSeq
     root.classList.add('no-transition')
+    awaitingSnapshot = true
     const transition = document.startViewTransition(() => {
-      if (seq === vtSeq) apply()
+      if (seq !== vtSeq) return
+      awaitingSnapshot = false
+      applyAppearance()
     })
     const release = () => {
       // 仅当仍是最近一次切换才处理，防止快速连点时被上一次的收尾干扰。
@@ -362,7 +365,7 @@ watch([state, resolvedMode], () => {
     }
     transition.finished.then(release, release)
   } else {
-    apply()
+    applyAppearance()
   }
 }, { deep: true })
 
@@ -374,6 +377,7 @@ watch(sharedPdfFallback, (value) => {
 
 // The panel remains mounted while closed; keep its native scroll position on reopen.
 
+let appliedCustomBackground: string | undefined
 function applyAppearance() {
   if (!import.meta.client) return
   const root = document.documentElement
@@ -426,11 +430,11 @@ function applyAppearance() {
      页面上二十张图不用重画一遍（见 MermaidDiagram.vue 里 svg 的 width）。 */
   root.style.setProperty('--diagram-scale', String(state.diagramScale / 100))
 
-  if (resolvedBackground.value === 'custom') {
-    const custom = localStorage.getItem(CUSTOM_BG_KEY)
-    if (custom) root.style.setProperty('--custom-background', `url(${JSON.stringify(custom)})`)
-  } else {
-    root.style.removeProperty('--custom-background')
+  const image = resolvedBackground.value === 'custom' ? customBackgroundPreview.value : ''
+  if (image !== appliedCustomBackground) {
+    if (image) root.style.setProperty('--custom-background', `url(${JSON.stringify(image)})`)
+    else root.style.removeProperty('--custom-background')
+    appliedCustomBackground = image
   }
 }
 
@@ -505,7 +509,6 @@ async function handleBackgroundUpload(event: Event) {
     customBackgroundName.value = file.name
     state.background = 'custom'
     state.backgroundPicked = true
-    applyAppearance()
     status.value = '自定义背景已应用，并保存在当前浏览器。'
   } catch (error) {
     status.value = error instanceof Error ? error.message : '背景图片处理失败。'
