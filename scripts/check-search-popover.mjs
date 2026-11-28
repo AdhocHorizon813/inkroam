@@ -1,3 +1,4 @@
+import { readSiteStyles } from './lib/site-styles.mjs'
 import { Window } from 'happy-dom'
 import { vmSource } from './lib/vm-source.mjs'
 import assert from 'node:assert/strict'
@@ -58,7 +59,7 @@ finishClose()
 assert.equal(hidden, 1, 'Finish closing animation before leaving top layer')
 cleanup()
 assert.equal(Object.keys(listeners).length, 0)
-const css = readFileSync('app/assets/css/main.css', 'utf8')
+const css = readSiteStyles()
 assert.match(css, /html \{[^}]*overflow-y: scroll/)
 assert.match(css, /scrollbar-color: var\(--scrollbar-thumb\) transparent/)
 assert.doesNotMatch(css, /html::-webkit-scrollbar/, 'Viewport uses the shared TOC scrollbar style')

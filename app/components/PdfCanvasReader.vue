@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { vExperimentalGlass } from '~/utils/glass-surfaces'
-import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist'
+import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist'
 import { findPdfMatches, type PdfMatch } from '~/utils/pdf-search'
 
 const props = defineProps<{ src: string; title?: string }>()
@@ -30,7 +30,20 @@ let searchToken = 0
 let textLayer: import('pdfjs-dist').TextLayer | null = null
 let layerPage = 0
 let revealMatch = false
-const textCache = new Map<number, Awaited<ReturnType<import('pdfjs-dist').PDFPageProxy['getTextContent']>>>()
+type PageText = Awaited<ReturnType<PDFPageProxy['getTextContent']>>
+const textCache = new Map<number, PageText>()
+const pendingText = new Map<number, Promise<PageText>>()
+
+async function readPageText(number: number, page?: PDFPageProxy) {
+  const cached = textCache.get(number)
+  if (cached) return cached
+  const pending = pendingText.get(number)
+  if (pending) return pending
+  const load = page ? page.getTextContent() : pdf!.getPage(number).then(p => p.getTextContent())
+  pendingText.set(number, load)
+  try { return await load }
+  finally { if (pendingText.get(number) === load) pendingText.delete(number) }
+}
 
 async function toggleSearch() {
   searchOpen.value = !searchOpen.value
@@ -48,6 +61,7 @@ async function toggleSearch() {
     textLayer = null
     textHost.value?.replaceChildren()
     textCache.clear()
+    pendingText.clear()
     searchButton.value?.focus()
   }
 }
@@ -66,8 +80,7 @@ async function searchDocument() {
   for (let number = 1; number <= pdf.numPages; number++) {
     if (disposed || current !== searchToken) return
     try {
-      let content = textCache.get(number)
-      if (!content) content = await (await pdf.getPage(number)).getTextContent()
+      const content = await readPageText(number)
       if (disposed || current !== searchToken) return
       textCache.set(number, content)
       const items = content.items.filter((item): item is import('pdfjs-dist/types/src/display/api').TextItem => 'str' in item)
@@ -219,7 +232,7 @@ async function renderPage() {
     task = null
     if (searchOpen.value && query.value.trim() && textHost.value) {
       try {
-        const content = textCache.get(pageNumber.value) || await page.getTextContent()
+        const content = await readPageText(pageNumber.value, page)
         const { TextLayer } = await import('pdfjs-dist')
         if (current !== token || disposed || !searchOpen.value) return
         const cssViewport = page.getViewport({ scale: fit * zoom.value, rotation: angle })
@@ -335,6 +348,7 @@ onBeforeUnmount(() => {
   searchToken++
   textLayer?.cancel()
   textCache.clear()
+  pendingText.clear()
   token++
   observer?.disconnect()
   task?.cancel()

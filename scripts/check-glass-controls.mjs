@@ -322,7 +322,6 @@ assert.match(controlsSource, /opticalDock!\.appendChild\(movingLens\)/, 'Moving 
 assert.match(controlsSource, /engine\.createGlass\(opticalTarget,/, 'Indicator refraction uses escaped lens')
 assert.match(controlsSource, /host\.style\.setProperty\('anchor-name', anchor\)/, 'Moving optics follows real host via compositor CSS anchor')
 assert.match(controlsSource, /movingLens\?\.remove\(\)/, 'Destroy removes the escaped optical lens')
-assert.match(controlsSource, /alignMovingOptics\(\)/, 'Escaped optics clips to scroll and panel viewport')
 
 assert.match(controlsSource, /const panelMotions = new WeakMap/, 'One scheduler per appearance panel')
 assert.match(controlsSource, /state\.owners\.get\(owner\)/, 'Scheduler updates only moving owners')
@@ -409,6 +408,29 @@ for (const anchored of [false, true]) {
   rect = { ...rect, left: 355, right: 455 }
   expanded.cleanup.refreshLayout()
   assert.equal(optic.style.clipPath, 'inset(0px 6px 0px 0px round 10px)', 'Actual viewport still clips the outer right edge')
+  // During a reveal the panel and scroll viewport can clip different edges.
+  // Both projections must follow the current geometry on each alignment.
+  expanded.page.dataset.glassPresence = 'opening'
+  let panelReads = 0
+  let panelTop = 160
+  expanded.panel.getBoundingClientRect = () => {
+    panelReads++
+    return { left: 100, top: panelTop, right: 450, bottom: panelTop + 600, width: 350, height: 600 }
+  }
+  function scrollFrame() {
+    expanded.event(expanded.scroller, 'scroll')
+    expanded.flushFrame()
+  }
+  scrollFrame()
+  assert.equal(optic.style.clipPath, 'inset(10px 6px 0px 0px round 10px)')
+  panelTop = 165
+  scrollFrame()
+  assert.equal(optic.style.clipPath, 'inset(15px 6px 0px 0px round 10px)')
+  assert.equal(panelReads, 2, 'Track and indicator share one panel read per alignment')
+  expanded.page.dataset.glassPresence = 'closed'
+  scrollFrame()
+  assert.equal(panelReads, 2, 'Closed projections skip geometry reads')
+  assert.equal(optic.style.visibility, 'hidden')
   expanded.cleanup.destroy()
 }
 

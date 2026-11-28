@@ -4,7 +4,7 @@
 
 | 位置 | 谁在画 | 宽度 | 颜色 | 显隐 |
 | --- | --- | --- | --- | --- |
-| 页面（桌面） | **自绘**（`PageScrollbar.vue` + `main.css`；原生拇指涂透明，只留拖动/翻页/滚轮） | **10px** | `--scrollbar-thumb` | 内容不够长时淡出（`data-scrollable="false"`） |
+| 页面（桌面） | **自绘**（`PageScrollbar.vue` + `page-scroll.css`；原生拇指涂透明，只留拖动/翻页/滚轮） | **10px** | `--scrollbar-thumb` | 内容不够长时淡出（`data-scrollable="false"`） |
 | 页面（手机） | 系统覆盖式滚动条 | 不占位 | 系统 | 系统自动隐藏，我们不管 |
 | 文章目录 | 浏览器，`ArticleToc.vue` 里那个 `overflow-y: auto` 的 `<ol>`，走全局 7px 规则 | 7px | `--scrollbar-thumb` | 原生行为 |
 | 浮层内部（外观面板、下拉、日历） | 浏览器，全局 `*::-webkit-scrollbar` | 7px | `--scrollbar-thumb` | 原生行为 |
@@ -73,7 +73,7 @@
 - **几何**：拇指高 = `min(轨道高, max(40px, 轨道高² / scrollHeight))`（`MIN_THUMB_SIZE = 40`，再短就抓不住），位移按 `scrollTop / (scrollHeight - clientHeight)` 等比。不能滚时给满高——反正它已经淡到 0，但下一次「变长再淡回来」时尺寸得是对的。
 - **手机**：覆盖式滚动条不占位，容器本身也不滚，直接摘掉属性，自绘那条 `display: none`（`@supports` 不匹配同理，见「平台差异」）。
 - **首帧是唯一例外**：`data-scrollable-settled='false'` 把延迟关掉，短页面不该先画出一条滑条再等 300ms 收起来；两帧后（这次绘制已经过去）翻成 `'true'`，之后每次变更才带延迟。属性仍由 JS 在挂载后写，所以短页面可能先画出滑条再淡出。改 `overflow: auto` 能避免这一帧，但会带来真正的布局位移，不换。
-- `prefers-reduced-motion` 下自绘那条的过渡整个关掉（两个方向都要写，见 `main.css`）：这个场景要的是立刻到位。
+- `prefers-reduced-motion` 下自绘那条的过渡整个关掉（两个方向都要写，见 `page-scroll.css`）：这个场景要的是立刻到位。
 
 实测（headless Chrome，1500×900，深色主题；`tmp/probe-bar.mjs`，打在本机 dev server 上）：
 
@@ -127,7 +127,7 @@
 
 ## 契约与验收
 
-- `PAGE_SCROLL_QUERY`（`app/utils/page-scroll.ts`）＝ `main.css` 里那条媒体查询，逐字一致。
+- `PAGE_SCROLL_QUERY`（`app/utils/page-scroll.ts`）＝ `page-scroll.css` 里那条媒体查询，逐字一致。
 - `PAGE_SCROLLABLE_ATTRIBUTE` ＝ `'data-scrollable'`、`PAGE_SCROLLABLE_SETTLED_ATTRIBUTE` ＝ `'data-scrollable-settled'`、`PAGE_SCROLLBAR_SIZE_PROPERTY` / `PAGE_SCROLLBAR_OFFSET_PROPERTY` ＝ 两个几何变量：CSS、composable 与检查脚本共用同一批常量名。
 - 槽位宽度、按钮／角落的清理、自绘拇指的 CSS 契约（原生拇指透明、几何变量、`pointer-events: none`、两个方向的时长与延迟、首帧例外、减动效）：都由 `scripts/check-page-scroll.mjs` 钉住（源码级，不做像素断言）。
 - 像素级验收靠探针：`tmp/probe-bar.mjs`（自绘拇指状态、几何与真实淡出）、`tmp/probe-cut.mjs` + `tmp/fade-cut-fixture.html`（原生拇指为什么淡不出来）、`tmp/fade-fixture.html`（伪元素过渡机制判定）、`tmp/probe-adv-date.mjs`（浮层定位）。方法都是「dev server + CDP + 截图回灌 canvas 取像素」。

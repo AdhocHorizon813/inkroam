@@ -91,7 +91,7 @@ t' = (q - c) - (s'/s) * (q - c - t)
 | --- | --- |
 | `app/components/ImageLightbox.vue` | 灯箱本体：缩放状态机、指针/滚轮/键盘、焦点与滚动锁 |
 | `app/pages/posts/[slug].vue` | 事件委托、图片收集、键盘可聚焦增强、路由切换时重置 |
-| `app/assets/css/main.css` | `.image-lightbox*` 样式、光标状态、入场动画、reduced-motion |
+| `app/assets/css/image-lightbox.css` | `.image-lightbox*` 样式、光标状态、入场动画、reduced-motion |
 
 顺带记录一处相关修复：Markdown 图片是裸 `<img>`，没有宽高属性，`.article-content img` 必须显式声明 `display: block; max-width: 100%; height: auto;`，否则在部分主题下会被拉伸变形。
 

@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import type { EntrySummary } from '~/utils/entry-summary'
 import { courseForPath } from '~/utils/courses'
-const props = defineProps<{ id: string; title: string; eyebrow: string; posts: EntrySummary[]; moreTo: string; moreLabel: string; emptyText: string }>()
-const { displayEntry } = useUnlockedNotes()
-const visibleEntries = computed(() => props.posts.map(displayEntry))
+defineProps<{ id: string; title: string; eyebrow: string; posts: EntrySummary[]; moreTo: string; moreLabel: string; emptyText: string }>()
 const formatDate = (date: string) => date.replaceAll('-', '.')
 </script>
 
@@ -16,7 +14,7 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
       </div>
       <span class="issue-number">{{ posts.length }} 篇</span>
     </div>
-    <NuxtLink v-for="(post, index) in visibleEntries" :key="post.path" :to="post.path" class="story-row">
+    <NuxtLink v-for="(post, index) in posts" :key="post.path" :to="post.path" class="story-row">
       <span class="story-index">{{ String(index + 1).padStart(2, '0') }}</span>
       <div class="story-body">
         <div class="story-meta">

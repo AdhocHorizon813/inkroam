@@ -53,17 +53,7 @@
 
 导出警告窗的按钮统一使用共享 `appearance-confirm` 样式：正文工具的通用按钮和输入框规则限定在 `.article-tools` 内，避免 Vue scoped 属性随 Teleport 保留而污染弹窗。取消仍为主题色，继续导出/验证为中性样式。
 
-从下载目录等私密来源导入新笔记，建议使用 `--source`，全过程不把明文放进 Content 扫描目录：
-
-```powershell
-& D:/anaconda3/python.exe scripts/encrypt-note.py encrypt content/notes/<course>/<new-slug>.md --source 'C:/path/to/private-note.md'
-```
-
-目标公开路径必须尚不存在；原始字节备份、独立密钥和 AES-GCM 加密流程与普通导入一致。
-
-2026-11-18 已加入第一讲的数学基础补充笔记，公开路径为 `content/notes/reinforcement-learning/switchgeo-lora-01-mathematical-foundations.md`。下载文件的逐字节副本保存在忽略目录 `.private/encrypted-notes/imports/lora-mathematical-foundations-original.md`；可编辑版本保存在 `originals/`，新增标题、阅读元数据与第一讲回链，原正文保留。第一讲也增加补充阅读入口，并沿用原密钥重新加密。补充笔记使用独立密钥（`keys/` 下同路径 `.key`），两篇可以批量解锁。解锁后读取私密 `order` 排序，锁定状态不公开这项元数据。
-
-导出警告窗的按钮统一使用共享 `appearance-confirm` 样式：正文工具的通用按钮和输入框规则限定在 `.article-tools` 内，避免 Vue scoped 属性随 Teleport 保留而污染弹窗。取消仍为主题色，继续导出/验证为中性样式。
+私密正文中的站内页面链接会使用当前部署基址。普通点击沿用当前标签页的解锁会话，另开标签页有独立会话。
 
 本机可使用 `D:/anaconda3/python.exe`，需要 `cryptography`（本次为 43.0.0）。以下命令在仓库根目录运行；普通电脑可把解释器路径换成自己的 Python。
 

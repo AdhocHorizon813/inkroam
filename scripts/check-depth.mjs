@@ -1,3 +1,4 @@
+import { readSiteStyles } from './lib/site-styles.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import postcss from 'postcss'
@@ -57,7 +58,7 @@ if (optical) {
 assert(css.nodes.some(node => node.name === 'media' && node.params.includes('prefers-reduced-motion')))
 const panel = readFileSync('app/components/AppearancePanel.vue', 'utf8')
 assert.match(panel, /<fieldset class="setting-group">\s*<legend class="setting-label">层次感<\/legend>/)
-assert.match(readFileSync('nuxt.config.ts', 'utf8'), /main\.css', '~\/assets\/css\/depth\.css'/)
+assert.match(readFileSync('nuxt.config.ts', 'utf8'), /site\.css', '~\/assets\/css\/depth\.css'/)
 const glass = css.nodes.find(rule => rule.selector?.endsWith(' .site-header::after') && !rule.selector.includes("data-scrolled='true'"))
 assert(glass.nodes.some(d => d.prop === 'box-shadow' && d.value.includes('--depth-glass-light')), 'Glass adds a restrained diffuse surface cue')
 assert(glass.nodes.some(d => d.prop === 'pointer-events' && d.value === 'none'))
@@ -127,7 +128,10 @@ assert(baseTransition.value.includes('520ms'), 'Collapse fade settles gently: 52
 assert(baseTransition.value.includes('var(--depth-light-delay)') && fadeTransition.value.includes('var(--depth-light-delay)'), 'Both directions wait for desktop geometry before fading')
 const lightDelays = declarations.filter(d => d.prop === '--depth-light-delay')
 assert(lightDelays.some(d => d.value === '0ms'), 'No widening delay on mobile')
-assert(lightDelays.some(d => d.value === '440ms' && d.parent.parent.params === '(min-width: 768px)'), 'Desktop light waits for the 440ms width animation')
+assert(lightDelays.some(d => d.value === 'var(--nav-width-duration)' && d.parent.parent.params === '(min-width: 768px)'), 'Desktop light waits for the navbar width transition')
+const headerCss = postcss.parse(readSiteStyles())
+assert(headerCss.nodes.some(rule => rule.selector === ':root' && rule.nodes.some(d => d.prop === '--nav-width-duration' && d.value === '440ms')), 'The width transition lasts 440ms')
+assert(headerCss.nodes.some(rule => rule.selector === ":root[data-visual='modern'] .site-header" && rule.nodes.some(d => d.prop === 'transition' && d.value.includes('width var(--nav-width-duration)'))), 'The header consumes the same duration as the light')
 /* A/B test B（tmp/deepseek-dark-navbar-scrolled-final-ab.md）：只降 Scrolled 的外部环境光（下方那道光），
    本体受光/顶部高光/几何不变；静止态仍是基准值，所以 scrolled 必须严格低于静止态。 */
 const scrolledBand = declarations.find(d => d.prop === '--depth-glass-light' && d.parent.selector.includes("data-scrolled='true'") && d.parent.selector.includes("[data-color-mode='dark']"))

@@ -25,7 +25,7 @@ function mount(saved) {
   vm.runInContext(`${compiled}\nglobalThis.testState = state`, context)
   mounted.forEach(callback => callback())
   return { shared, state: context.testState, save: () => {
-    watchers.find(([target]) => target === context.testState)[1](context.testState, context.testState)
+    watchers.find(([target]) => Array.isArray(target) && target.includes(context.testState))[1]()
     return stored
   } }
 }

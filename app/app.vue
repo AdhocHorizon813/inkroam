@@ -22,24 +22,30 @@ function onBrandClick(event: MouseEvent) {
 const routeFrame = ref<HTMLElement | null>(null)
 const pageScroll = ref<HTMLElement | null>(null)
 usePageScrollable(pageScroll)
-let routeAnimations: Animation[] = []
 let stopScrollListener: (() => void) | undefined
 let stopNavigationGuard: (() => void) | undefined
 
-watch(() => route.path, async (_currentPath, previousPath) => {
+watch(() => route.path, async (_currentPath, previousPath, onCleanup) => {
   if (!import.meta.client || !previousPath) return
+  let cancelled = false
+  let pendingFrame = 0
+  let targets: HTMLElement[] = []
+  const animations: Animation[] = []
+  onCleanup(() => {
+    cancelled = true
+    cancelAnimationFrame(pendingFrame)
+    targets.forEach(target => target.removeAttribute('data-route-enter-pending'))
+    animations.forEach(animation => animation.cancel())
+  })
   await nextTick()
 
   const frame = routeFrame.value
-  if (!frame || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
-  routeAnimations.forEach(animation => animation.cancel())
-  routeAnimations = []
+  if (cancelled || !frame || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
   const surfaces = frame.querySelectorAll<HTMLElement>(
     '.hero, .latest-section, .manifesto, .standard-page, .article-page',
   )
-  const targets = Array.from(surfaces).flatMap(surface => {
+  targets = Array.from(surfaces).flatMap(surface => {
     // The search card already inherits the same preview-tint/atomic handoff
     // as other .standard-page surfaces. Animate only its readable contents:
     // moving the two section wrappers also moves their borders and makes the
@@ -52,9 +58,13 @@ watch(() => route.path, async (_currentPath, previousPath) => {
     return Array.from(elements).filter((element): element is HTMLElement => element instanceof HTMLElement)
   })
 
-  targets.forEach(target => target.style.opacity = '0')
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    routeAnimations = targets.map((target, index) => {
+  targets.forEach(target => target.setAttribute('data-route-enter-pending', ''))
+  pendingFrame = requestAnimationFrame(() => {
+    pendingFrame = requestAnimationFrame(startAnimations)
+  })
+  function startAnimations() {
+    pendingFrame = 0
+    targets.forEach((target, index) => {
       const animation = target.animate([
         { opacity: 0, transform: 'translate3d(0, 10px, 0)' },
         { opacity: 1, transform: 'translate3d(0, 0, 0)' },
@@ -64,14 +74,13 @@ watch(() => route.path, async (_currentPath, previousPath) => {
         easing: 'cubic-bezier(.16, 1, .3, 1)',
         fill: 'both',
       })
-      target.style.removeProperty('opacity')
+      target.removeAttribute('data-route-enter-pending')
       animation.onfinish = () => animation.cancel()
-      return animation
+      animations.push(animation)
     })
-  }))
+    targets = []
+  }
 }, { flush: 'post' })
-
-onBeforeUnmount(() => routeAnimations.forEach(animation => animation.cancel()))
 
 /* Sticky header: when the page scrolls, the header expands into a full-bleed
    rail (driven by the CSS [data-scrolled] state) with a non-linear settle.
@@ -142,15 +151,21 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
    app/router.options.ts 的 scrollBehavior 还原（vue-router 自带的记录只读 window）。 */
 onMounted(() => {
   stopNavigationGuard = router.beforeEach((_to, from) => { rememberScrollPosition(from.fullPath) })
-  const flush = () => rememberScrollPosition(route.fullPath)
-  window.addEventListener('pagehide', flush)
+  window.addEventListener('pagehide', saveReadingPosition)
   document.addEventListener('visibilitychange', onVisibilityChange)
-  onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibilityChange))
 })
-onBeforeUnmount(() => stopNavigationGuard?.())
+onBeforeUnmount(() => {
+  window.removeEventListener('pagehide', saveReadingPosition)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  stopNavigationGuard?.()
+})
+
+function saveReadingPosition() {
+  rememberScrollPosition(route.fullPath)
+}
 
 function onVisibilityChange() {
-  if (document.visibilityState === 'hidden') rememberScrollPosition(route.fullPath)
+  if (document.visibilityState === 'hidden') saveReadingPosition()
 }
 
 /* siteUrl 由 CI 通过 NUXT_PUBLIC_SITE_URL 注入（含 GitHub Pages 子路径），

@@ -15,16 +15,20 @@ async function mount(saved, dark = false, options = {}) {
   const context = createPanelContext({ ref, reactive, computed, watch, nextTick,
     onMounted: fn => mounted.push(fn), onUnmounted: fn => cleanup.push(fn),
     useState: (key, init) => shared[key] ||= ref(init()),
-    window: { matchMedia: () => media }, document: { documentElement: root },
+    window: { matchMedia: query => query.includes('reduced-motion') ? { matches: !!options.reduced } : media },
+    document: { documentElement: root, startViewTransition: options.transition },
+    requestAnimationFrame: callback => callback(),
     localStorage: { getItem: key => {
       reads.push(key)
       if (options.blockStorage) throw new Error('Storage unavailable')
       if (key === 'paper-trail-appearance-v5') return options.raw ?? (saved ? JSON.stringify(saved) : null)
       if (key === 'paper-trail-appearance-v4') return options.legacy ?? null
+      if (key === 'paper-trail-custom-background') return options.image ?? null
       return null
     },
       setItem: (_, value) => { stored = JSON.parse(value) }, removeItem() {} },
   })
+  root.classList = { add() {}, remove() {} }
   const scope = effectScope()
   scope.run(() => vm.runInContext(`${compiled}\nglobalThis.exposed = { state, status, isOpen, panelScroll, resetAppearance, initialState: { ...state }, normalizeStoredAppearance, onSystemThemeChange, requestDefaultSettings, confirmDefaultSettings };`, context))
   mounted.forEach(fn => fn())
@@ -34,6 +38,55 @@ async function mount(saved, dark = false, options = {}) {
     stop: () => { cleanup.forEach(fn => fn()); scope.stop() },
   }
 }
+for (const reduced of [false, true]) {
+  let transitions = 0
+  const panel = await mount({ defaultSettings: false, colorMode: 'auto' }, false, {
+    reduced, transition(update) { transitions++; update(); return { finished: Promise.resolve() } },
+  })
+  try {
+    assert.equal(transitions, 0, 'Restoring preferences on mount skips the transition')
+    await panel.system(true)
+    assert.equal(panel.root.dataset.colorMode, 'dark')
+    assert.equal(transitions, Number(!reduced), 'Auto follows an actual OS appearance change')
+    panel.state.colorMode = 'dark'; await nextTick()
+    panel.state.contentBlur++; await nextTick()
+    assert.equal(transitions, Number(!reduced), 'Equivalent modes and slider input apply directly')
+    panel.state.colorMode = 'light'; await nextTick()
+    assert.equal(transitions, reduced ? 0 : 2, 'A manual theme switch uses one transition')
+  } finally { panel.stop() }
+}
+// Hold the browser's old-frame capture while a second setting changes.
+const snapshots = []
+const capturing = await mount({ defaultSettings: false, colorMode: 'light' }, false, {
+  transition(update) {
+    return { finished: new Promise(resolve => snapshots.push(() => { update(); resolve() })) }
+  },
+})
+try {
+  capturing.state.colorMode = 'dark'; await nextTick()
+  capturing.state.navBlur = 31; await nextTick()
+  assert.equal(capturing.root.dataset.colorMode, 'light', 'Slider input cannot paint over the pending old frame')
+  assert.equal(capturing.stored().navBlur, 31, 'Preferences persist before the browser captures the new frame')
+  assert.equal(snapshots.length, 1)
+  snapshots.shift()()
+  assert.equal(capturing.root.dataset.colorMode, 'dark')
+  assert.equal(capturing.root.style.getPropertyValue('--nav-blur'), '31px')
+} finally { capturing.stop() }
+const wallpaper = await mount({ background: 'custom', defaultSettings: false }, false, { image: 'data:image/png;base64,AA==' })
+try {
+  const style = wallpaper.root.style
+  assert.match(style.getPropertyValue('--custom-background'), /base64,AA==/)
+  const write = style.setProperty
+  let imageWrites = 0
+  style.setProperty = (key, value) => { if (key === '--custom-background') imageWrites++; write(key, value) }
+  wallpaper.state.navBlur++; await nextTick()
+  assert.equal(imageWrites, 0)
+  wallpaper.state.background = 'flat'; await nextTick()
+  assert.equal(style.getPropertyValue('--custom-background'), undefined)
+  wallpaper.state.background = 'custom'; await nextTick()
+  assert.equal(imageWrites, 1)
+  assert.equal(wallpaper.reads.filter(key => key === 'paper-trail-custom-background').length, 1)
+} finally { wallpaper.stop() }
 const controlled = ['navMaterial','contentMaterial','dropdownMaterial','backgroundMaterial','navBlur','contentBlur','dropdownBlur','backgroundBlur','backgroundOverlay','codeMaterial','codeBlur','diagramScale']
 const componentState = await mount({ glassClarity: 32, glassAntialias: true })
 try {

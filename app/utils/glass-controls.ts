@@ -3,6 +3,8 @@ import { currentGlassQuality } from './glass-quality-dom'
 
 type Engine = typeof import('../vendor/liquidglass/liquid-glass.js')
 
+type PanelBounds = { frame: DOMRect; view: DOMRect; revealBox?: DOMRect }
+
 // Portaled optics share one scheduler per panel. It runs only while an
 // animated subpage/accordion owns motion; incoming AND outgoing lenses follow.
 type PanelMotion = {
@@ -250,19 +252,12 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     inflationSpringX.set(1); inflationSpringY.set(1)
   }
   let alignFrame = 0
-  function alignOptics() {
-    if (!portaled || disposed) return
+  function alignTrackOptics(bounds?: PanelBounds) {
     // Native anchors transfer bounds, not paint geometry. Without the same
     // CSS radius, Blink composites a pale rectangular backdrop outside the
     // rounded source even though the SVG displacement map itself is rounded.
     const trackRadius = parseFloat(getComputedStyle(group!).borderTopLeftRadius) || 14
     lens.style.borderRadius = `${trackRadius}px`
-    // inert and data-glass-page-hidden express intent, not optical absence.
-    // Only the completed lifecycle may hide a portaled lens.
-    if (host.closest('[data-glass-presence="closed"]') || host.offsetParent === null) {
-      lens.style.visibility = 'hidden'
-      return
-    }
     // Portals inherit panel opacity/transform, but not subpage/reveal opacity.
     // Multiply just the escaped ancestors, so parent fading is applied once.
     let opacity = 1
@@ -270,18 +265,16 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       if (node) opacity *= Number(getComputedStyle(node).opacity || 1)
     }
     lens.style.opacity = String(opacity)
-    if (nativeAnchored && ![subpage, reveal].some(owner =>
-      owner?.dataset.glassPresence === 'opening' || owner?.dataset.glassPresence === 'closing')) {
+    if (!bounds) {
       // Do not pin visibility to an old scroll rect: Blink follows the anchor
       // asynchronously. JS clipping is needed only during escaped owner motion.
       lens.style.visibility = ''
       lens.style.clipPath = ''
       return
     }
-    const box = group!.getBoundingClientRect(), frame = panel!.getBoundingClientRect()
-    const view = scroller!.getBoundingClientRect()
+    const box = group!.getBoundingClientRect()
     // Portaled optics must follow the accordion's clipping as it opens/closes.
-    const revealBox = reveal?.getBoundingClientRect()
+    const { frame, view, revealBox } = bounds
     const viewTop = Math.max(view.top, revealBox?.top ?? view.top)
     const viewBottom = Math.min(view.bottom, revealBox?.bottom ?? view.bottom)
     const sx = frame.width / Math.max(1, panel!.offsetWidth)
@@ -294,7 +287,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     }
     // `v-show` keeps the other appearance subpage mounted but not rendered, so a
     // lens that was visible a moment ago must not keep painting at its stale rect.
-    const rendered = host.offsetParent !== null && box.width >= 1 && box.height >= 1
+    const rendered = box.width >= 1 && box.height >= 1
     lens.style.visibility = !rendered || box.bottom <= viewTop || box.top >= viewBottom ? 'hidden' : ''
     // Clip to the VIEWPORT, not the rail's own rounded border box. Zero-clamping
     // these insets cut off every outer shadow during subpage motion; removing
@@ -302,17 +295,17 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     // its visible overflow while still clipping at the real viewport/reveal.
     lens.style.clipPath = `inset(${(viewTop - box.top) / sy}px ${(box.right - view.right) / sx}px ${(box.bottom - viewBottom) / sy}px ${(view.left - box.left) / sx}px)`
   }
-  function alignMovingOptics() {
-    if (!movingLens || !opticalDock || !opticalOwner || disposed) return
+  function alignMovingOptics(bounds?: PanelBounds) {
+    if (!movingLens || !opticalDock || !opticalOwner) return
     const source = host.getBoundingClientRect()
-    const view = scroller?.getBoundingClientRect()
+    const view = bounds?.view ?? scroller?.getBoundingClientRect()
       ?? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
     // A raised article indicator extends above/below the row. Clipping it to
     // that row cuts off exactly the curved rim that must refract other layers.
     const frame = articleToolbar
       ? host.closest<HTMLElement>('.article-page, .standard-page')?.getBoundingClientRect() ?? view
-      : opticalOwner.getBoundingClientRect()
-    const revealBox = reveal?.getBoundingClientRect()
+      : bounds?.frame ?? opticalOwner.getBoundingClientRect()
+    const revealBox = bounds?.revealBox ?? reveal?.getBoundingClientRect()
     // Accordion/subpage bounds clip vertically during reveal and page motion.
     // Their content width is not the horizontal viewport: a pressed endpoint
     // grows beyond that width and must retain its full rounded optical edge.
@@ -330,8 +323,7 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       movingLens.style.width = `${source.width}px`
       movingLens.style.height = `${source.height}px`
     }
-    if (host.closest('[data-glass-presence="closed"]') || host.offsetParent === null
-      || source.width < 1 || source.height < 1
+    if (source.width < 1 || source.height < 1
       || source.right <= left || source.left >= right || source.bottom <= top || source.top >= bottom) {
       movingLens.style.visibility = 'hidden'
       return
@@ -354,8 +346,25 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       : ''
   }
   function alignAllOptics() {
-    alignOptics()
-    alignMovingOptics()
+    if (disposed || (!portaled && !movingLens)) return
+    // Outgoing pages stay visible while inert. Hide both projections only
+    // after the source actually leaves layout or its close animation ends.
+    if (host.closest('[data-glass-presence="closed"]') || host.offsetParent === null) {
+      if (portaled) lens.style.visibility = 'hidden'
+      if (movingLens) movingLens.style.visibility = 'hidden'
+      return
+    }
+    const clipTrack = portaled && (!nativeAnchored || [subpage, reveal].some(owner =>
+      owner?.dataset.glassPresence === 'opening' || owner?.dataset.glassPresence === 'closing'))
+    // Both lenses are out of flow. Snapshot their common ancestors before
+    // positioning either lens; a later scroll or spring tick measures anew.
+    const bounds = clipTrack && panel && scroller ? {
+      frame: panel.getBoundingClientRect(),
+      view: scroller.getBoundingClientRect(),
+      revealBox: reveal?.getBoundingClientRect(),
+    } : undefined
+    if (portaled) alignTrackOptics(bounds)
+    alignMovingOptics(bounds)
   }
   const queueAlign = () => {
     if (!alignFrame) alignFrame = requestAnimationFrame(() => { alignFrame = 0; alignAllOptics() })
@@ -496,14 +505,19 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
       || b.classList.contains('router-link-active'))) ?? buttons[0]!
   }
   function target(button: HTMLElement, immediate = false) {
-    const center = button.offsetLeft + button.offsetWidth / 2
+    // A spring can render immediately. Measure the chosen button before
+    // starting any spring so all four targets use the same layout.
+    const width = button.offsetWidth
+    const height = button.offsetHeight
+    const center = button.offsetLeft + width / 2
+    const centerY = button.offsetTop + height / 2
     if (!slider && initialized && !immediate && Math.abs(center - position.target) > .5) {
       pressIndicator()
       releasePending = pressedPointer === null
     }
-    widthSpring.set(button.offsetWidth, { immediate })
-    heightSpring.set(button.offsetHeight, { immediate })
-    verticalSpring.set(button.offsetTop + button.offsetHeight / 2, { immediate })
+    widthSpring.set(width, { immediate })
+    heightSpring.set(height, { immediate })
+    verticalSpring.set(centerY, { immediate })
     position.set(center, { immediate })
   }
   function readRange(immediate = false) {
@@ -640,15 +654,24 @@ export function attachGlassControl(host: HTMLElement, engine: Engine) {
     event.preventDefault()
     const box = group!.getBoundingClientRect()
     const local = (event.clientX - box.left) * group!.clientWidth / Math.max(1, box.width)
-    const enabled = buttons.filter(b => ownsIndicator(b)
-      && !b.matches(':disabled') && b.getAttribute('aria-disabled') !== 'true')
-    if (!enabled.length) return
-    dragChoice = enabled.reduce((a, b) => Math.abs(a.offsetLeft + a.offsetWidth / 2 - local)
-      <= Math.abs(b.offsetLeft + b.offsetWidth / 2 - local) ? a : b)
+    let nearest: HTMLElement | null = null
+    let distance = Infinity, minCenter = Infinity, maxCenter = -Infinity
+    for (const button of buttons) {
+      if (!ownsIndicator(button) || button.matches(':disabled') || button.getAttribute('aria-disabled') === 'true') continue
+      const center = button.offsetLeft + button.offsetWidth / 2
+      const delta = Math.abs(center - local)
+      if (delta < distance) {
+        nearest = button
+        distance = delta
+      }
+      minCenter = Math.min(minCenter, center)
+      maxCenter = Math.max(maxCenter, center)
+    }
+    dragChoice = nearest
+    if (!nearest) return
     // Do not resize when crossing a different-width candidate. Morph to its
     // actual dimensions only after release (target() drives size springs).
-    const centers = enabled.map(b => b.offsetLeft + b.offsetWidth / 2)
-    position.set(Math.max(Math.min(...centers), Math.min(Math.max(...centers), local)))
+    position.set(Math.max(minCenter, Math.min(maxCenter, local)))
   })
   // Only completed drags synthesize selection. Taps retain the original click,
   // links retain modifiers, and vertical touch gestures can still scroll.

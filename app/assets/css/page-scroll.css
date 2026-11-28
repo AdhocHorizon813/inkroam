@@ -1,0 +1,129 @@
+/* Keep viewport width stable; scrollbar appearance comes from the same rules as the TOC. */
+html { scroll-behavior: smooth; overflow-y: scroll; }
+
+/* 经典滚动条的槽位落在文档绘制区之外：fixed 图层和自绘轨道都盖不到它，那里永远只有 canvas
+   （body 的背景色），紧挨一张底图时就是右边缘那条白边（实测同一行相邻像素差 94/255）。
+   桌面因此把滚动从 html 搬到 .page-scroll：html 不再滚 → 没有根滚动条 → ICB 变成整个窗口，
+   滚动条落进页面能画到的区域里，透明的轨道下面就是氛围层——和文章目录的滑条同一套机制。
+   实测量到同一位置相邻像素差 1–3/255，边界上不再有台阶。
+   宽度也不变：容器 offsetWidth 仍是 1478，扣掉自己的滚动条后正文可用宽度与以前一致。
+   手机（指针粗、无 hover）是覆盖式滚动条，本来就浮在内容上，保持原生文档滚动。
+   app/utils/page-scroll.ts 的 PAGE_SCROLL_QUERY 必须与这条媒体查询保持一致。 */
+/* 自绘滑条默认不出现：只有支持 ::-webkit-scrollbar 的桌面环境（也就是能自绘的环境）才显示。 */
+.page-scrollbar { display: none; }
+
+@media (hover: hover) and (pointer: fine) {
+  html { overflow-y: hidden; }
+  .page-scroll {
+    height: 100dvh;
+    overflow-y: scroll;
+    overflow-x: clip;
+    /* 必须透明：滚动条轨道下面要透出 .ambient-backdrop。 */
+    background: transparent;
+    scroll-behavior: smooth;
+  }
+  /* 原生细滚动条（scrollbar-width: thin）没法过渡透明度：Chrome 一旦看到它就完全
+     忽略 ::-webkit-scrollbar。所以这个容器把宽度让回 auto，改由自绘滚动条渲染——
+     宽度 10px 与原生的细滚动条一致，正文可用宽度不变。Firefox 没有 ::-webkit-*
+     伪元素，保留原生细样式，代价是那条滑条没有淡入淡出。 */
+  @supports selector(::-webkit-scrollbar) {
+    .page-scroll {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
+  }
+  .page-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+  .page-scroll::-webkit-scrollbar-track { background: transparent; }
+  /* 原生拇指涂成全透明：外观交给下面自绘的那条，但拖动、轨道翻页、滚轮这些原生行为
+     仍然由它承担，所以它必须继续存在（只是看不见）。 */
+  .page-scroll::-webkit-scrollbar-thumb { background: transparent; }
+  /* 自绘拇指（app/components/PageScrollbar.vue）。为什么必须自绘：原生拇指在容器不再
+     可滚的那一瞬间就被浏览器撤掉——实测内容变短后第一帧像素已回到底色，而状态还没变，
+     所以淡出永远画不出来（见 docs/scrollbar.md）。槽位仍由 overflow-y: scroll 占着，
+     于是「只改透明度、不增删元素、布局不位移」这几条约定继续成立。
+     整块 pointer-events: none：拖动、轨道翻页、滚轮仍由那条透明的原生拇指承担，
+     这里只画外观，不重复实现一遍原生行为。
+     Firefox 没有 ::-webkit-* 伪元素，@supports 不匹配时整段不生效，那边保持原生细滚动条。
+     不碰 ::-webkit-scrollbar-button / -corner：原生自绘滚动条本来就不画箭头。 */
+  @supports selector(::-webkit-scrollbar) {
+    .page-scrollbar {
+      position: fixed;
+      inset: 0 0 0 auto;        /* 右缘那条 10px */
+      z-index: 40;              /* 要压住 sticky 顶栏（30），但在外观面板（80）之下 */
+      width: 10px;
+      display: block;
+      pointer-events: none;
+    }
+    .page-scrollbar__thumb {
+      position: absolute;
+      top: 0;
+      left: 2px;
+      right: 2px;
+      height: var(--page-scrollbar-thumb-size, 0px);
+      transform: translateY(var(--page-scrollbar-thumb-offset, 0px));
+      border-radius: 999px;
+      background-color: var(--scrollbar-thumb);
+      /* 淡入 500ms；离场那侧只覆盖时长/缓动/延迟，免得把「只改透明度」写成两套。 */
+      opacity: 1;
+      transition: opacity 500ms var(--ease-fluid);
+    }
+    /* 淡出先等 300ms（Android 的 SCROLL_BAR_DEFAULT_DELAY）再消失——延迟的意义是别让
+       淡出和造成它的内容重排挤在同一帧里。时长不按正文的动效约定走，而是照原生滚动条
+       自己的规则（出处与实测值见 docs/scrollbar.md「参考规则」）：原生滑条不淡入，
+       只做「先等一会儿，再很快地消失」；时长 500ms 是定稿值，刻意比桌面区间长。
+       拉长时间并不等于更显眼——原生滑条是靠「被关注时变粗、变实」表达状态的。 */
+    .page-scroll[data-scrollable='false'] .page-scrollbar__thumb {
+      opacity: 0;
+      transition-duration: 500ms;
+      transition-timing-function: var(--ease-exit);
+      transition-delay: var(--page-scrollbar-delay, 300ms);
+    }
+    /* 首次测量（挂载后的第一帧）立刻到位：短页面不该先画出一条滑条，再等 300ms 才收起来。
+       usePageScrollable 先写 'false'，等这次绘制过去（两帧）再翻成 'true'。 */
+    .page-scroll[data-scrollable-settled='false'] { --page-scrollbar-delay: 0ms; }
+    @media (prefers-reduced-motion: reduce) {
+      .page-scrollbar__thumb,
+      .page-scroll[data-scrollable='false'] .page-scrollbar__thumb { transition: none; }
+    }
+  }
+}
+
+/* 外观菜单的滚动区用同一套自绘滑条：同一个 PageScrollbar 组件、同一个 usePageScrollable
+   （高度与位移变量直接写到拇指上）。
+   滑条在滚动元素内部，但不能跟着内容滚走，所以绝对定位到
+   .appearance-panel（包含块在滚动容器之外，滚不带走它）。面板的 padding 是 0
+   （line 2206 的 padding: 0 !important），right: 0 正好落在滚动区预留的 10px 槽位上。
+   手机上（指针粗、无 hover）整段不生效，保持原生覆盖式滑条；Firefox 没有
+   ::-webkit-* 伪元素，同样退回全局的原生细样式。 */
+@media (hover: hover) and (pointer: fine) {
+  @supports selector(::-webkit-scrollbar) {
+    .appearance-panel__scroll {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
+    .appearance-panel__scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+    .appearance-panel__scroll::-webkit-scrollbar-track { background: transparent; }
+    .appearance-panel__scroll::-webkit-scrollbar-thumb { background: transparent; }
+    .appearance-panel .page-scrollbar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: auto;
+      right: 0;
+      z-index: 3;
+      width: 10px;
+      display: block;
+      pointer-events: none;
+    }
+    .appearance-panel__scroll[data-scrollable='false'] .page-scrollbar__thumb {
+      opacity: 0;
+      transition-duration: 500ms;
+      transition-timing-function: var(--ease-exit);
+      transition-delay: var(--page-scrollbar-delay, 300ms);
+    }
+    .appearance-panel__scroll[data-scrollable-settled='false'] { --page-scrollbar-delay: 0ms; }
+    @media (prefers-reduced-motion: reduce) {
+      .appearance-panel__scroll[data-scrollable='false'] .page-scrollbar__thumb { transition: none; }
+    }
+  }
+}

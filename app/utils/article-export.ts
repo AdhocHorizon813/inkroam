@@ -22,7 +22,8 @@ export function exportFilename(title: string) {
 }
 
 // Only clone content: no live state, event handlers, scripts or site chrome.
-export async function cloneArticleBody(body: HTMLElement) {
+export async function cloneArticleBody(body: HTMLElement, signal?: AbortSignal) {
+  signal?.throwIfAborted()
   const clone = body.cloneNode(true) as HTMLElement
   // Render from source even when the article's IntersectionObserver has not
   // loaded the figure. Use a light diagram for the white export surface.
@@ -30,9 +31,11 @@ export async function cloneArticleBody(body: HTMLElement) {
     const source = diagram.querySelector('.article-diagram__panel code')?.textContent
     if (!source) throw new Error('未能取得图表源码，无法完整导出。')
     const { renderDiagram } = await import('~/utils/mermaid')
+    signal?.throwIfAborted()
     const image = document.createElement('div')
     image.className = 'article-diagram__image'
     image.innerHTML = await renderDiagram(source, false, 'Arial, Microsoft YaHei, sans-serif')
+    signal?.throwIfAborted()
     diagram.replaceChildren(image)
   }
   clone.querySelectorAll('script,button,input,select,textarea,.article-code-actions,.article-diagram__toggle,.article-diagram__panel').forEach(node => node.remove())
@@ -51,15 +54,7 @@ export async function cloneArticleBody(body: HTMLElement) {
   return clone
 }
 
-export async function createExportFrame(title: string, body: HTMLElement, onFrame?: (frame: HTMLIFrameElement) => void) {
-  const clone = await cloneArticleBody(body)
-  const frame = document.createElement('iframe')
-  frame.title = '正文导出预览'
-  frame.style.cssText = 'position:fixed;left:-12000px;top:0;width:840px;height:1000px;border:0;pointer-events:none'
-  frame.setAttribute('aria-hidden', 'true')
-  document.body.append(frame)
-  onFrame?.(frame)
-  const doc = frame.contentDocument!
+function populateExportFrame(doc: Document, title: string, clone: HTMLElement) {
   const style = doc.createElement('style'); style.textContent = exportCss
   // Only KaTeX's font/layout rules are needed; site theme and wallpaper stay out.
   for (const sheet of Array.from(document.styleSheets)) {
@@ -75,16 +70,39 @@ export async function createExportFrame(title: string, body: HTMLElement, onFram
   content.append(heading, doc.importNode(clone, true))
   const source = doc.createElement('p'); source.className = 'export-source'; source.textContent = `纸上漫游 · ${location.href.split('#')[0]}`
   content.append(source); doc.body.append(content)
+  return content
+}
+
+export async function createExportFrame(title: string, body: HTMLElement, signal: AbortSignal) {
+  const clone = await cloneArticleBody(body, signal)
+  signal.throwIfAborted()
+  const frame = document.createElement('iframe')
+  frame.title = '正文导出预览'
+  frame.style.cssText = 'position:fixed;left:-12000px;top:0;width:840px;height:1000px;border:0;pointer-events:none'
+  frame.setAttribute('aria-hidden', 'true')
+  document.body.append(frame)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let onAbort: (() => void) | undefined
   try {
-    let timer: ReturnType<typeof setTimeout> | undefined
-    try {
-      await Promise.race([
-        Promise.all([doc.fonts.ready, ...Array.from(doc.images).map(image => image.decode())]),
-        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('图片或字体加载超时，请稍后重试。')), 20000) }),
-      ])
-    } finally { clearTimeout(timer) }
+    const doc = frame.contentDocument!
+    const content = populateExportFrame(doc, title, clone)
+    await Promise.race([
+      Promise.all([doc.fonts.ready, ...Array.from(doc.images, image => image.decode())]),
+      new Promise<never>((_, reject) => {
+        onAbort = () => reject(signal.reason)
+        signal.addEventListener('abort', onAbort, { once: true })
+        timer = setTimeout(() => reject(new Error('图片或字体加载超时，请稍后重试。')), 20000)
+      }),
+    ])
+    signal.throwIfAborted()
     return { frame, content }
-  } catch (error) { frame.remove(); throw error }
+  } catch (error) {
+    frame.remove()
+    throw error
+  } finally {
+    clearTimeout(timer)
+    if (onAbort) signal.removeEventListener('abort', onAbort)
+  }
 }
 
 export function articleSections(body: HTMLElement) {

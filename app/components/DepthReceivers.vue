@@ -25,6 +25,7 @@ let alive = false
 let layoutDirty = true
 let cachedSurfaces: SurfaceBox[] = []
 let lastScroll = NaN
+let lastNavHeight: number | undefined
 let navRadius = 0
 let stopPageFinish: (() => void) | undefined
 
@@ -46,8 +47,8 @@ function measure() {
   scrollOnly = false
   const width = document.documentElement.clientWidth
   const navBox = nav?.getBoundingClientRect()
-  if (navBox && navBox.height !== header.value?.height) layoutDirty = true
-  if (layoutDirty) {
+  const layoutChanged = layoutDirty || navBox?.height !== lastNavHeight
+  if (layoutChanged) {
     // Normal-flow receivers are stored in scroll-content coordinates. Their
     // layout changes on resize/content replacement, not on ordinary scrolling.
     cachedSurfaces = targets.map(element => {
@@ -55,6 +56,7 @@ function measure() {
       return { ...box, y: box.y + scroll }
     })
     navRadius = nav ? parseFloat(getComputedStyle(nav).borderTopLeftRadius) || 0 : 0
+    lastNavHeight = navBox?.height
     layoutDirty = false
   }
   // Keep the one moving source live: sticky positioning and navbar width
@@ -67,13 +69,18 @@ function measure() {
   const mobile = width <= 767.98
   const height = header.value ? Math.min(window.innerHeight,
     Math.ceil(header.value.y + header.value.height + (mobile ? 22 + 6 * 18 : 28 + 6 * 24))) : 0
-  if (viewport.value.width !== width || viewport.value.height !== height) viewport.value = { width, height }
-  const nextSurfaces = cachedSurfaces.flatMap(cached => {
-    const box = visibleSurface({ ...cached, y: cached.y - scroll }, width, height)
-    return box ? [box] : []
-  })
-  if (nextSurfaces.length !== surfaces.value.length
-    || nextSurfaces.some((box, index) => !sameBox(box, surfaces.value[index] ?? null))) surfaces.value = nextSurfaces
+  const viewportChanged = viewport.value.width !== width || viewport.value.height !== height
+  if (viewportChanged) viewport.value = { width, height }
+  // A width-only navigation transition moves the light source horizontally. Card
+  // masks depend on the viewport, scroll offset and normal-flow layout.
+  if (layoutChanged || viewportChanged || scroll !== lastScroll) {
+    const nextSurfaces = cachedSurfaces.flatMap(cached => {
+      const box = visibleSurface({ ...cached, y: cached.y - scroll }, width, height)
+      return box ? [box] : []
+    })
+    if (nextSurfaces.length !== surfaces.value.length
+      || nextSurfaces.some((box, index) => !sameBox(box, surfaces.value[index] ?? null))) surfaces.value = nextSurfaces
+  }
   lastScroll = scroll
   // Disable only the old broad band after this replacement has valid geometry.
   // No JS/unsupported observers => the existing CSS remains the fallback.

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import postcss from 'postcss'
+import { readSiteStyles } from './lib/site-styles.mjs'
 
 // One-time, whole-file structural proof for this bounded cleanup. Not a visual
 // test or a general optimizer. Run against the documented pre-cleanup commit.
@@ -12,7 +13,7 @@ const path = 'app/assets/css/main.css'
 const before = postcss.parse(execFileSync('git', ['show', `${baseline}:${path}`], { encoding: 'utf8' }).replaceAll('\r\n', '\n')
   .replaceAll('/images/modern-dream-city.png', '/images/backgrounds/modern-dream-city.png')
   .replaceAll('/images/yuzoramachi.png', '/images/backgrounds/yuzoramachi.png'))
-const after = postcss.parse(readFileSync(path, 'utf8').replaceAll('\r\n', '\n'))
+const after = postcss.parse(readSiteStyles().replaceAll('\r\n', '\n'))
 const targets = [
   [":root[data-visual='modern'] .ambient-backdrop", 'background'],
   [':root', '--ease-fluid'],

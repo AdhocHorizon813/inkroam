@@ -1,9 +1,16 @@
-import { shallowRef } from 'vue'
+import { computed, shallowRef } from 'vue'
 import type { PrivateNoteMetadata } from '~/utils/private-note-metadata'
 
 type UnlockedNote = { id: string; path: string; source: string; metadata: PrivateNoteMetadata }
 // Client-only writes. Never use useState/useAsyncData or serialize this memory to storage.
 const documents = shallowRef<Record<string, UnlockedNote>>({})
+const idsByPath = computed(() => {
+  const paths = new Map<string, string>()
+  for (const note of Object.values(documents.value)) {
+    if (!paths.has(note.path)) paths.set(note.path, note.id)
+  }
+  return paths
+})
 let listening = false
 let revision = 0
 
@@ -23,7 +30,8 @@ export function useUnlockedNotes() {
     documents.value = next
   }
   function displayEntry<T extends { path: string }>(entry: T): T {
-    const note = Object.values(documents.value).find(item => item.path === entry.path)
+    const id = idsByPath.value.get(entry.path)
+    const note = id === undefined ? undefined : documents.value[id]
     return note ? { ...entry, ...note.metadata } : entry
   }
   return { documents, remember, lock, lockAll, displayEntry, revision: () => revision }

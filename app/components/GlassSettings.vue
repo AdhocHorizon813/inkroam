@@ -146,8 +146,8 @@ const segments = (index: number, count: number) => ({ '--segment-transform': `tr
     <p id="glass-defaults-description" class="appearance-confirm__description">将恢复默认的漫光玻璃参数。</p>
     <p id="glass-defaults-scope" class="appearance-confirm__hint">{{ defaultsGlobal ? '将替换全局参数，保留单项设置。' : '将分别调整各组件的参数与开关，保留全局设置。' }}</p>
     <div class="appearance-confirm__actions">
-      <button type="button" class="appearance-confirm__cancel" autofocus @click="closeDefaults">取消</button>
-      <button type="button" class="appearance-confirm__accept" @click="confirmDefaults">采用默认设置</button>
+      <button type="button" class="appearance-confirm__neutral" autofocus @click="closeDefaults">取消</button>
+      <button type="button" class="appearance-confirm__accent" @click="confirmDefaults">采用默认设置</button>
     </div>
   </dialog>
 </template>

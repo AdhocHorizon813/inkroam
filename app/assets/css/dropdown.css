@@ -1,0 +1,89 @@
+/* Popover top layer samples the page, not the already-filtered content panel. */
+:root .search-popover[popover] {
+  position: fixed;
+  inset: var(--popup-top, 0px) auto var(--popup-bottom, auto) var(--popup-left, 0px);
+  width: var(--popup-width, 270px);
+  max-width: calc(100vw - 24px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  overflow: visible;
+  /* 不沿用 UA 的 [popover] { height: fit-content }：盒高明确按内容走（面层自己带
+     max-height 兜住高度）。注意盒高与 grid 行高不成正比（实测见下），所以贴边对齐不能省。 */
+  height: auto;
+}
+:root .search-popover[popover]:not(:popover-open) { display: none; }
+:root .search-popover .dropdown-surface { max-height: var(--popup-height, 70vh); overflow-y: auto; }
+@starting-style {
+  :root .search-popover[popover]:popover-open { grid-template-rows: 0fr; }
+}
+/* 收起时裁剪窗（就是那一行）只从「远边」切内容，所以裁剪窗和内容都必须贴在钉住的那条边上：
+   向下展开盒顶钉在触发框下沿 → 行与内容都贴上沿（默认块流即如此）；
+   向上展开盒底钉在触发框上沿 → 行与内容都贴下沿（align-content / flex-end）。
+   注意行高比盒高缩得更快（实测收起 190ms 时行 71px、盒 136px，改 height 也一样），
+   所以必须按边对齐，不能指望行高＝盒高；否则裁剪窗落在盒顶，内容会跟着盒顶一路下滑
+   （实测 234px —— 看起来不是「收回触发框」，而是整块内容往页面中间掉）。 */
+:root .search-popover[popover][data-flip='up'] { align-content: end; }
+:root .search-popover[popover][data-flip='up'] > :first-child {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+:root .search-popover[popover][data-flip='up'] > :first-child > * { flex: none; }
+/* Dropdowns share the navigation material recipes, with an independent channel.
+   Defaults also cover old preferences before hydration. */
+:root[data-visual='modern'] .dropdown-surface {
+  position: relative;
+  border-color: rgba(255, 255, 255, .09);
+  background: rgba(23, 27, 33, .42);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .18);
+  backdrop-filter: blur(var(--dropdown-blur)) saturate(135%);
+  -webkit-backdrop-filter: blur(var(--dropdown-blur)) saturate(135%);
+}
+:root[data-visual='modern'][data-color-mode='light'] .dropdown-surface {
+  border-color: rgba(25, 29, 34, .09);
+  background: rgba(244, 243, 239, .48);
+  box-shadow: 0 12px 34px rgba(25, 29, 34, .08);
+}
+:root[data-visual='modern'][data-dropdown-material='acrylic'] .dropdown-surface {
+  border-color: rgba(255, 255, 255, .12);
+  background: rgba(18, 22, 28, .42);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .16);
+}
+:root[data-visual='modern'][data-color-mode='light'][data-dropdown-material='acrylic'] .dropdown-surface {
+  border-color: rgba(31, 36, 43, .11);
+  background: rgba(248, 247, 243, .48);
+  box-shadow: 0 14px 38px rgba(31, 36, 43, .08);
+}
+:root[data-visual='modern'][data-dropdown-material='liquid'] .dropdown-surface {
+  border-color: rgba(255, 255, 255, .2);
+  background: rgba(22, 27, 34, .24);
+  /* 下拉材质保留外投影，不再绘制上下 inset 伪高光。 */
+  /* 原高光版本（停用，保留备查）：
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 -1px 0 rgba(255, 255, 255, .04), 0 16px 44px rgba(0, 0, 0, .17);
+  */
+  box-shadow: 0 16px 44px rgba(0, 0, 0, .17);
+}
+:root[data-visual='modern'][data-color-mode='light'][data-dropdown-material='liquid'] .dropdown-surface {
+  border-color: rgba(255, 255, 255, .62);
+  background: rgba(255, 255, 255, .25);
+  /* 原浅色内高光版本（停用，保留备查）：
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72), 0 16px 40px rgba(31, 36, 43, .1);
+  */
+  box-shadow: 0 16px 40px rgba(31, 36, 43, .1);
+}
+/* 2026-10-23：停用液态玻璃下拉面 ::before 的145度渐变伪高光。
+   搜索菜单、日历和复用的工具面板均适用；底色、边框、模糊保持原值。
+   可选层次装饰仍由 depth.css 独立管理。 */
+/* 原渐变伪高光规则（停用，保留备查）：
+:root[data-visual='modern'][data-dropdown-material='liquid'] .dropdown-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .18), transparent 27%, transparent 72%, rgba(255, 255, 255, .05));
+}
+*/

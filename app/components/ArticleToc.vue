@@ -47,7 +47,7 @@ watch(() => route.hash, () => nextTick(scheduleUpdate))
 
 <template>
   <nav v-if="entries.length" class="article-toc" aria-label="文章目录">
-    <button class="article-toc__toggle" :aria-expanded="expanded" aria-controls="article-toc-links" @click="expanded = !expanded">
+    <button class="article-toc__toggle" data-radial-action="sidebar" :aria-expanded="expanded" aria-controls="article-toc-links" @click="expanded = !expanded">
       文章目录 <span aria-hidden="true">{{ expanded ? '−' : '+' }}</span>
     </button>
     <div id="article-toc-links" class="article-toc__body" :class="{ 'is-expanded': expanded }" :inert="!expanded" :aria-hidden="!expanded">

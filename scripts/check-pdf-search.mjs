@@ -33,7 +33,7 @@ const context = vm.createContext({
 })
 vm.runInContext(ts.transpile(script, { target: ts.ScriptTarget.ES2022 }) + `
 globalThis.s = { query, matches, selectedMatch, searching, searchedPages, searchNotice, searchOpen,
- searchDocument, invalidateSearch, toggleSearch, selectMatch, pageNumber, textCache, paintMatches, frame,
+ searchDocument, readPageText, invalidateSearch, toggleSearch, selectMatch, pageNumber, textCache, paintMatches, frame,
  setLayer(value, page) { textLayer = value; layerPage = page },
  setPdf(value) { pdf = value; pageCount.value = value.numPages } };`, context)
 const s = context.s
@@ -56,11 +56,15 @@ assert.equal(s.pageNumber.value, 2)
 assert.equal(reads, 4, 'successful page extraction is cached between queries')
 let release
 s.textCache.clear()
-s.setPdf({ numPages: 1, getPage: async () => ({ getTextContent: () => new Promise(resolve => { release = resolve }) }) })
+let extractions = 0
+s.setPdf({ numPages: 1, getPage: async () => ({ getTextContent: () => new Promise(resolve => { extractions++; release = resolve }) }) })
 const pending = s.searchDocument()
 await new Promise(setImmediate)
+const concurrentText = s.readPageText(1)
+assert.equal(extractions, 1, 'Search and highlight share the pending page text')
 s.invalidateSearch()
 release({ items: [{ str: 'beta' }] })
+assert.equal((await concurrentText).items[0].str, 'beta')
 await pending
 assert.equal(s.matches.value.length, 0, 'stale extraction cannot publish results')
 assert.equal(s.textCache.size, 0)

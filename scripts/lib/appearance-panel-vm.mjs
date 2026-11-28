@@ -5,6 +5,7 @@ import { parse } from 'vue/compiler-sfc'
 import * as glassDefaults from '../../app/utils/glass-defaults.ts'
 import * as glassSettings from '../../app/utils/glass-settings.ts'
 import * as appearanceStorage from '../../app/utils/appearance-storage.ts'
+import * as appearanceDefaults from '../../app/utils/appearance-defaults.ts'
 
 export const panel = readFileSync(new URL('../../app/components/AppearancePanel.vue', import.meta.url), 'utf8')
 const { descriptor, errors } = parse(panel, { filename: 'AppearancePanel.vue' })
@@ -17,6 +18,7 @@ const modules = new Map([
   ['~/utils/glass-defaults', glassDefaults],
   ['~/utils/glass-settings', glassSettings],
   ['~/utils/appearance-storage', appearanceStorage],
+  ['~/utils/appearance-defaults', appearanceDefaults],
   ['~/utils/pdf-embed', { supportsEmbeddedPdf: () => false }],
   ['~/composables/usePageScrollable', { usePageScrollable: () => ({}) }],
   ['~/composables/useRadialShortcut', {

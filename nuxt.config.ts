@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url'
+import { DARK_DEFAULTS } from './app/utils/appearance-defaults'
 import { assertEncryptedNotes } from './scripts/lib/encrypted-notes-guard'
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url))
@@ -6,7 +7,7 @@ assertEncryptedNotes(projectRoot)
 
 export default defineNuxtConfig({
   modules: ['@nuxt/content'],
-  css: ['katex/dist/katex.min.css', '~/assets/css/main.css', '~/assets/css/depth.css'],
+  css: ['katex/dist/katex.min.css', '~/assets/css/site.css', '~/assets/css/depth.css'],
   devtools: { enabled: false },
   hooks: {
     'build:before'() { assertEncryptedNotes(projectRoot) },
@@ -65,10 +66,10 @@ export default defineNuxtConfig({
            与 main.css 里那组深色模糊兜底配套；挂载后由 AppearancePanel 按偏好/系统改写。 */
         'data-visual': 'modern',
         'data-background-tint': 'on',
-        'data-material': 'mica',
-        'data-nav-material': 'mica',
-        'data-dropdown-material': 'mica',
-        'data-code-material': 'mica',
+        'data-material': DARK_DEFAULTS.contentMaterial,
+        'data-nav-material': DARK_DEFAULTS.navMaterial,
+        'data-dropdown-material': DARK_DEFAULTS.dropdownMaterial,
+        'data-code-material': DARK_DEFAULTS.codeMaterial,
         'data-background': 'flat',
         'data-color-mode': 'dark',
       },
