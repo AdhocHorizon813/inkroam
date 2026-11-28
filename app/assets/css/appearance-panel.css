@@ -1,0 +1,672 @@
+/* Both fixed controls sit on the same baseline. The mobile appearance panel
+   inherits the inset to clear the trigger when anchored to the viewport. */
+.music-dock,
+.appearance-dock {
+  --dock-bottom-inset: max(24px, env(safe-area-inset-bottom));
+  bottom: var(--dock-bottom-inset);
+}
+
+/* Appearance control */
+.appearance-dock {
+  position: fixed;
+  right: max(24px, env(safe-area-inset-right));
+  z-index: 80;
+}
+@media (max-width: 767.98px) {
+  .music-dock,
+  .appearance-dock { --dock-bottom-inset: max(16px, env(safe-area-inset-bottom)); }
+  .appearance-dock { right: max(16px, env(safe-area-inset-right)); }
+}
+.appearance-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* Matches the music dock pill: a 40px control plus two 1px borders = 42px.
+     The two dock controls must read as one row, so this no longer picks its own
+     touch-target size. Phone value is 46px (44px control), see the mobile block. */
+  min-height: 42px;
+  padding: 0 15px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .14);
+  cursor: pointer;
+}
+.appearance-panel {
+  position: absolute;
+  right: 0;
+  bottom: 56px;
+  max-height: min(720px, calc(100vh - 96px));
+  max-height: min(720px, calc(100dvh - 96px));
+  padding: 20px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, .2);
+  color: #f7f8ff;
+  isolation: isolate;
+}
+.appearance-panel__header { position: relative; display: flex; align-items: start; justify-content: space-between; gap: 20px; }
+.panel-kicker { display: block; margin-bottom: 5px; color: color-mix(in srgb, var(--modern-accent) 74%, white); font-size: 9px; font-weight: 700; letter-spacing: .2em; }
+.appearance-panel h2 { margin: 0; font: 600 20px/1.35 var(--sans); letter-spacing: -.025em; }
+.panel-close { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid rgba(255, 255, 255, .14); border-radius: 50%; background: rgba(255, 255, 255, .07); color: #fff; cursor: pointer; line-height: 1; }
+.setting-group { margin: 0; padding: 15px 0; border: 0; }
+/* 滑条那几组是 div，用 aria-disabled 表达禁用（range 本身也已 :disabled），
+   淡化程度与 fieldset:disabled 完全一致。 */
+.setting-group:disabled,
+.setting-group[aria-disabled='true'] { opacity: .42; }
+/* 说明行与被说明的标签共用同一条明暗/字号声明，只靠字重与位置区分层级。 */
+.setting-label,
+.setting-hint { color: rgba(235, 238, 255, .68); font-size: 11px; line-height: 1.4; }
+.setting-label { display: block; font-weight: 600; letter-spacing: .04em; }
+.setting-hint { margin: -5px 0 10px; }
+.segmented-control { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 4px; border-radius: 14px; background: rgba(4, 8, 24, .38); }
+.segmented-control--two { grid-template-columns: repeat(2, 1fr); }
+.segmented-control button { min-height: 36px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent; color: rgba(235, 238, 255, .58); font-size: 11px; cursor: pointer; }
+.segmented-control button.active { background: linear-gradient(135deg, color-mix(in srgb, var(--modern-accent) 44%, transparent), rgba(101, 217, 255, .16)); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 8px 20px rgba(3, 5, 20, .18); }
+.background-options { display: grid; gap: 8px; }
+.background-options button { padding: 5px 5px 8px; border: 1px solid transparent; border-radius: 13px; background: rgba(255, 255, 255, .035); color: rgba(239, 241, 255, .62); font-size: 10px; cursor: pointer; }
+.background-options button.active { border-color: color-mix(in srgb, var(--modern-accent) 65%, white 10%); color: #fff; background: color-mix(in srgb, var(--modern-accent) 13%, transparent); }
+.background-swatch { display: grid; place-items: center; height: 44px; margin-bottom: 7px; border-radius: 9px; background-size: cover; background-position: center; }
+.background-swatch--art { background-image: linear-gradient(135deg, rgba(44, 36, 100, .2), rgba(24, 179, 213, .25)), var(--art-background); }
+.background-swatch--aurora { background: radial-gradient(circle at 25% 25%, var(--modern-accent), transparent 38%), radial-gradient(circle at 75% 65%, #43d8ff, #131831 68%); }
+.background-swatch--custom { border: 1px dashed rgba(255, 255, 255, .28); color: #fff; font-size: 22px; }
+.range-heading { display: flex; justify-content: space-between; }
+.range-heading output { color: rgba(239, 241, 255, .55); font-size: 10px; }
+:root[data-visual='modern'][data-color-mode='light'] .range-heading output {
+  color: rgba(38, 43, 51, .55);
+}
+.setting-group input[type='range'] { width: 100%; accent-color: var(--modern-accent); }
+.accent-options button { width: 28px; height: 28px; padding: 0; border: 2px solid transparent; border-radius: 50%; background: var(--swatch); cursor: pointer; }
+.accent-options button.active { border-color: #fff; outline: 2px solid color-mix(in srgb, var(--swatch) 45%, transparent); outline-offset: 2px; }
+.appearance-panel__footer { display: flex; align-items: center; gap: 16px; padding-top: 15px; border-top: 1px solid rgba(255, 255, 255, .1); }
+.appearance-panel__footer span { max-width: 235px; color: rgba(232, 235, 253, .48); font-size: 9px; line-height: 1.5; }
+.appearance-panel__footer button { flex: 0 0 auto; padding: 0; border: 0; background: none; color: color-mix(in srgb, var(--modern-accent) 76%, white); font-size: 10px; cursor: pointer; }
+.panel-fade-enter-active, .panel-fade-leave-active { transition: opacity 120ms var(--ease-exit); }
+.panel-fade-enter-from, .panel-fade-leave-to { opacity: 0; }
+
+@media (max-width: 767.98px) {
+  /* Match MusicPlayer's mobile label without shrinking the touch target. */
+  .appearance-trigger { min-height: 46px; font: 13px/1.6 var(--sans); }
+  .appearance-panel { bottom: 52px; max-height: calc(100vh - 76px); padding: 17px; border-radius: 24px; }
+  .appearance-panel { max-height: calc(100dvh - 76px); }
+}
+
+.background-options { grid-template-columns: repeat(2, 1fr); }
+.background-swatch--flat { background: #242a33; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+:root[data-visual='modern'][data-color-mode='light'] .background-swatch--flat {
+  background: #eef0f2;
+  box-shadow: inset 0 0 0 1px rgba(28, 34, 42, .1);
+}
+/* 主题纯色直接演示当前氛围色；夕空町市缩略图就是那张原图本身，不叠色偏。 */
+.background-swatch--theme { background: var(--modern-accent); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+:root[data-visual='modern'][data-color-mode='light'] .background-swatch--theme {
+  box-shadow: inset 0 0 0 1px rgba(28, 34, 42, .12);
+}
+.background-swatch--dusk { background-image: url('/images/backgrounds/yuzoramachi.png'); }
+:root[data-visual='classic'][data-theme='light'] .background-swatch--flat {
+  background: var(--paper);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.appearance-panel,
+:root[data-visual='classic'] .music-surface {
+  border-color: rgba(255, 255, 255, .09);
+  background: #181d24;
+  box-shadow: 0 20px 56px rgba(0, 0, 0, .28);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.segmented-control button.active,
+.background-options button.active {
+  background: #2a313b;
+  border-color: rgba(255, 255, 255, .12);
+  box-shadow: none;
+}
+:root[data-visual='modern'][data-color-mode='light'] .panel-close {
+  border-color: rgba(28, 34, 42, .12);
+  background: rgba(28, 34, 42, .04);
+  color: #20242a;
+}
+:root[data-visual='modern'][data-color-mode='light'] .setting-group,
+:root[data-visual='modern'][data-color-mode='light'] .appearance-panel__footer { border-color: rgba(28, 34, 42, .09); }
+:root[data-visual='modern'][data-color-mode='light'] .setting-label,
+:root[data-visual='modern'][data-color-mode='light'] .setting-hint,
+:root[data-visual='modern'][data-color-mode='light'] .appearance-panel__footer span { color: rgba(38, 43, 51, .58); }
+:root[data-visual='modern'][data-color-mode='light'] .segmented-control { background: rgba(28, 34, 42, .055); }
+:root[data-visual='modern'][data-color-mode='light'] .segmented-control button,
+:root[data-visual='modern'][data-color-mode='light'] .background-options button { color: rgba(38, 43, 51, .6); }
+:root[data-visual='modern'][data-color-mode='light'] .segmented-control button.active,
+:root[data-visual='modern'][data-color-mode='light'] .background-options button.active {
+  background: #fff;
+  border-color: rgba(28, 34, 42, .1);
+  color: #20242a;
+}
+/* 「上传图片」卡片与「自定义颜色」是同一类漏覆盖：为深色写死的 #fff 描边与字形落在浅色玻璃卡片上
+   只有 1.1 的对比度（同一次面板审计发现，肉眼只剩一个几乎看不见的 ＋）。描边/文字改走浅色那一套灰。 */
+:root[data-visual='modern'][data-color-mode='light'] .background-swatch--custom {
+  border-color: rgba(28, 34, 42, .28);
+  color: rgba(38, 43, 51, .72);
+}
+
+.panel-fade-enter-active,
+.panel-fade-leave-active {
+  will-change: transform, opacity;
+  transition: transform 180ms cubic-bezier(.22, .8, .3, 1), opacity 140ms var(--ease-exit);
+}
+
+.appearance-trigger > span:first-child {
+  color: inherit;
+  font: 650 11px/1 var(--sans);
+  letter-spacing: -.04em;
+}
+@media (min-width: 768px) and (max-height: 2400px) and (min-aspect-ratio: 4 / 3) {
+  .appearance-panel { max-height: calc(100vh - 82px); }
+}
+@media (min-width: 640px) and (max-width: 767.98px) and (max-height: 600px) and (min-aspect-ratio: 4 / 3) {
+  .appearance-panel { bottom: 50px; width: min(430px, calc(100vw - 24px)); max-height: calc(100vh - 64px); }
+}
+:root[data-visual='modern'][data-material='liquid'] .appearance-trigger { position: relative; }
+:root[data-visual='modern'][data-material='liquid'] .appearance-panel { position: absolute; }
+
+:root[data-visual='modern'][data-material='liquid'] .appearance-trigger {
+  overflow: hidden;
+  transition: transform 520ms var(--ease-settle);
+}
+:root[data-visual='modern'][data-material='liquid'] .appearance-trigger:active {
+  transform: scale(.965);
+  transition-duration: 110ms;
+}
+:root[data-visual='modern'][data-material='liquid'] .appearance-trigger > span { position: relative; z-index: 1; }
+
+/* Display panel grows from the bottom-right trigger instead of cross-fading. */
+.appearance-trigger { anchor-name: --appearance-trigger; }
+.appearance-panel { position-anchor: --appearance-trigger; }
+
+.panel-fade-enter-active {
+  transform-origin: bottom right;
+  will-change: transform, clip-path;
+  transition: transform 520ms var(--ease-settle), clip-path 520ms var(--ease-settle);
+}
+.panel-fade-leave-active {
+  transform-origin: bottom right;
+  will-change: transform, clip-path;
+  transition: transform 260ms var(--ease-fluid), clip-path 260ms var(--ease-fluid);
+}
+.panel-fade-enter-from,
+.panel-fade-leave-to {
+  opacity: 1;
+  transform: translate3d(0, 50px, 0);
+  clip-path: inset(calc(100% - 44px) 0 0 calc(100% - 90px) round 22px);
+}
+.panel-fade-enter-to,
+.panel-fade-leave-from {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  clip-path: inset(0 round 14px);
+}
+
+@supports (right: anchor(right)) and (width: anchor-size(width)) {
+  .appearance-panel {
+    position: fixed;
+    right: calc(100vw - anchor(right));
+    bottom: calc(100vh - anchor(top) + 10px);
+    margin: 0;
+  }
+  .panel-fade-enter-from,
+  .panel-fade-leave-to {
+    transform: translate3d(0, calc(anchor-size(height) + 10px), 0);
+    clip-path: inset(
+      calc(100% - anchor-size(height))
+      0
+      0
+      calc(100% - anchor-size(width))
+      round 999px
+    );
+  }
+}
+
+.setting-group input[type='range'] {
+  height: 20px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.setting-group input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--modern-accent) 0 var(--range-progress), rgba(255, 255, 255, .13) var(--range-progress) 100%);
+}
+.setting-group input[type='range']::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 2px solid var(--surface-bg-strong);
+  border-radius: 50%;
+  background: #f5f7fa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .24);
+}
+.setting-group input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .13);
+}
+.setting-group input[type='range']::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--modern-accent);
+}
+.setting-group input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--surface-bg-strong);
+  border-radius: 50%;
+  background: #f5f7fa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .24);
+}
+:root[data-visual='modern'][data-color-mode='light'] .setting-group input[type='range']::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, var(--modern-accent) 0 var(--range-progress), rgba(28, 34, 42, .14) var(--range-progress) 100%);
+}
+:root[data-visual='modern'][data-color-mode='light'] .setting-group input[type='range']::-webkit-slider-thumb,
+:root[data-visual='modern'][data-color-mode='light'] .setting-group input[type='range']::-moz-range-thumb {
+  background: #20242a;
+  border-color: #fdfcf9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-fade-enter-active,
+  .panel-fade-leave-active { transition: none !important; }
+}
+
+/* The display panel stays mounted and expands geometrically from its trigger. */
+.appearance-trigger {
+  anchor-name: none !important;
+  position: relative;
+  z-index: 2;
+}
+.appearance-panel {
+  position: absolute !important;
+  right: 0 !important;
+  bottom: 54px !important;
+  top: auto !important;
+  width: min(390px, calc(100vw - 28px));
+  max-height: min(740px, calc(100vh - 82px));
+  max-height: min(740px, calc(100dvh - 82px));
+  /* 圆角跟导航栏一致（同一个 --nav-radius）；纸媒那份没有这个变量，退回 7px 保持原样。 */
+  border-radius: var(--nav-radius, 7px);
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate3d(0, 50px, 0);
+  transform-origin: bottom right;
+  clip-path: inset(calc(100% - 44px) 0 0 calc(100% - 86px) round var(--nav-radius, 7px));
+  transition:
+    transform 160ms var(--ease-exit),
+    clip-path 160ms var(--ease-exit),
+    visibility 0s step-end 160ms;
+  will-change: transform, clip-path;
+}
+.appearance-panel.is-open {
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0);
+  clip-path: inset(0 round var(--nav-radius, 7px));
+  transition:
+    transform 240ms var(--ease-panel),
+    clip-path 240ms var(--ease-panel),
+    visibility 0s step-start;
+}
+:root[data-visual='modern'][data-nav-material='liquid'] .appearance-panel {
+  position: absolute !important;
+}
+:root[data-visual='modern'][data-nav-material='liquid'] .appearance-trigger {
+  position: relative;
+}
+
+@media (max-width: 767.98px) {
+  .appearance-panel { bottom: 50px !important; max-height: calc(100vh - 70px); }
+}
+
+@media (min-width: 768px) and (max-height: 2400px) and (min-aspect-ratio: 4 / 3) {
+  .appearance-panel { max-height: calc(100vh - 82px); padding: 16px; }
+  .setting-group { padding-block: 12px; }
+}
+
+@media (min-width: 768px) and (max-height: 600px) and (min-aspect-ratio: 4 / 3) {
+  .appearance-panel { width: min(380px, calc(100vw - 20px)); }
+}
+
+/* PlotTool-inspired preset grid plus an unrestricted native color picker. */
+.accent-options {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+.accent-options button {
+  justify-self: center;
+  box-shadow: none;
+  transition: transform 180ms var(--ease-fluid), outline-color 180ms var(--ease-fluid);
+}
+.accent-options button:hover { transform: scale(1.1); }
+.accent-custom {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 34px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 7px;
+  color: rgba(235, 238, 255, .66);
+  font-size: 10px;
+  cursor: pointer;
+}
+.accent-custom input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.accent-custom input::-webkit-color-swatch-wrapper { padding: 0; }
+.accent-custom input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 50%;
+}
+:root[data-visual='modern'][data-color-mode='light'] .accent-custom {
+  border-color: rgba(25, 29, 34, .1);
+  color: rgba(25, 29, 34, .64);
+}
+
+/* Fieldset legends no longer cut through the separators. */
+.setting-group {
+  border-top: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1);
+}
+fieldset.setting-group > legend.setting-label {
+  float: left;
+  width: 100%;
+  margin: 0 0 11px;
+  padding: 0;
+}
+/* Any sibling after the legend must clear it, not just the first one: the PDF row puts a
+   hint line between the legend and the control. */
+fieldset.setting-group > legend.setting-label ~ * { clear: both; }
+:root[data-visual='modern'][data-color-mode='light'] .setting-group {
+  box-shadow: inset 0 1px 0 rgba(25, 29, 34, .1);
+}
+
+/* The panel frame stays still; only its inner viewport scrolls and edge-fades. */
+.appearance-panel {
+  padding: 0 !important;
+  overflow: hidden;
+}
+.appearance-panel__scroll {
+  --panel-edge-fade: 20px;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: inherit;
+  padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding-block: 20px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    rgba(0, 0, 0, .55) calc(var(--panel-edge-fade) / 2),
+    #000 var(--panel-edge-fade),
+    #000 calc(100% - var(--panel-edge-fade)),
+    rgba(0, 0, 0, .55) calc(100% - var(--panel-edge-fade) / 2),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    rgba(0, 0, 0, .55) calc(var(--panel-edge-fade) / 2),
+    #000 var(--panel-edge-fade),
+    #000 calc(100% - var(--panel-edge-fade)),
+    rgba(0, 0, 0, .55) calc(100% - var(--panel-edge-fade) / 2),
+    transparent 100%
+  );
+}
+
+/* One compact vertical rhythm for every settings section. */
+.appearance-panel__header { margin-bottom: 14px; }
+.setting-group {
+  padding-block: 16px;
+}
+.setting-label {
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+fieldset.setting-group > legend.setting-label {
+  margin-bottom: 10px;
+}
+.segmented-control,
+.background-options,
+.accent-options { width: 100%; }
+
+@media (max-width: 767.98px) {
+  .appearance-panel__scroll { padding: 18px; }
+}
+@media (min-width: 768px) and (max-height: 2400px) and (min-aspect-ratio: 4 / 3) {
+
+  .appearance-trigger { min-width: 78px; height: 42px; padding-inline: 11px; font-size: 10px; }
+  .appearance-panel { width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 82px); }
+  .appearance-panel { max-height: calc(100dvh - 82px); }
+  .appearance-panel__scroll { padding: 15px; scroll-padding-block: 15px; }
+  .appearance-panel__title { font-size: 17px; }
+  .appearance-panel__header { margin-bottom: 10px; }
+  .setting-group { padding-block: 11px; }
+  .setting-label,
+  fieldset.setting-group > legend.setting-label { margin-bottom: 7px; font-size: 9px; }
+  .setting-hint { margin: -4px 0 7px; font-size: 9px; }
+  .segmented-control button { min-height: 30px; font-size: 9px; }
+  .background-options button { font-size: 8px; }
+  .background-swatch { height: 38px; }
+  .accent-options { gap: 9px; }
+  .accent-options button { width: 23px; height: 23px; }
+}
+
+@media (min-width: 768px) and (max-height: 600px) and (min-aspect-ratio: 4 / 3) {
+  .appearance-panel { width: min(340px, calc(100vw - 20px)); }
+  .appearance-panel__scroll { padding: 12px 14px; }
+}
+:root[data-visual='modern'] .segmented-control button.active,
+:root[data-visual='modern'] .background-options button.active,
+:root[data-visual='modern'][data-color-mode='light'] .segmented-control button.active,
+:root[data-visual='modern'][data-color-mode='light'] .background-options button.active {
+  border-color: color-mix(in srgb, var(--modern-accent) 32%, var(--surface-border));
+  background: color-mix(in srgb, var(--modern-accent) 13%, var(--surface-bg-strong));
+}
+:root[data-visual='modern'] .background-swatch--aurora {
+  background:
+    radial-gradient(circle at 25% 25%, var(--modern-accent), transparent 40%),
+    radial-gradient(circle at 76% 68%, var(--accent-medium), color-mix(in srgb, var(--modern-accent) 16%, #171b22) 70%);
+}
+
+/* Background cards share one geometry; uploaded images become their own preview. */
+.background-options button {
+  display: grid;
+  min-width: 0;
+  min-height: 72px;
+  grid-template-rows: 44px 1.4em;
+  align-content: start;
+  height: 100%;
+  overflow: hidden;
+}
+.background-options .background-swatch {
+  width: 100%;
+  height: 44px;
+}
+.background-swatch--custom.has-image {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--modern-accent) 24%, var(--modern-line));
+  background-size: cover;
+  background-position: center;
+}
+.background-option-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.range-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -1px;
+  color: color-mix(in srgb, var(--modern-muted) 76%, transparent);
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: .02em;
+}
+.appearance-panel__footer { justify-content: flex-end; }
+
+@media (min-width: 768px) and (max-height: 2400px) and (min-aspect-ratio: 4 / 3) {
+  .background-options button {
+    min-height: 62px;
+    grid-template-rows: 38px 1.35em;
+  }
+  .background-options .background-swatch { height: 38px; }
+
+  .appearance-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    height: 42px;
+    gap: 7px;
+    padding-block: 0;
+    line-height: 1;
+  }
+  .appearance-trigger > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 1em;
+    line-height: 1;
+  }
+  .appearance-trigger > span:first-child,
+  .appearance-trigger > span:last-child { font-size: 11px; }
+}
+:root[data-visual='classic'][data-theme='light'] .panel-kicker,
+:root[data-visual='classic'][data-theme='light'] .appearance-panel__footer button {
+  color: var(--accent);
+}
+:root[data-visual='classic'][data-theme='light'] .panel-close {
+  border-color: color-mix(in srgb, var(--ink) 15%, transparent);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--ink);
+}
+:root[data-visual='classic'][data-theme='light'] .setting-group,
+:root[data-visual='classic'][data-theme='light'] .appearance-panel__footer {
+  border-color: color-mix(in srgb, var(--ink) 11%, transparent);
+}
+:root[data-visual='classic'][data-theme='light'] .setting-label,
+:root[data-visual='classic'][data-theme='light'] .setting-hint,
+:root[data-visual='classic'][data-theme='light'] .range-heading output,
+:root[data-visual='classic'][data-theme='light'] .range-scale {
+  color: var(--muted);
+}
+:root[data-visual='classic'][data-theme='light'] .segmented-control {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+:root[data-visual='classic'][data-theme='light'] .segmented-control button,
+:root[data-visual='classic'][data-theme='light'] .background-options button {
+  color: var(--muted);
+}
+:root[data-visual='classic'][data-theme='light'] .background-options button {
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+:root[data-visual='classic'][data-theme='light'] .segmented-control button.active,
+:root[data-visual='classic'][data-theme='light'] .background-options button.active {
+  border-color: color-mix(in srgb, var(--ink) 13%, transparent);
+  background: color-mix(in srgb, var(--paper) 70%, white);
+  color: var(--ink);
+  box-shadow: 0 5px 14px rgba(29, 33, 28, .08);
+}
+/* 「自定义颜色」这一行吃到了为深色面板写死的近白（文字 rgba(235, 238, 255, .66)，描边同色系），
+   落在纸面上是面板内 76 个带文字元素里唯一对比度不合格的一项（实测 1.0，肉眼只剩一个颜色圆点）。
+   文字对齐同面板的 .setting-label（--muted），描边对齐 .setting-group 的 --ink 11%。 */
+:root[data-visual='classic'][data-theme='light'] .accent-custom {
+  border-color: color-mix(in srgb, var(--ink) 11%, transparent);
+  color: var(--muted);
+}
+:root[data-visual='classic'][data-theme='light'] .background-swatch--custom {
+  border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+  color: var(--ink);
+}
+:root[data-visual='classic'][data-theme='light'] .accent-options button.active {
+  border-color: var(--paper);
+}
+
+/* Mobile panel is bounded by the live viewport and safe areas, not the dock box. */
+@media (max-width: 767.98px) {
+  .appearance-panel,
+  :root[data-visual='modern'][data-nav-material='liquid'] .appearance-panel {
+    position: fixed !important;
+    top: max(8px, env(safe-area-inset-top)) !important;
+    right: max(8px, env(safe-area-inset-right)) !important;
+    /* 46px music trigger + 10px clearance, using the same safe-area dock inset. */
+    bottom: calc(56px + var(--dock-bottom-inset)) !important;
+    left: auto !important;
+    width: min(390px, calc(100vw - 16px)) !important;
+    height: auto;
+    max-height: none !important;
+  }
+  .appearance-panel__scroll {
+    height: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+  }
+}
+
+/* One shared indicator travels between appearance options on a spring-like curve. */
+.segmented-control {
+  position: relative;
+  isolation: isolate;
+}
+.segmented-control::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 18px) / 3);
+  border: 0;
+  border-radius: 10px;
+  background: #2a313b;
+  box-shadow: none;
+  transform: var(--segment-transform, translate3d(0, 0, 0));
+  transition: transform 380ms cubic-bezier(.16, 1, .3, 1);
+  will-change: transform;
+  pointer-events: none;
+}
+.segmented-control--two::before { width: calc((100% - 13px) / 2); }
+.segmented-control button { position: relative; z-index: 1; }
+.segmented-control button.active {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+:root[data-visual='modern'] .segmented-control::before {
+  border: 0;
+  background: color-mix(in srgb, var(--modern-accent) 13%, var(--surface-bg-strong));
+  box-shadow: none;
+}
+:root[data-visual='classic'][data-theme='light'] .segmented-control::before {
+  background: color-mix(in srgb, var(--paper) 70%, white);
+  box-shadow: 0 5px 14px rgba(29, 33, 28, .08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmented-control::before { transition: none; }
+}

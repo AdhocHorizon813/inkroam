@@ -1,3 +1,4 @@
+import { readSiteStyles } from './lib/site-styles.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
@@ -19,7 +20,7 @@ const png = readFileSync(new URL('../public/images/about/lin-che.png', import.me
 if (stages.source) {
   // Source contracts, not a browser layout/contrast test.
   const source = readFileSync(new URL('../app/pages/about.vue', import.meta.url), 'utf8')
-  const globalStyles = readFileSync(new URL('../app/assets/css/main.css', import.meta.url), 'utf8')
+  const globalStyles = readSiteStyles()
   assert.match(globalStyles, /:root\[data-visual='modern'\] \.about-grid aside p \{ color: var\(--muted\)/, 'About signature follows the active light/dark text token')
   const copy = source.match(/<div class="resident-copy about-copy">([\s\S]*?)<\/div>/)?.[1]
   assert(copy, 'Resident copy must exist')

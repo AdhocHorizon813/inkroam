@@ -1,0 +1,233 @@
+/* Background-only accent channel: interface controls retain --modern-accent. */
+:root { --background-tint: var(--modern-accent); }
+:root[data-background-tint='off'] { --background-tint: transparent; }
+
+
+
+
+.ambient-backdrop { display: none; }
+
+:root[data-visual='modern'] .ambient-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  display: block;
+  overflow: hidden;
+  /* Colour lives in the atmosphere rules below; this block owns geometry only. */
+}
+
+/* Background overlay: dims the backdrop art so foreground text is readable.
+   Its opacity is user-controlled (0–100%). At 100% it fully hides the backdrop. */
+:root[data-visual='modern'] .ambient-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--backdrop-overlay);
+  opacity: var(--background-overlay-opacity, .5);
+  pointer-events: none;
+}
+
+:root[data-visual='modern'] .ambient-image {
+  position: absolute;
+  inset: -4%;
+  background-image: var(--art-background);
+  background-size: cover;
+  background-position: center;
+  filter: saturate(.82) brightness(.66);
+  opacity: calc(1 - var(--background-overlay-opacity, .5));
+}
+
+:root[data-visual='modern'][data-background='aurora'] .ambient-image { opacity: 0; }
+:root[data-visual='modern'][data-background='custom'] .ambient-image {
+  background-image: var(--custom-background), var(--art-background);
+}
+/* 夕空町市：与暮色都市共用同一条图片管线，只换底图；压暗 / 提亮仍由明暗模式与背景材质决定。 */
+:root[data-visual='modern'][data-background='dusk'] .ambient-image {
+  background-image: url('/images/backgrounds/yuzoramachi.png');
+}
+
+:root[data-visual='modern'] .ambient-aurora {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(ellipse at 24% 32%, color-mix(in srgb, var(--background-tint) 48%, transparent), transparent 34%),
+    radial-gradient(ellipse at 76% 22%, rgba(46, 209, 255, .3), transparent 32%),
+    radial-gradient(ellipse at 58% 82%, rgba(255, 85, 176, .2), transparent 31%);
+  filter: blur(64px);
+}
+
+
+:root[data-visual='modern'] .ambient-vignette {
+  position: absolute;
+  inset: 0;
+}
+:root[data-visual='modern'] .ambient-backdrop {
+  background: #101318;
+}
+/* 两种纯色画布（静谧纯色 / 主题纯色）都没有图层可模糊，一起隐藏图片与极光。 */
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .ambient-image,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .ambient-aurora { display: none; }
+:root[data-visual='modern'] .ambient-aurora { opacity: .12; }
+:root[data-visual='modern'][data-background='aurora'] .ambient-aurora { opacity: .3; }
+:root[data-visual='modern'] .ambient-vignette {
+  background: linear-gradient(180deg, rgba(0, 0, 0, .02), rgba(0, 0, 0, .18));
+}
+
+/* Keep the solid fallback: the later colour-mixed gradient requires newer CSS. */
+:root[data-visual='modern'][data-color-mode='light'] .ambient-backdrop { background: #f0efeb; }
+:root[data-visual='modern'][data-color-mode='light']:is([data-background='art'], [data-background='dusk'], [data-background='custom']) .ambient-backdrop {
+  background:
+    radial-gradient(circle at 16% 10%, color-mix(in srgb, var(--background-tint) 12%, transparent), transparent 38%),
+    radial-gradient(circle at 84% 72%, color-mix(in srgb, var(--background-tint) 6%, transparent), transparent 42%),
+    linear-gradient(145deg, #f5f3ee 0%, #eceef2 52%, #e8ebef 100%);
+}
+
+:root[data-visual='modern'][data-background='flat'] .ambient-backdrop {
+  background:
+    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--background-tint) 8%, transparent), transparent 34%),
+    radial-gradient(circle at 82% 76%, color-mix(in srgb, var(--background-tint) 5%, transparent), transparent 38%),
+    #101318;
+}
+:root[data-visual='modern'][data-color-mode='light'] .ambient-backdrop {
+  background:
+    radial-gradient(circle at 16% 10%, color-mix(in srgb, var(--background-tint) 18%, transparent), transparent 38%),
+    radial-gradient(circle at 84% 72%, color-mix(in srgb, var(--background-tint) 11%, transparent), transparent 42%),
+    linear-gradient(145deg, #f5f3ee 0%, #eceef2 52%, #e8ebef 100%);
+}
+:root[data-visual='modern'][data-color-mode='light'] .ambient-image {
+  filter: saturate(.78) brightness(1.03) contrast(.94);
+  opacity: calc(1 - var(--background-overlay-opacity, .5));
+}
+:root[data-visual='modern'][data-color-mode='light'][data-background='aurora'] .ambient-image { opacity: 0; }
+:root[data-visual='modern'][data-color-mode='light'] .ambient-aurora { opacity: .18; }
+:root[data-visual='modern'][data-color-mode='light'][data-background='aurora'] .ambient-aurora { opacity: .46; }
+:root[data-visual='modern'][data-color-mode='light'] .ambient-vignette::before {
+  opacity: var(--background-overlay-opacity, 1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(244, 245, 247, .16) 58%, rgba(232, 235, 239, .38)),
+    radial-gradient(ellipse at center, transparent 42%, rgba(234, 237, 241, .26) 100%);
+}
+:root[data-visual='modern'][data-color-mode='light'][data-background='flat'] .ambient-backdrop {
+  background:
+    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--background-tint) 9%, transparent), transparent 36%),
+    radial-gradient(circle at 82% 76%, color-mix(in srgb, var(--background-tint) 6%, transparent), transparent 40%),
+    #eef0f2;
+}
+
+/* 主题纯色：画布就是这个氛围色本身。这里刻意不自己混底色、也不给深浅各写一套比例——
+   实测（默认 40% 遮罩下）氛围色直接落屏已经是克制的量级：岩层蓝浅色 164,177,192、深色 59,71,88，
+   柔红浅色 191,155,159，都不刺眼；浓淡交给用户已有的「背景遮罩透明度」滑条，与其它画布同一套机制。
+   这两条必须留在文件里**最后**一批背景画布规则中间——`.ambient-backdrop` 前面还有几组
+   不带背景模式限定的通用规则（基础层与浅色层各一版），写在它们前面会被盖掉。 */
+:root[data-visual='modern'][data-background='theme'] .ambient-backdrop {
+  background: var(--modern-accent);
+}
+
+:root[data-visual='modern'][data-background-material='liquid'] {
+  --background-saturation: 1.04;
+  --background-brightness: .72;
+  --background-contrast: 1.04;
+  --background-material-opacity: .62;
+}
+:root[data-visual='modern'][data-background-material='acrylic'] {
+  --background-saturation: .84;
+  --background-brightness: .67;
+  --background-contrast: .98;
+  --background-material-opacity: .8;
+}
+:root[data-visual='modern'][data-background-material='mica'] {
+  --background-saturation: .72;
+  --background-brightness: .62;
+  --background-contrast: .94;
+  --background-material-opacity: .94;
+}
+:root[data-visual='modern'][data-color-mode='light'][data-background-material='liquid'] {
+  --background-brightness: 1.07;
+}
+:root[data-visual='modern'][data-color-mode='light'][data-background-material='acrylic'] {
+  --background-brightness: 1.03;
+}
+:root[data-visual='modern'][data-color-mode='light'][data-background-material='mica'] {
+  --background-brightness: .98;
+}
+:root[data-visual='modern'] .ambient-image {
+  filter:
+    blur(var(--background-blur))
+    saturate(var(--background-saturation, .82))
+    brightness(var(--background-brightness, .66))
+    contrast(var(--background-contrast, 1));
+  transform: scale(1.04);
+}
+:root[data-visual='modern'] .ambient-aurora {
+  filter:
+    blur(calc(56px + var(--background-blur)))
+    saturate(var(--background-saturation, 1));
+}
+
+/* Background pipeline: source -> material veil -> page surfaces. */
+:root[data-visual='modern'] .ambient-source {
+  position: absolute;
+  inset: -56px;
+  overflow: hidden;
+  background: inherit;
+  filter:
+    blur(var(--background-blur))
+    saturate(calc(var(--background-saturation, .82) + (1 - var(--background-overlay-opacity, .5)) * (1 - var(--background-saturation, .82))))
+    brightness(calc(var(--background-brightness, .66) + (1 - var(--background-overlay-opacity, .5)) * (1 - var(--background-brightness, .66))))
+    contrast(calc(var(--background-contrast, 1) + (1 - var(--background-overlay-opacity, .5)) * (1 - var(--background-contrast, 1))));
+  transition: filter 260ms var(--ease-fluid);
+  will-change: filter;
+}
+:root[data-visual='modern'] .ambient-source .ambient-image {
+  inset: 0;
+  filter: none;
+  transform: none;
+}
+:root[data-visual='modern'] .ambient-source .ambient-aurora {
+  filter: blur(56px) saturate(var(--background-saturation, 1));
+}
+:root[data-visual='modern'] .ambient-vignette {
+  opacity: var(--background-overlay-opacity, 1);
+}
+:root[data-visual='modern'] .ambient-vignette::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 260ms var(--ease-fluid);
+}
+
+:root[data-visual='modern'][data-background-material='liquid'] .ambient-vignette {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, .055), transparent 34%, color-mix(in srgb, var(--background-tint) 5%, transparent) 72%, rgba(255, 255, 255, .025)),
+    linear-gradient(180deg, rgba(5, 8, 14, .02), rgba(5, 8, 14, .18) 70%, rgba(5, 8, 14, .34));
+}
+:root[data-visual='modern'][data-background-material='acrylic'] .ambient-vignette {
+  background:
+    radial-gradient(ellipse at 25% 18%, color-mix(in srgb, var(--background-tint) 8%, transparent), transparent 40%),
+    linear-gradient(180deg, rgba(10, 13, 20, .1), rgba(9, 12, 19, .34) 72%, rgba(8, 11, 18, .52));
+}
+:root[data-visual='modern'][data-background-material='mica'] .ambient-vignette {
+  background:
+    radial-gradient(ellipse at 22% 14%, color-mix(in srgb, var(--background-tint) 7%, transparent), transparent 42%),
+    linear-gradient(180deg, rgba(15, 18, 24, .24), rgba(13, 16, 22, .52) 70%, rgba(11, 14, 20, .68));
+}
+
+:root[data-visual='modern'][data-color-mode='light'][data-background-material='liquid'] .ambient-vignette::before {
+  opacity: var(--background-overlay-opacity, 1);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, .12), transparent 36%, color-mix(in srgb, var(--background-tint) 6%, transparent) 72%, rgba(255, 255, 255, .05)),
+    linear-gradient(180deg, rgba(246, 247, 249, .01), rgba(238, 241, 244, .12) 70%, rgba(230, 234, 239, .22));
+}
+:root[data-visual='modern'][data-color-mode='light'][data-background-material='acrylic'] .ambient-vignette::before {
+  opacity: var(--background-overlay-opacity, 1);
+  background:
+    radial-gradient(ellipse at 24% 16%, color-mix(in srgb, var(--background-tint) 9%, transparent), transparent 42%),
+    linear-gradient(180deg, rgba(248, 248, 246, .12), rgba(238, 241, 244, .28) 70%, rgba(229, 233, 238, .38));
+}
+:root[data-visual='modern'][data-color-mode='light'][data-background-material='mica'] .ambient-vignette::before {
+  opacity: var(--background-overlay-opacity, 1);
+  background:
+    radial-gradient(ellipse at 22% 14%, color-mix(in srgb, var(--background-tint) 8%, transparent), transparent 42%),
+    linear-gradient(180deg, rgba(247, 247, 244, .28), rgba(238, 240, 242, .48) 68%, rgba(228, 232, 236, .58));
+}

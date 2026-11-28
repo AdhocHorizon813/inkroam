@@ -134,19 +134,27 @@ PDF 附件的呈现偏好也走共享状态：`useState('pdf-fallback', () => 'c
 
 ### 样式入口
 
-[全站入口](../app/assets/css/site.css)依次加载页面滚动、主体主题、确认弹窗、下拉浮层和图片查看器。Nuxt 随后加载层次投影。正文技术排版随文章阅读器导入；播放器、玻璃适配器和导航光带各自拥有组件样式。
+[全站入口](../app/assets/css/site.css)列出全站 CSS 的实际加载顺序。每个文件同时收录该功能的主题与屏幕尺寸分支。Nuxt 随后加载层次投影。正文技术排版随文章阅读器导入；播放器、玻璃适配器和导航光带各自拥有组件样式。
 
 | 要修改的效果 | 从哪里开始 |
 | --- | --- |
 | 页面与显示面板滚动槽、拇指几何和淡出 | [page-scroll.css](../app/assets/css/page-scroll.css)；JS 向拇指写入位移与高度。 |
-| 纸媒与现代主题、卡片、底部入口间距 | [main.css](../app/assets/css/main.css)。两侧入口共用 `--dock-bottom-inset`。 |
+| 主题变量、全站重置、页面外壳与路由动效 | [main.css](../app/assets/css/main.css)。首屏模糊兜底和导航时长等共享参数也在此处。 |
+| 壁纸、极光、氛围色与背景遮罩 | [background.css](../app/assets/css/background.css)。画布消费主题变量，独立于前景卡片。 |
+| 导航、品牌、展宽端点与横屏间距 | [navigation.css](../app/assets/css/navigation.css)。吸顶位置还须与页面外壳的顶部留白配对。 |
+| 首页、归档、关于、文章列表及跨页面标题排版 | [editorial.css](../app/assets/css/editorial.css)。例如列表元数据的间距在 `.story-meta`。 |
+| 正文网格、侧栏和 Markdown 基础排版 | [article-reader.css](../app/assets/css/article-reader.css)。侧栏收起态由 ArticleReader.vue 控制，正文技术排版单独加载。 |
+| 搜索结果、分组和课程目录 | [search-and-courses.css](../app/assets/css/search-and-courses.css)。 |
+| 阅读面板、设置行、分段控件与底部入口定位 | [appearance-panel.css](../app/assets/css/appearance-panel.css)。两侧入口共用 `--dock-bottom-inset`。 |
+| 卡片、导航和面板共用的基础表面与材质配方 | [surface-materials.css](../app/assets/css/surface-materials.css)。正文卡片的负层级材质也在此处。 |
+| 列表与正文共用的 AI、精选、置顶标记 | [article-badges.css](../app/assets/css/article-badges.css)。 |
 | 确认窗、遮罩、按钮强调与窄屏排列 | [confirm-dialog.css](../app/assets/css/confirm-dialog.css)。调用方为按钮指定 `__accent` 或 `__neutral`。 |
 | 下拉面材质、原生 popover 的定位和向上收起时的对齐 | [dropdown.css](../app/assets/css/dropdown.css)。搜索、日历和正文工具共用 `.dropdown-surface`。向上贴边的规则只作用于带 `data-flip="up"` 的搜索浮层。 |
 | 正文图片点击提示、图片查看器、缩放和进退场 | [image-lightbox.css](../app/assets/css/image-lightbox.css)，同一组规则包含窄屏与减少动态效果分支。 |
 | 出厂材质与首屏衔接 | [appearance-defaults.ts](../app/utils/appearance-defaults.ts) 提供深浅预设与旧偏好兜底。Nuxt 取深色材质生成初始 HTML；面板挂载后将解析后的偏好写入根元素。CSS 的挂载前模糊值与图表比例由阅读外观专项对照。 |
 | 导航展宽与光效 | main.css 的 `--nav-width-duration` 决定展宽时间，也供 [depth.css](../app/assets/css/depth.css) 的桌面延迟光效引用。按压折射由玻璃控件负责，实际投影表面由 DepthReceivers 定位。 |
 
-**调整移动端两个入口的底距。** 在 main.css 的 `max-width: 767.98px` 分支修改 `--dock-bottom-inset`。音乐与显示入口共用它；显示面板的底边再加 56px 给按钮留位。全屏音乐的内容内边距由 MusicPlayer 自己控制。
+**调整移动端两个入口的底距。** 在 appearance-panel.css 的 `max-width: 767.98px` 分支修改 `--dock-bottom-inset`。音乐与显示入口共用它；显示面板的底边再加 56px 给按钮留位。全屏音乐的内容内边距由 MusicPlayer 自己控制。
 
 **调整确认窗。** 在 confirm-dialog.css 找 `.appearance-confirm__actions`。宽于 380px 时两列等宽，380px 及以下排成一列。默认设置弹窗强调“采用”，批量解密与导出明文强调“取消”。二次验钥的输入、提交与取消逻辑由 ArticleTools 负责。
 

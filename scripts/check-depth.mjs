@@ -1,3 +1,4 @@
+import { readSiteStyles } from './lib/site-styles.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import postcss from 'postcss'
@@ -128,7 +129,7 @@ assert(baseTransition.value.includes('var(--depth-light-delay)') && fadeTransiti
 const lightDelays = declarations.filter(d => d.prop === '--depth-light-delay')
 assert(lightDelays.some(d => d.value === '0ms'), 'No widening delay on mobile')
 assert(lightDelays.some(d => d.value === 'var(--nav-width-duration)' && d.parent.parent.params === '(min-width: 768px)'), 'Desktop light waits for the navbar width transition')
-const headerCss = postcss.parse(readFileSync('app/assets/css/main.css', 'utf8'))
+const headerCss = postcss.parse(readSiteStyles())
 assert(headerCss.nodes.some(rule => rule.selector === ':root' && rule.nodes.some(d => d.prop === '--nav-width-duration' && d.value === '440ms')), 'The width transition lasts 440ms')
 assert(headerCss.nodes.some(rule => rule.selector === ":root[data-visual='modern'] .site-header" && rule.nodes.some(d => d.prop === 'transition' && d.value.includes('width var(--nav-width-duration)'))), 'The header consumes the same duration as the light')
 /* A/B test B（tmp/deepseek-dark-navbar-scrolled-final-ab.md）：只降 Scrolled 的外部环境光（下方那道光），

@@ -1,5 +1,5 @@
+import { readSiteStyles } from './lib/site-styles.mjs'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import postcss from 'postcss'
 
 /* 滚动时导航只允许「变宽」：吸顶位置（.site-header 的 top）必须等于静止位置
@@ -7,7 +7,7 @@ import postcss from 'postcss'
    导航都会在页面一开始滚动时额外向上顶一段（非桌面尺寸尤其明显）。
    这里不跑浏览器：把媒体查询按真实视口样例展开，逐个语境比对两处取值。 */
 
-const css = postcss.parse(readFileSync('app/assets/css/main.css', 'utf8'))
+const css = postcss.parse(readSiteStyles())
 const rules = []
 css.walkRules(rule => {
   const chain = []

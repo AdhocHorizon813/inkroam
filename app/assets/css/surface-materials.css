@@ -1,0 +1,333 @@
+:root[data-visual='modern'] .manifesto {
+  border: 1px solid var(--surface-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--surface-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--surface-saturation));
+}
+:root[data-visual='modern'] .appearance-trigger {
+  color: #fff;
+}
+
+:root[data-visual='modern'] .hero {
+  background: var(--surface-bg);
+  box-shadow: var(--surface-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+:root[data-visual='modern'] .appearance-trigger {
+  border-color: rgba(255, 255, 255, .1);
+  background: #1a1f27;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root[data-visual='modern'][data-color-mode='light'] .site-header { color: #20242a; }
+
+:root[data-visual='modern'][data-color-mode='light'] .appearance-trigger {
+  border-color: rgba(28, 34, 42, .12);
+  background: #faf9f6;
+  color: #20242a;
+  box-shadow: 0 8px 24px rgba(34, 39, 46, .1);
+}
+:root[data-visual='modern'][data-color-mode='light'] .appearance-panel {
+  border-color: rgba(28, 34, 42, .1);
+  background: #fdfcf9;
+  color: #20242a;
+  box-shadow: 0 20px 52px rgba(34, 39, 46, .15);
+}
+
+/* Performance and motion: only composite opacity/transform; never animate blur. */
+/* Large-surface theme smoothing removed: it duplicated the View Transition cross-fade
+   and produced per-frame color/border/background paint on theme switch. */
+
+:root[data-visual='modern'][data-material='mica'] .site-header,
+:root[data-visual='modern'][data-material='mica'] .hero,
+:root[data-visual='modern'][data-material='mica'] .latest-section,
+:root[data-visual='modern'][data-material='mica'] .manifesto,
+:root[data-visual='modern'][data-material='mica'] .standard-page,
+:root[data-visual='modern'][data-material='mica'] .article-page,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .site-header,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .hero,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .standard-page,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .article-page {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .hero,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto {
+  border-bottom: 1px solid var(--modern-line);
+}
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section { border-top: 1px solid var(--modern-line); }
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto { border-top: 0; }
+/* 只有「有图层的画布」（极光 / 两张图 / 自定义）才值得让玻璃去模糊底下的东西；
+   两种纯色画布（flat / theme）底下没有图层，和 flat 一样排除在玻璃之外。 */
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .site-header {
+  backdrop-filter: blur(var(--nav-blur)) saturate(135%);
+  -webkit-backdrop-filter: blur(var(--nav-blur)) saturate(135%);
+}
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .hero,
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .latest-section,
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .manifesto,
+:root[data-visual='modern'][data-material='acrylic'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .standard-page {
+  backdrop-filter: blur(var(--content-blur)) saturate(135%);
+  -webkit-backdrop-filter: blur(var(--content-blur)) saturate(135%);
+}
+:root[data-visual='modern'][data-material='acrylic'] .appearance-panel {
+  background: rgba(20, 24, 30, .58);
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+}
+:root[data-visual='modern'][data-color-mode='light'][data-material='acrylic'] .appearance-panel {
+  background: rgba(253, 252, 249, .62);
+}
+
+:root[data-visual='modern'][data-material='liquid'] .hero,
+:root[data-visual='modern'][data-material='liquid'] .latest-section,
+:root[data-visual='modern'][data-material='liquid'] .manifesto,
+:root[data-visual='modern'][data-material='liquid'] .standard-page,
+:root[data-visual='modern'][data-material='liquid'] .article-page {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root[data-visual='modern'][data-material='liquid'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .hero,
+:root[data-visual='modern'][data-material='liquid'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .latest-section,
+:root[data-visual='modern'][data-material='liquid'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .manifesto,
+:root[data-visual='modern'][data-material='liquid'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .standard-page,
+:root[data-visual='modern'][data-material='liquid'][data-background]:not(:is([data-background='flat'], [data-background='theme'])) .article-page {
+  background: color-mix(in srgb, var(--surface-bg) 92%, transparent);
+}
+
+:root[data-visual='modern'][data-material='liquid'] .site-header,
+:root[data-visual='modern'][data-material='liquid'] .appearance-trigger,
+:root[data-visual='modern'][data-material='liquid'] .appearance-panel {
+  border-color: var(--surface-border);
+  background: var(--surface-bg-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .24),
+    inset 0 -1px 0 rgba(255, 255, 255, .04),
+    var(--surface-shadow);
+  backdrop-filter: blur(12px) saturate(135%) brightness(1.04);
+  -webkit-backdrop-filter: blur(12px) saturate(135%) brightness(1.04);
+}
+
+/* The blur control drives the actual material blur from clear (0) to frosted (48). */
+:root[data-visual='modern'][data-material='acrylic'] .site-header,
+:root[data-visual='modern'][data-material='acrylic'] .hero,
+:root[data-visual='modern'][data-material='acrylic'] .latest-section,
+:root[data-visual='modern'][data-material='acrylic'] .manifesto,
+:root[data-visual='modern'][data-material='acrylic'] .standard-page,
+:root[data-visual='modern'][data-material='acrylic'] .article-page,
+:root[data-visual='modern'][data-material='acrylic'] .appearance-panel {
+  backdrop-filter: blur(var(--glass-blur)) saturate(135%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(135%);
+}
+:root[data-visual='modern'][data-material='liquid'] .site-header,
+:root[data-visual='modern'][data-material='liquid'] .appearance-trigger,
+:root[data-visual='modern'][data-material='liquid'] .appearance-panel {
+  backdrop-filter: blur(var(--glass-blur)) saturate(135%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(135%) brightness(1.04);
+}
+
+/* Navigation and utility controls now use their own material channel. */
+:root[data-visual='modern'][data-nav-material='mica'] .site-header,
+:root[data-visual='modern'][data-nav-material='mica'] .appearance-trigger,
+:root[data-visual='modern'][data-music-material='mica'] .music-surface,
+:root[data-visual='modern'][data-nav-material='mica'] .appearance-panel {
+  border-color: rgba(255, 255, 255, .09);
+  background: rgba(23, 27, 33, .42);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .18);
+  backdrop-filter: blur(var(--nav-blur)) saturate(135%);
+  -webkit-backdrop-filter: blur(var(--nav-blur)) saturate(135%);
+}
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='mica'] .site-header,
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='mica'] .appearance-trigger,
+:root[data-visual='modern'][data-color-mode='light'][data-music-material='mica'] .music-surface,
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='mica'] .appearance-panel {
+  border-color: rgba(25, 29, 34, .09);
+  background: rgba(244, 243, 239, .48);
+  box-shadow: 0 12px 34px rgba(25, 29, 34, .08);
+}
+
+:root[data-visual='modern'][data-nav-material='acrylic'] .site-header,
+:root[data-visual='modern'][data-nav-material='acrylic'] .appearance-trigger,
+:root[data-visual='modern'][data-music-material='acrylic'] .music-surface,
+:root[data-visual='modern'][data-nav-material='acrylic'] .appearance-panel {
+  border-color: rgba(255, 255, 255, .12);
+  background: rgba(18, 22, 28, .42);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .16);
+  backdrop-filter: blur(var(--glass-blur)) saturate(135%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(135%);
+}
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='acrylic'] .site-header,
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='acrylic'] .appearance-trigger,
+:root[data-visual='modern'][data-color-mode='light'][data-music-material='acrylic'] .music-surface,
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='acrylic'] .appearance-panel {
+  border-color: rgba(31, 36, 43, .11);
+  background: rgba(248, 247, 243, .48);
+  box-shadow: 0 14px 38px rgba(31, 36, 43, .08);
+}
+
+:root[data-visual='modern'][data-nav-material='liquid'] .site-header,
+:root[data-visual='modern'][data-nav-material='liquid'] .appearance-trigger,
+:root[data-visual='modern'][data-music-material='liquid'] .music-surface,
+:root[data-visual='modern'][data-nav-material='liquid'] .appearance-panel {
+  border-color: rgba(255, 255, 255, .2);
+  background: rgba(22, 27, 34, .24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .22),
+    inset 0 -1px 0 rgba(255, 255, 255, .04),
+    0 16px 44px rgba(0, 0, 0, .17);
+  backdrop-filter: blur(var(--glass-blur)) saturate(145%) brightness(1.04);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(145%) brightness(1.04);
+}
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='liquid'] .site-header,
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='liquid'] .appearance-trigger,
+:root[data-visual='modern'][data-color-mode='light'][data-music-material='liquid'] .music-surface,
+:root[data-visual='modern'][data-color-mode='light'][data-nav-material='liquid'] .appearance-panel {
+  border-color: rgba(255, 255, 255, .62);
+  background: rgba(255, 255, 255, .25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .72),
+    0 16px 40px rgba(31, 36, 43, .1);
+}
+:root[data-visual='modern'][data-nav-material='liquid'] .site-header::before,
+:root[data-visual='modern'][data-nav-material='liquid'] .appearance-trigger::before,
+:root[data-visual='modern'][data-nav-material='liquid'] .appearance-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .18), transparent 27%, transparent 72%, rgba(255, 255, 255, .05));
+  pointer-events: none;
+}
+
+/* Content material remains independent from the navigation material. */
+:root[data-visual='modern'][data-material='mica'] .hero,
+:root[data-visual='modern'][data-material='mica'] .latest-section,
+:root[data-visual='modern'][data-material='mica'] .manifesto,
+:root[data-visual='modern'][data-material='mica'] .standard-page,
+:root[data-visual='modern'][data-material='mica'] .article-page {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-visual='modern'][data-material='acrylic'] .hero,
+:root[data-visual='modern'][data-material='acrylic'] .latest-section,
+:root[data-visual='modern'][data-material='acrylic'] .manifesto,
+:root[data-visual='modern'][data-material='acrylic'] .standard-page,
+:root[data-visual='modern'][data-material='acrylic'] .article-page {
+  backdrop-filter: blur(var(--glass-blur)) saturate(135%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(135%);
+}
+:root[data-visual='modern'][data-material='liquid'] .hero,
+:root[data-visual='modern'][data-material='liquid'] .latest-section,
+:root[data-visual='modern'][data-material='liquid'] .manifesto,
+:root[data-visual='modern'][data-material='liquid'] .standard-page,
+:root[data-visual='modern'][data-material='liquid'] .article-page {
+  background: color-mix(in srgb, var(--surface-bg) 68%, transparent);
+  backdrop-filter: blur(var(--glass-blur)) saturate(145%) brightness(1.03);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(145%) brightness(1.03);
+}
+
+/* Mature sites use one low elevation per layer and reserve accent for state. */
+:root[data-visual='modern'] .hero,
+:root[data-visual='modern'] .latest-section,
+:root[data-visual='modern'] .manifesto,
+:root[data-visual='modern'] .standard-page,
+:root[data-visual='modern'] .article-page {
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .12);
+}
+:root[data-visual='modern'][data-color-mode='light'] .hero,
+:root[data-visual='modern'][data-color-mode='light'] .latest-section,
+:root[data-visual='modern'][data-color-mode='light'] .manifesto,
+:root[data-visual='modern'][data-color-mode='light'] .standard-page,
+:root[data-visual='modern'][data-color-mode='light'] .article-page {
+  box-shadow: 0 10px 30px rgba(31, 36, 43, .055);
+}
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .hero,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .latest-section,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .manifesto,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .standard-page,
+:root[data-visual='modern']:is([data-background='flat'], [data-background='theme']) .article-page {
+  box-shadow: none;
+}
+
+:root[data-visual='modern'][data-nav-material] .site-header,
+:root[data-visual='modern'][data-nav-material] .appearance-trigger,
+:root[data-visual='modern'][data-nav-material] .appearance-panel {
+  backdrop-filter: blur(var(--nav-blur)) saturate(135%);
+  -webkit-backdrop-filter: blur(var(--nav-blur)) saturate(135%);
+}
+
+/* Same material recipes, independent music blur for the dock and both player sizes. */
+:root[data-visual='modern'][data-music-material] .music-surface {
+  backdrop-filter: blur(var(--music-blur)) saturate(135%);
+  -webkit-backdrop-filter: blur(var(--music-blur)) saturate(135%);
+}
+
+:root[data-visual='modern'][data-material] .hero,
+:root[data-visual='modern'][data-material] .latest-section,
+:root[data-visual='modern'][data-material] .manifesto,
+:root[data-visual='modern'][data-material] .standard-page {
+  backdrop-filter: blur(var(--content-blur)) saturate(var(--surface-saturation));
+  -webkit-backdrop-filter: blur(var(--content-blur)) saturate(var(--surface-saturation));
+}
+
+/* 文章页这张卡片的玻璃放在它自己的负层级伪元素上，卡片元素本身不再带 backdrop-filter。
+   这不是换外观：blur 是线性滤镜、卡片底色是平色，blur(底色 + 环境) 与 底色 + blur(环境)
+   等价，改动前后整卡逐像素比对平均差 0.08/255（tmp/probe-page-snap.mjs）。
+   原因是规范：卡片自己一旦带 backdrop-filter，它就是这块区域的 backdrop root，
+   卡内任何元素再写 backdrop-filter 只能糊到卡片自己那层平色 —— 实测「代码模糊」
+   0/24/48px 三档像素零变化。玻璃挪到伪元素后卡片不是 backdrop root 了，
+   卡内 .article-code 的 backdrop-filter 才真的生效（同一条通道、同一套 0–48 值）。
+   contain: layout 只是补回 backdrop-filter 顺带给固定/绝对定位后代的包含块
+   （卡内的 ImageLightbox 等），它不建立 backdrop root、也不裁切内容。 */
+:root[data-visual='modern'][data-material] .article-page {
+  position: relative;
+  contain: layout;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-visual='modern'][data-material] .article-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  backdrop-filter: blur(var(--content-blur)) saturate(var(--surface-saturation));
+  -webkit-backdrop-filter: blur(var(--content-blur)) saturate(var(--surface-saturation));
+}
+
+/* Navigation surfaces use their material directly; legacy liquid rules must not add a corner flare. */
+:root[data-visual='modern'] .site-header::before,
+:root[data-visual='modern'] .appearance-trigger::before,
+:root[data-visual='modern'] .appearance-panel::before {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  opacity: 0 !important;
+}
+
+/* The retained paper theme follows its own light palette inside the shared panel. */
+:root[data-visual='classic'][data-theme='light'] .appearance-panel,
+:root[data-visual='classic'][data-theme='light'] .music-surface {
+  border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  background: color-mix(in srgb, var(--paper) 94%, white);
+  color: var(--ink);
+  box-shadow: 0 20px 52px rgba(29, 33, 28, .14);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Fullscreen music: the material recipes paint a 1px top highlight and a drop shadow,
+   so a viewport-filling surface still looked like a window. Remove both when expanded. */
+:root[data-visual][data-music-material] .music-surface.music-panel.is-expanded {
+  box-shadow: none;
+  border-color: transparent;
+}
