@@ -135,6 +135,10 @@ assert.equal(card.reads, beforeNavResize, 'Navbar width transition does not reme
 assert.equal(vm.runInContext('header.value.width', context), 700)
 nav.box = { ...nav.box, width: 0, height: 0 }; settingCallback(); flush()
 assert.equal(root.dataset.depthReceivers, undefined, 'Hidden focus-mode navigation has no projected band')
+const hiddenCardReads = card.reads
+scrollTop++; scrollCallback(); flush()
+assert.equal(card.reads, hiddenCardReads, 'An already hidden navbar does not invalidate card layout on scroll')
+scrollTop--
 nav.box = { x: 30, y: 18, width: 900, height: 54 }
 await routeCallback(); flush()
 assert.equal(root.dataset.depthReceivers, 'true')

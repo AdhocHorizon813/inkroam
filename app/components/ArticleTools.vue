@@ -100,8 +100,19 @@ const sections = ref<{ title: string; body: HTMLElement }[]>([])
 let ranges: Range[] = [], timer: ReturnType<typeof setTimeout> | undefined
 let observer: MutationObserver | undefined
 let disposed = false
-const urls = new Set<string>()
-const exportFrames = new Set<HTMLIFrameElement>()
+const exportLifetime = new AbortController()
+const exportCleanups = new Set<() => void>()
+function retainExportResource(dispose: () => void, timeout?: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const release = () => {
+    if (!exportCleanups.delete(release)) return
+    clearTimeout(timer)
+    dispose()
+  }
+  exportCleanups.add(release)
+  if (timeout !== undefined) timer = setTimeout(release, timeout)
+  return release
+}
 // Progressive enhancement: CSS Highlights preserves selection, links and Vue nodes.
 type HighlightsWindow = Window & { Highlight?: new (...ranges: Range[]) => unknown; CSS?: { highlights?: Map<string, unknown> } }
 function paint() {
@@ -151,11 +162,17 @@ async function toggle(next: 'find' | 'export') {
   if (mode.value === next) beginClose()
   else endClose()
   mode.value = mode.value === next ? null : next
-  if (mode.value === 'find') { await nextTick(); find(false) }
-  else { clearTimeout(timer); clearHighlights() }
+  if (mode.value === 'find') {
+    await nextTick()
+    if (!disposed && mode.value === 'find') find(false)
+    return
+  }
+  clearTimeout(timer)
+  clearHighlights()
   if (mode.value === 'export' && props.content) {
+    const body = props.content
     const { articleSections } = await import('~/utils/article-export')
-    sections.value = articleSections(props.content)
+    if (!disposed && mode.value === 'export' && props.content === body) sections.value = articleSections(body)
   }
 }
 function close() {
@@ -235,8 +252,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', outside)
   actionsResize?.disconnect()
   window.removeEventListener('resize', positionIndicator)
-  urls.forEach(url => URL.revokeObjectURL(url))
-  exportFrames.forEach(frame => frame.remove()); exportFrames.clear()
+  exportLifetime.abort()
+  exportCleanups.forEach(release => release())
   sections.value = []; ranges = []; query.value = ''
 })
 async function exportArticle(format: 'pdf' | 'png') {
@@ -248,37 +265,39 @@ async function exportArticle(format: 'pdf' | 'png') {
     if (disposed) return
     const section = sectionIndex.value >= 0 ? sections.value[sectionIndex.value] : undefined
     const title = section ? `${props.title} · ${section.title}` : props.title
-    const { frame, content } = await createExportFrame(title, section?.body || props.content, frame => {
-      if (disposed) { frame.remove(); throw new Error('阅读已结束。') }
-      exportFrames.add(frame)
-    })
-    const removeFrame = () => { frame.remove(); exportFrames.delete(frame) }
-    cleanup = removeFrame
-    if (disposed) return
+    const { frame, content } = await createExportFrame(title, section?.body || props.content, exportLifetime.signal)
+    if (disposed) { frame.remove(); return }
     if (format === 'pdf') {
       const win = frame.contentWindow!
+      const removeFrame = retainExportResource(() => {
+        win.removeEventListener('afterprint', removeFrame)
+        frame.remove()
+      }, 120000)
+      cleanup = removeFrame
       win.addEventListener('afterprint', removeFrame, { once: true })
       win.focus(); win.print()
       // Some browsers return before printing completes; retain its document briefly.
-      setTimeout(removeFrame, 120000); cleanup = undefined
+      cleanup = undefined
       status.value = '在打印窗口选择“另存为 PDF”。'
     } else {
+      cleanup = retainExportResource(() => frame.remove())
       const pixelRatio = 2
       const height = Math.ceil(content.getBoundingClientRect().height)
       // html-to-image scales canvases above 16384px down; keep the full 2x resolution.
       if (height * pixelRatio > 16000) throw new Error('正文过长，高清 PNG 请按小节导出，或使用 PDF。')
       status.value = '正在生成 PNG…'
       const { toBlob } = await import('html-to-image')
+      if (disposed) return
       const blob = await toBlob(content, { pixelRatio, backgroundColor: '#ffffff', preferredFontFormat: 'woff2' })
       if (!blob) throw new Error('图片生成失败，请改用 PDF。')
       if (disposed) return
-      const url = URL.createObjectURL(blob); urls.add(url)
+      const url = URL.createObjectURL(blob)
+      retainExportResource(() => URL.revokeObjectURL(url), 60000)
       const link = document.createElement('a'); link.href = url; link.download = `${exportFilename(title)}.png`; link.click()
-      setTimeout(() => { URL.revokeObjectURL(url); urls.delete(url) }, 60000)
       status.value = 'PNG 已生成。'
     }
   } catch (error) {
-    status.value = error instanceof Error ? error.message : '导出失败，请稍后重试。'
+    if (!disposed) status.value = error instanceof Error ? error.message : '导出失败，请稍后重试。'
   } finally { cleanup?.(); busy.value = false }
 }
 </script>
@@ -341,13 +360,13 @@ async function exportArticle(format: 'pdf' | 'png') {
           <input id="private-export-key" ref="exportKeyField" v-model="exportKey" class="private-export-key" type="password" autocomplete="off" autocapitalize="off" :spellcheck="false" :disabled="verifyingExport" required placeholder="重新输入文档密钥" aria-describedby="private-export-key-error" />
           <p id="private-export-key-error" class="appearance-confirm__detail" role="status">{{ exportKeyError }}</p>
           <div class="appearance-confirm__actions">
-            <button type="button" class="appearance-confirm__accept" @click="cancelExport">取消</button>
-            <button type="submit" class="appearance-confirm__cancel" :disabled="verifyingExport || !exportKey.trim()">{{ verifyingExport ? '正在验证…' : '验证并导出' }}</button>
+            <button type="button" class="appearance-confirm__accent" @click="cancelExport">取消</button>
+            <button type="submit" class="appearance-confirm__neutral" :disabled="verifyingExport || !exportKey.trim()">{{ verifyingExport ? '正在验证…' : '验证并导出' }}</button>
           </div>
         </form>
         <div v-else class="appearance-confirm__actions">
-          <button type="button" class="appearance-confirm__accept" autofocus @click="cancelExport">取消</button>
-          <button type="button" class="appearance-confirm__cancel" @click="confirmExport">仍要导出</button>
+          <button type="button" class="appearance-confirm__accent" autofocus @click="cancelExport">取消</button>
+          <button type="button" class="appearance-confirm__neutral" @click="confirmExport">仍要导出</button>
         </div>
       </dialog>
     </Teleport>

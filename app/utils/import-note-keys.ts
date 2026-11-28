@@ -9,6 +9,7 @@ const expandedLimit = 64 * 1024 * 1024
 async function unzipKeys(file: File, signal: AbortSignal): Promise<Record<string, Uint8Array>> {
   if (file.size > zipLimit) throw new Error('ZIP 文件超过 32 MB，请拆分压缩包。')
   const { unzip } = await import('fflate')
+  signal.throwIfAborted()
   const bytes = new Uint8Array(await file.arrayBuffer())
   signal.throwIfAborted()
   return new Promise((resolve, reject) => {
@@ -64,5 +65,6 @@ export async function importNoteKeyFiles(files: File[], signal: AbortSignal, onK
     }
     await new Promise(resolve => setTimeout(resolve, 0))
   }
+  signal.throwIfAborted()
   return { scanned, matched, failed }
 }

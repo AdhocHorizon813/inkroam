@@ -131,6 +131,7 @@ onBeforeUnmount(() => { disposed = true; stopPageFinish(); destroy?.() })
 :root[data-visual='modern'] [data-liquid-glass-content]::before {
   display: none !important;
 }
+[data-glass-tint-handoff] { transition: none !important; }
 .experimental-content-glass {
   position: absolute;
   inset: 0;

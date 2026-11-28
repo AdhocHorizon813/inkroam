@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
+import postcss from 'postcss'
 import { source, template, compilePanel, createPanelContext } from './lib/appearance-panel-vm.mjs'
 
 const css = readFileSync('app/assets/css/main.css', 'utf8')
@@ -202,6 +203,18 @@ assert.deepEqual(readDefaults(newcomer), LIGHT_DEFAULTS, 'A light first visit la
 const darkFresh = mount(null, { systemDark: true })
 assert.equal(darkFresh.state.defaultSettings, true)
 assert.deepEqual(readDefaults(darkFresh), DARK_DEFAULTS, 'A dark first visit lands on the dark defaults')
+// CSS paints before the panel mounts. Check the actual root declarations
+// against the values installed for a dark first visit.
+const firstPaint = new Map()
+for (const rule of postcss.parse(css).nodes) {
+  if (rule.type === 'rule' && rule.selector === ':root') {
+    rule.walkDecls(decl => { firstPaint.set(decl.prop, decl.value) })
+  }
+}
+for (const channel of ['nav', 'music', 'content', 'dropdown', 'background']) {
+  assert.equal(firstPaint.get(`--${channel}-blur`), `${darkFresh.state[channel + 'Blur']}px`)
+}
+assert.equal(Number(firstPaint.get('--diagram-scale')), darkFresh.state.diagramScale / 100)
 
 /* 启用态：系统明暗一换，受管项整批换成另一套，画布回到「跟随」。 */
 const follower = mount({ defaultSettings: true, background: 'flat', navBlur: 44 })
@@ -314,8 +327,7 @@ assert(sizeGroup.includes('type="range"') && sizeGroup.includes(':disabled="mana
 assert(!sizeGroup.includes('setting-hint'), 'The slider carries no explanatory small print')
 assert(source.includes("root.style.setProperty('--diagram-scale', String(state.diagramScale / 100))"), 'The panel publishes the ratio as one CSS variable')
 assert(css.includes('--diagram-scale: 0.75;'), 'The stylesheet keeps a pre-mount fallback equal to the factory size')
-assert.equal([...source.matchAll(/diagramScale: 75,/g)].length, 3, 'All three factory sets carry the diagram size')
-assert(/'diagramScale'/.test(source), 'The diagram size is part of the factory-defaults field list')
+assert.equal(mount({ defaultSettings: false }).state.diagramScale, 75, 'A legacy manual preference with no diagram size receives the original default')
 assert(
   /<fieldset class="setting-group" :disabled="state\.visual === 'classic'">\s*<legend class="setting-label">默认设置<\/legend>/.test(template),
   'The switch itself only disables with the paper look',
@@ -328,7 +340,7 @@ assert(template.includes('<dialog') && template.includes('class="appearance-conf
 assert(css.includes('.appearance-confirm::backdrop'), 'The confirm dialog brings its own scrim')
 assert.match(css, /\.appearance-confirm__actions \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/, 'Dialog actions have equal widths')
 assert(template.includes('aria-describedby="appearance-confirm-description"'))
-assert(template.includes('class="appearance-confirm__cancel" autofocus'), 'Cancel is the safe initial focus')
+assert(template.includes('class="appearance-confirm__neutral" autofocus'), 'Cancel is the safe initial focus')
 assert(source.includes('dialogDefaultSettings.value = enabled'), 'Exit keeps the same action text')
 assert(css.includes('overlay 160ms allow-discrete'), 'Native dialog exit retains top-layer animation')
 assert(css.includes('@starting-style'), 'Opening has a defined starting state')

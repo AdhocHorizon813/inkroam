@@ -1,16 +1,16 @@
 /* 页面滚动容器与阅读位置。
    经典滚动条的槽位落在文档绘制区之外：fixed 图层、自绘轨道都盖不到它，那里只显示 canvas
    （body 的背景色），紧挨一张底图时就是右边缘那条白边。桌面因此把滚动从 html 搬到
-   .page-scroll（见 main.css 的同一条媒体查询）：槽位进入绘制区后，透明轨道下面就是氛围层，
+   .page-scroll（见 page-scroll.css 的同一条媒体查询）：槽位进入绘制区后，透明轨道下面就是氛围层，
    和文章目录的滑条同一套机制。手机上滚动条是覆盖式的，不需要搬运，仍然是文档滚动——
    所以下面每个读写操作都要先问一次"现在是谁在滚"。
    这些函数都直接碰 DOM，只在客户端调用。 */
 
-/* 必须与 main.css 里把滚动搬进 .page-scroll 的媒体查询保持一致。 */
+/* 必须与 page-scroll.css 里把滚动搬进 .page-scroll 的媒体查询保持一致。 */
 export const PAGE_SCROLL_QUERY = '(hover: hover) and (pointer: fine)'
 /* 滚动容器的状态属性：内容不够长时写 'false'，CSS 只把滑条透明度转到 0。
    元素、轨道、槽位全程都在（overflow-y: scroll），所以显隐不会挪动布局。
-   名字同时出现在 main.css 与 scripts/check-page-scroll.mjs 里。 */
+   名字同时出现在 page-scroll.css 与 scripts/check-page-scroll.mjs 里。 */
 export const PAGE_SCROLLABLE_ATTRIBUTE = 'data-scrollable'
 /* 「这次显隐要不要等一会儿」的开关：'false' 是挂载后的第一帧（立刻到位），
    两帧之后翻成 'true'，之后的每次变更才带淡出延迟。

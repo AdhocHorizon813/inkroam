@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import postcss from 'postcss'
+import { readSiteStyles } from './lib/site-styles.mjs'
 
 // Guard the audited top-level cascade. Media/supports/layer rules are deliberately
 // excluded: their conditions are part of the design, not accidental duplication.
-const root = postcss.parse(readFileSync('app/assets/css/main.css', 'utf8').replaceAll('\r\n', '\n'))
+const root = postcss.parse(readSiteStyles().replaceAll('\r\n', '\n'))
 const groups = new Map()
 for (const rule of root.nodes) {
   if (rule.type !== 'rule') continue

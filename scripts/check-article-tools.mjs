@@ -97,6 +97,7 @@ assert.match(descriptor.template.content, /@pointermove\.capture="rememberPointe
 const toolProps = { content: null, title: '', encrypted: false }
 const clipboardWrites = []
 const toolContext = vm.createContext({
+  AbortController,
   defineProps: () => toolProps,
   copyTextOnGesture: async value => { clipboardWrites.push(value) },
   ref: value => ({ value }), reactive: value => value,

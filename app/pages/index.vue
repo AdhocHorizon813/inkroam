@@ -15,15 +15,6 @@ const { data: posts } = await useAsyncData('home-posts', () =>
     .all(),
 )
 
-const { data: featuredPosts } = await useAsyncData('home-featured-posts', () =>
-  queryCollection('posts').select(...entrySummaryFields)
-    .where('draft', '=', false)
-    .where('path', 'LIKE', '/posts/%')
-    .where('featured', '=', true)
-    .order('date', 'DESC')
-    .all(),
-)
-
 const { data: notes } = await useAsyncData('home-notes', () =>
   queryCollection('posts').select(...entrySummaryFields).where('draft', '=', false).where('path', 'LIKE', '/notes/%').order('date', 'DESC').all(),
 )
@@ -31,21 +22,18 @@ const { data: notes } = await useAsyncData('home-notes', () =>
 type LatestPostCount = 5 | 10 | 'all'
 const latestPostCount = useState<LatestPostCount>('latest-post-count', () => 10)
 const latestNoteCount = useState<LatestPostCount>('latest-note-count', () => 10)
-const visiblePosts = computed(() => {
-  const allPosts = (posts.value || []).map(displayEntry).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.date.localeCompare(a.date))
-  return latestPostCount.value === 'all'
-    ? allPosts
-    : allPosts.slice(0, latestPostCount.value)
-})
+const allPosts = computed(() => (posts.value || []).map(displayEntry)
+  .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.date.localeCompare(a.date)))
+const visiblePosts = computed(() => latestPostCount.value === 'all'
+  ? allPosts.value
+  : allPosts.value.slice(0, latestPostCount.value))
 
 const visibleNotes = computed(() => {
   const entries = (notes.value || []).map(displayEntry).sort((a, b) => b.date.localeCompare(a.date))
   return latestNoteCount.value === 'all' ? entries : entries.slice(0, latestNoteCount.value)
 })
-const visibleFeaturedPosts = computed(() => {
-  const entries = new Map([...(featuredPosts.value || []), ...(posts.value || [])].map(entry => [entry.path, displayEntry(entry)]))
-  return [...entries.values()].filter(entry => entry.featured).sort((a, b) => b.date.localeCompare(a.date))
-})
+const visibleFeaturedPosts = computed(() => allPosts.value.filter(entry => entry.featured)
+  .sort((a, b) => b.date.localeCompare(a.date)))
 
 const formatDate = (date: string) => date.replaceAll('-', '.')
 </script>
@@ -105,7 +93,7 @@ const formatDate = (date: string) => date.replaceAll('-', '.')
         <span class="story-arrow" aria-hidden="true">↗</span>
       </NuxtLink>
 
-      <p v-if="!featuredPosts?.length" class="section-empty">尚未选出精选文章。</p>
+      <p v-if="!visibleFeaturedPosts.length" class="section-empty">尚未选出精选文章。</p>
     </section>
 
     <TopicExplore />

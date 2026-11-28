@@ -29,13 +29,16 @@ if (process.argv.includes('--fixtures')) {
   assert(page.includes('article-content'), 'Shared reader')
   assert(page.includes('katex'), 'Note math rendering')
   assert(page.includes('范数与极限'), 'Note headings')
-  const search = parse(await readFile(`${base}/search/_payload.json`, 'utf8'), {
+  const searchPayload = await readFile(`${base}/search/_payload.json`, 'utf8')
+  const search = parse(searchPayload, {
     ShallowReactive: value => value, ShallowRef: value => value,
     Reactive: value => value, Ref: value => value,
   })
-  assert(search.data['search-posts'].some(post => post.title === title), 'Search title index includes notes')
+  const previews = search.data['search-post-previews']
+  assert(previews.some(post => post.title === title), 'Search title index includes notes')
+  assert(previews.every(post => !('body' in post) && post.excerpts instanceof Map), 'Search payload ships section excerpts without full document trees')
   assert(search.data['post-search-sections-readable-math'].some(section => section.content.includes('notesfixture')), 'Search body index includes notes')
-  assert(!JSON.stringify(search).includes('Notes regression draft fixture'), 'Search excludes draft')
+  assert(!searchPayload.includes('Notes regression draft fixture'), 'Search excludes drafts from both text and excerpt maps')
   await assert.rejects(access(`${base}/notes/stochastic-processes/notes-regression-draft/index.html`))
 }
 console.log('Notes regression checks passed.')

@@ -734,7 +734,7 @@ function onPlaying() {
 </template>
 
 <style scoped>
-.music-dock { position: fixed; z-index: 45; left: max(24px, env(safe-area-inset-left)); bottom: max(24px, env(safe-area-inset-bottom)); color: var(--ink); font: 13px/1.6 var(--sans); }
+.music-dock { position: fixed; z-index: 45; left: max(24px, env(safe-area-inset-left)); color: var(--ink); font: 13px/1.6 var(--sans); }
 .music-pill { position: relative; z-index: 2; display: flex; max-width: calc(100vw - 130px); align-items: center; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); transition: width 360ms var(--ease-settle); }
 .music-trigger { min-width: 0; flex: 1; }.music-trigger > svg { flex: none; }
 /* A single idle action owns its entire surface, like AppearancePanel's button.
@@ -854,7 +854,8 @@ header { display: flex; justify-content: space-between; align-items: center; gap
 .music-panel.is-expanded .music-tracks { max-height: 42dvh; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 @media(hover:hover) and (pointer:fine) { button:hover { color: var(--accent); } }
 @media(max-width:767.98px) {
-  .music-dock { left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); }button { min-height: 44px; }
+  .music-dock { left: max(16px, env(safe-area-inset-left)); }
+  button { min-height: 44px; }
   .music-pill.is-unplayed > .music-trigger { min-height: 46px; }
   .music-panel.is-expanded .music-body { padding-inline: max(24px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right)); }
   .music-panel.is-expanded .music-content { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 16px; }

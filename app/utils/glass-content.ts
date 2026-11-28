@@ -26,6 +26,7 @@ export function attachGlassContent(host: HTMLElement, engine: typeof import('../
   if (style.zIndex === 'auto') host.style.zIndex = '0'
   host.appendChild(frame)
   let controller: GlassController | undefined, disposed = false, raf = 0
+  let handoffFrame = 0
   let radius = parseFloat(style.borderTopLeftRadius) || 0
   // Hand the tint over in a single frame. This is the exact moment the card's
   // background flips from the preview tint to transparent, and background-color
@@ -35,14 +36,12 @@ export function attachGlassContent(host: HTMLElement, engine: typeof import('../
   // Suppressing the property for this one assignment keeps the swap atomic and
   // leaves every other transition (theme, material, route motion) untouched.
   function commit() {
-    const previous = host.style.transition
-    host.style.transition = 'none'
+    host.setAttribute('data-glass-tint-handoff', '')
     host.setAttribute('data-liquid-glass-content', '')
     void host.offsetWidth // flush the pending style change without a transition
-    requestAnimationFrame(() => {
-      if (disposed) return
-      if (previous) host.style.transition = previous
-      else host.style.removeProperty('transition')
+    handoffFrame = requestAnimationFrame(() => {
+      handoffFrame = 0
+      host.removeAttribute('data-glass-tint-handoff')
     })
   }
   const decoded = new MutationObserver(() => {
@@ -75,9 +74,11 @@ export function attachGlassContent(host: HTMLElement, engine: typeof import('../
     if (disposed) return
     disposed = true
     if (raf) cancelAnimationFrame(raf)
+    if (handoffFrame) cancelAnimationFrame(handoffFrame)
     stopScroll(); window.removeEventListener('resize', schedule)
     resize.disconnect(); decoded.disconnect(); controller?.destroy(); frame.remove()
     host.removeAttribute('data-liquid-glass-content')
+    host.removeAttribute('data-glass-tint-handoff')
     for (const [name, value, priority] of original) {
       if (value) host.style.setProperty(name, value, priority)
       else host.style.removeProperty(name)

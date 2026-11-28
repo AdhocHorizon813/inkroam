@@ -43,7 +43,7 @@ async function importFiles(event: Event) {
   const target = event.target as HTMLInputElement
   const files = [...(target.files || [])]
   target.value = ''
-  if (!files.length) return
+  if (!files.length || busy.value || readingFiles.value) return
   const current = generation
   readingFiles.value = true
   status.value = ''
@@ -159,7 +159,7 @@ onBeforeUnmount(() => { cancel(); window.removeEventListener('pagehide', cancel)
         <h2 id="batch-decrypt-title">继续批量解密？</h2>
         <p id="batch-decrypt-description">将使用 {{ confirmCount }} 个密钥尝试解锁站内加密文档，成功后显示正文与原始标题。</p>
         <p class="appearance-confirm__detail">解锁内容保留在当前标签页内存中，切换文章仍可阅读。刷新、关闭标签页或点击“全部锁定”后清除。</p>
-        <div class="appearance-confirm__actions"><button type="button" class="appearance-confirm__accept" autofocus @click="dismiss">取消</button><button type="button" class="appearance-confirm__cancel" @click="decryptBatch">继续解密</button></div>
+        <div class="appearance-confirm__actions"><button type="button" class="appearance-confirm__accent" autofocus @click="dismiss">取消</button><button type="button" class="appearance-confirm__neutral" @click="decryptBatch">继续解密</button></div>
       </dialog>
     </Teleport>
   </div>

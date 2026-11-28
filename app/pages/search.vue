@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { articleExcerptSections, excerptParts } from '~/utils/search-excerpt'
+import { articleExcerptSections, excerptParts, type ExcerptPart } from '~/utils/search-excerpt'
 import { groupSearchMatches } from '~/utils/search-results'
 import { matchesSearchFilters, readSearchFilters, type SearchFilters } from '~/utils/search-filters'
 useSeoMeta({
@@ -15,12 +15,19 @@ const hasFilters = computed(() => Object.entries(filters.value).some(([key, valu
 const searchActive = computed(() => !!query.value.trim() || hasFilters.value)
 const filterTags = computed(() => [...new Set((posts.value || []).flatMap(post => post.tags || []))].sort((a, b) => a.localeCompare(b, 'zh-CN')))
 
-const { data: posts } = await useAsyncData('search-posts', () =>
-  queryCollection('posts')
+// Build excerpts before Nuxt serializes the search payload. The reader still
+// loads the complete document on its own route.
+const { data: posts } = await useAsyncData('search-post-previews', async () => {
+  const rows = await queryCollection('posts')
+    .select('path', 'title', 'date', 'description', 'tags', 'body')
     .where('draft', '=', false)
     .order('date', 'DESC')
-    .all(),
-)
+    .all()
+  return rows.map(({ path, title, date, description, tags, body }) => ({
+    path, title, date, description, tags,
+    excerpts: articleExcerptSections(body, path, description),
+  }))
+})
 
 const { data: sections } = await useAsyncData('post-search-sections-readable-math', () =>
   queryCollectionSearchSections('posts', {
@@ -36,9 +43,9 @@ const normalize = (value: string) => (filters.value.caseSensitive === '1' ? valu
 
 const searchTerms = computed(() => normalize(query.value).split(' ').filter(Boolean))
 const previewSections = computed(() => {
-  const result = new Map()
+  const result = new Map<string, ExcerptPart[]>()
   for (const post of posts.value || []) {
-    for (const [id, parts] of articleExcerptSections(post.body, post.path, post.description)) result.set(id, parts)
+    for (const [id, parts] of post.excerpts) result.set(id, parts)
   }
   return result
 })

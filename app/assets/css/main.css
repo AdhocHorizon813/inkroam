@@ -17,135 +17,6 @@
 }
 
 * { box-sizing: border-box; }
-/* Keep viewport width stable; scrollbar appearance comes from the same rules as the TOC. */
-html { scroll-behavior: smooth; overflow-y: scroll; }
-
-/* 经典滚动条的槽位落在文档绘制区之外：fixed 图层和自绘轨道都盖不到它，那里永远只有 canvas
-   （body 的背景色），紧挨一张底图时就是右边缘那条白边（实测同一行相邻像素差 94/255）。
-   桌面因此把滚动从 html 搬到 .page-scroll：html 不再滚 → 没有根滚动条 → ICB 变成整个窗口，
-   滚动条落进页面能画到的区域里，透明的轨道下面就是氛围层——和文章目录的滑条同一套机制。
-   实测量到同一位置相邻像素差 1–3/255，边界上不再有台阶。
-   宽度也不变：容器 offsetWidth 仍是 1478，扣掉自己的滚动条后正文可用宽度与以前一致。
-   手机（指针粗、无 hover）是覆盖式滚动条，本来就浮在内容上，保持原生文档滚动。
-   app/utils/page-scroll.ts 的 PAGE_SCROLL_QUERY 必须与这条媒体查询保持一致。 */
-/* 自绘滑条默认不出现：只有支持 ::-webkit-scrollbar 的桌面环境（也就是能自绘的环境）才显示。 */
-.page-scrollbar { display: none; }
-
-@media (hover: hover) and (pointer: fine) {
-  html { overflow-y: hidden; }
-  .page-scroll {
-    height: 100dvh;
-    overflow-y: scroll;
-    overflow-x: clip;
-    /* 必须透明：滚动条轨道下面要透出 .ambient-backdrop。 */
-    background: transparent;
-    scroll-behavior: smooth;
-  }
-  /* 原生细滚动条（scrollbar-width: thin）没法过渡透明度：Chrome 一旦看到它就完全
-     忽略 ::-webkit-scrollbar。所以这个容器把宽度让回 auto，改由自绘滚动条渲染——
-     宽度 10px 与原生的细滚动条一致，正文可用宽度不变。Firefox 没有 ::-webkit-*
-     伪元素，保留原生细样式，代价是那条滑条没有淡入淡出。 */
-  @supports selector(::-webkit-scrollbar) {
-    .page-scroll {
-      scrollbar-width: auto;
-      scrollbar-color: auto;
-    }
-  }
-  .page-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
-  .page-scroll::-webkit-scrollbar-track { background: transparent; }
-  /* 原生拇指涂成全透明：外观交给下面自绘的那条，但拖动、轨道翻页、滚轮这些原生行为
-     仍然由它承担，所以它必须继续存在（只是看不见）。 */
-  .page-scroll::-webkit-scrollbar-thumb { background: transparent; }
-  /* 自绘拇指（app/components/PageScrollbar.vue）。为什么必须自绘：原生拇指在容器不再
-     可滚的那一瞬间就被浏览器撤掉——实测内容变短后第一帧像素已回到底色，而状态还没变，
-     所以淡出永远画不出来（见 docs/scrollbar.md）。槽位仍由 overflow-y: scroll 占着，
-     于是「只改透明度、不增删元素、布局不位移」这几条约定继续成立。
-     整块 pointer-events: none：拖动、轨道翻页、滚轮仍由那条透明的原生拇指承担，
-     这里只画外观，不重复实现一遍原生行为。
-     Firefox 没有 ::-webkit-* 伪元素，@supports 不匹配时整段不生效，那边保持原生细滚动条。
-     不碰 ::-webkit-scrollbar-button / -corner：原生自绘滚动条本来就不画箭头。 */
-  @supports selector(::-webkit-scrollbar) {
-    .page-scrollbar {
-      position: fixed;
-      inset: 0 0 0 auto;        /* 右缘那条 10px */
-      z-index: 40;              /* 要压住 sticky 顶栏（30），但在外观面板（80）之下 */
-      width: 10px;
-      display: block;
-      pointer-events: none;
-    }
-    .page-scrollbar__thumb {
-      position: absolute;
-      top: 0;
-      left: 2px;
-      right: 2px;
-      height: var(--page-scrollbar-thumb-size, 0px);
-      transform: translateY(var(--page-scrollbar-thumb-offset, 0px));
-      border-radius: 999px;
-      background-color: var(--scrollbar-thumb);
-      /* 淡入 500ms；离场那侧只覆盖时长/缓动/延迟，免得把「只改透明度」写成两套。 */
-      opacity: 1;
-      transition: opacity 500ms var(--ease-fluid);
-    }
-    /* 淡出先等 300ms（Android 的 SCROLL_BAR_DEFAULT_DELAY）再消失——延迟的意义是别让
-       淡出和造成它的内容重排挤在同一帧里。时长不按正文的动效约定走，而是照原生滚动条
-       自己的规则（出处与实测值见 docs/scrollbar.md「参考规则」）：原生滑条不淡入，
-       只做「先等一会儿，再很快地消失」；时长 500ms 是定稿值，刻意比桌面区间长。
-       拉长时间并不等于更显眼——原生滑条是靠「被关注时变粗、变实」表达状态的。 */
-    .page-scroll[data-scrollable='false'] .page-scrollbar__thumb {
-      opacity: 0;
-      transition-duration: 500ms;
-      transition-timing-function: var(--ease-exit);
-      transition-delay: var(--page-scrollbar-delay, 300ms);
-    }
-    /* 首次测量（挂载后的第一帧）立刻到位：短页面不该先画出一条滑条，再等 300ms 才收起来。
-       usePageScrollable 先写 'false'，等这次绘制过去（两帧）再翻成 'true'。 */
-    .page-scroll[data-scrollable-settled='false'] { --page-scrollbar-delay: 0ms; }
-    @media (prefers-reduced-motion: reduce) {
-      .page-scrollbar__thumb,
-      .page-scroll[data-scrollable='false'] .page-scrollbar__thumb { transition: none; }
-    }
-  }
-}
-
-/* 外观菜单的滚动区用同一套自绘滑条：同一个 PageScrollbar 组件、同一个 usePageScrollable
-   （高度与位移变量直接写到拇指上）。
-   滑条在滚动元素内部，但不能跟着内容滚走，所以绝对定位到
-   .appearance-panel（包含块在滚动容器之外，滚不带走它）。面板的 padding 是 0
-   （line 2206 的 padding: 0 !important），right: 0 正好落在滚动区预留的 10px 槽位上。
-   手机上（指针粗、无 hover）整段不生效，保持原生覆盖式滑条；Firefox 没有
-   ::-webkit-* 伪元素，同样退回全局的原生细样式。 */
-@media (hover: hover) and (pointer: fine) {
-  @supports selector(::-webkit-scrollbar) {
-    .appearance-panel__scroll {
-      scrollbar-width: auto;
-      scrollbar-color: auto;
-    }
-    .appearance-panel__scroll::-webkit-scrollbar { width: 10px; height: 10px; }
-    .appearance-panel__scroll::-webkit-scrollbar-track { background: transparent; }
-    .appearance-panel__scroll::-webkit-scrollbar-thumb { background: transparent; }
-    .appearance-panel .page-scrollbar {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: auto;
-      right: 0;
-      z-index: 3;
-      width: 10px;
-      display: block;
-      pointer-events: none;
-    }
-    .appearance-panel__scroll[data-scrollable='false'] .page-scrollbar__thumb {
-      opacity: 0;
-      transition-duration: 500ms;
-      transition-timing-function: var(--ease-exit);
-      transition-delay: var(--page-scrollbar-delay, 300ms);
-    }
-    .appearance-panel__scroll[data-scrollable-settled='false'] { --page-scrollbar-delay: 0ms; }
-    @media (prefers-reduced-motion: reduce) {
-      .appearance-panel__scroll[data-scrollable='false'] .page-scrollbar__thumb { transition: none; }
-    }
-  }
-}
 body {
   margin: 0;
   background: var(--paper);
@@ -585,13 +456,24 @@ button { font: inherit; }
   font-family: var(--sans);
 }
 
+/* Both fixed controls sit on the same baseline. The mobile appearance panel
+   inherits the inset to clear the trigger when anchored to the viewport. */
+.music-dock,
+.appearance-dock {
+  --dock-bottom-inset: max(24px, env(safe-area-inset-bottom));
+  bottom: var(--dock-bottom-inset);
+}
+
 /* Appearance control */
 .appearance-dock {
   position: fixed;
-  /* Mirror MusicPlayer's desktop dock inset, including safe areas. */
   right: max(24px, env(safe-area-inset-right));
-  bottom: max(24px, env(safe-area-inset-bottom));
   z-index: 80;
+}
+@media (max-width: 767.98px) {
+  .music-dock,
+  .appearance-dock { --dock-bottom-inset: max(16px, env(safe-area-inset-bottom)); }
+  .appearance-dock { right: max(16px, env(safe-area-inset-right)); }
 }
 .appearance-trigger {
   display: inline-flex;
@@ -718,10 +600,10 @@ button { font: inherit; }
 .appearance-confirm__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
 .appearance-confirm__actions button { min-height: 42px; padding: 10px 12px; border-radius: 13px; font: 550 13px/1.4 var(--sans); cursor: pointer; transition: background-color 180ms var(--ease-fluid), transform 160ms var(--ease-settle); }
 .appearance-confirm__actions button:active { transform: scale(.975); }
-.appearance-confirm__cancel { border: 1px solid var(--line); background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
-.appearance-confirm__cancel:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); }
-.appearance-confirm__accept { border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 22%, var(--paper)); color: var(--ink); }
-.appearance-confirm__accept:hover { background: color-mix(in srgb, var(--accent) 32%, var(--paper)); }
+.appearance-confirm__neutral { border: 1px solid var(--line); background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
+.appearance-confirm__neutral:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.appearance-confirm__accent { border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 22%, var(--paper)); color: var(--ink); }
+.appearance-confirm__accent:hover { background: color-mix(in srgb, var(--accent) 32%, var(--paper)); }
 .appearance-confirm__actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 380px) { .appearance-confirm { padding: 24px 20px 20px; } .appearance-confirm__actions { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) {
@@ -747,7 +629,6 @@ button { font: inherit; }
   :root[data-visual='modern'] .story-row { grid-template-columns: 28px 1fr; padding: 22px 16px; border-radius: 18px; }
   :root[data-visual='modern'] .story-row:hover { padding-left: 16px; }
   :root[data-visual='modern'] .manifesto { margin: 12px 0; border-radius: 28px; }
-  .appearance-dock { right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); }
   /* Match MusicPlayer's mobile label without shrinking the touch target. */
   .appearance-trigger { min-height: 46px; font: 13px/1.6 var(--sans); }
   .appearance-panel { bottom: 52px; max-height: calc(100vh - 76px); padding: 17px; border-radius: 24px; }
@@ -1434,7 +1315,6 @@ button { font: inherit; }
   :root[data-visual='modern'] .latest-section { padding: 30px 34px; }
   :root[data-visual='modern'] .standard-page,
   :root[data-visual='modern'] .article-page { padding: 38px 34px; }
-  .appearance-dock { right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); }
   .appearance-panel { bottom: 50px; width: min(430px, calc(100vw - 24px)); max-height: calc(100vh - 64px); }
 }
 
@@ -2046,7 +1926,6 @@ button { font: inherit; }
     border-radius: 14px;
   }
   :root[data-visual='modern'] .hero h1 { font-size: clamp(40px, 12vw, 58px); }
-  .appearance-dock { right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); }
   .appearance-panel { bottom: 50px !important; max-height: calc(100vh - 70px); }
 }
 
@@ -2108,6 +1987,7 @@ button { font: inherit; }
   --ease-settle: cubic-bezier(.2, .82, .22, 1);
   --ease-panel: cubic-bezier(.18, .9, .24, 1);
   --ease-exit: cubic-bezier(.4, 0, .85, .25);
+  --nav-width-duration: 440ms;
 }
 
 /* Scroll-aware sticky header: only the width stretches into a full-bleed bar
@@ -2115,8 +1995,8 @@ button { font: inherit; }
    Narrow screens never widen, so it cannot overflow or produce a scrollbar. */
 :root[data-visual='modern'] .site-header {
   transition:
-    margin-inline 440ms var(--ease-fluid),
-    width 440ms var(--ease-fluid);
+    margin-inline var(--nav-width-duration) var(--ease-fluid),
+    width var(--nav-width-duration) var(--ease-fluid);
 }
 @media (min-width: 768px) {
   :root[data-visual='modern'][data-scrolled='true'] .site-header {
@@ -2134,6 +2014,7 @@ button { font: inherit; }
 }
 
 /* Stable route animation is driven by Web Animations on this persistent shell. */
+.route-frame [data-route-enter-pending] { opacity: 0 !important; }
 .route-frame {
   min-width: 0;
   transform-origin: top center;
@@ -3240,7 +3121,7 @@ fieldset.setting-group > legend.setting-label {
     top: max(8px, env(safe-area-inset-top)) !important;
     right: max(8px, env(safe-area-inset-right)) !important;
     /* 46px music trigger + 10px clearance, using the same safe-area dock inset. */
-    bottom: calc(56px + max(16px, env(safe-area-inset-bottom))) !important;
+    bottom: calc(56px + var(--dock-bottom-inset)) !important;
     left: auto !important;
     width: min(390px, calc(100vw - 16px)) !important;
     height: auto;
@@ -3454,142 +3335,6 @@ fieldset.setting-group > legend.setting-label {
 
 @media (prefers-reduced-motion: reduce) {
   .segmented-control::before { transition: none; }
-}
-
-/* In-article image zoom. The viewer is teleported to <body> so ancestor
-   backdrop-filter/transform surfaces cannot trap the fixed overlay. */
-.article-content img { cursor: zoom-in; }
-.article-content img:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-
-.image-lightbox {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: grid;
-  place-items: center;
-  padding: clamp(18px, 5vw, 64px);
-}
-.image-lightbox__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(6, 8, 12, .88);
-  backdrop-filter: blur(16px) saturate(115%);
-  -webkit-backdrop-filter: blur(16px) saturate(115%);
-}
-.image-lightbox__figure {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  max-width: 100%;
-  max-height: 100%;
-  margin: 0;
-}
-.image-lightbox__image {
-  display: block;
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: calc(100vh - clamp(140px, 22vh, 200px));
-  border-radius: 10px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, .5);
-  transform-origin: center center;
-  will-change: transform;
-  cursor: zoom-in;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.image-lightbox.is-zoomed .image-lightbox__image { cursor: grab; }
-.image-lightbox.is-panning .image-lightbox__image { cursor: grabbing; }
-.image-lightbox.is-animating .image-lightbox__image { transition: transform 320ms var(--ease-settle); }
-.image-lightbox__caption {
-  max-width: min(72ch, 100%);
-  color: rgba(255, 255, 255, .66);
-  font: 13px/1.7 var(--sans);
-  text-align: center;
-  transition: opacity 200ms var(--ease-fluid);
-}
-/* A zoomed image overflows its box, so fade the caption instead of letting it
-   sit on top of the picture. */
-.image-lightbox.is-zoomed .image-lightbox__caption { opacity: 0; }
-.image-lightbox__hud {
-  position: absolute;
-  z-index: 2;
-  top: clamp(16px, 3vw, 30px);
-  left: clamp(16px, 3vw, 30px);
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  font: 12px/1 var(--sans);
-}
-.image-lightbox__count { color: rgba(255, 255, 255, .6); letter-spacing: .1em; }
-.image-lightbox__zoom { color: rgba(255, 255, 255, .82); font-variant-numeric: tabular-nums; letter-spacing: .06em; }
-.image-lightbox__hint { color: rgba(255, 255, 255, .34); letter-spacing: .04em; }
-.image-lightbox__close,
-.image-lightbox__nav {
-  position: absolute;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, .2);
-  border-radius: 50%;
-  background: rgba(18, 22, 28, .6);
-  color: #fff;
-  cursor: pointer;
-  transition: background-color 180ms var(--ease-fluid), border-color 180ms var(--ease-fluid);
-}
-.image-lightbox__close { top: clamp(14px, 3vw, 26px); right: clamp(14px, 3vw, 26px); }
-.image-lightbox__nav { top: 50%; transform: translateY(-50%); }
-.image-lightbox__nav--prev { left: clamp(10px, 2.5vw, 28px); }
-.image-lightbox__nav--next { right: clamp(10px, 2.5vw, 28px); }
-.image-lightbox__close:hover,
-.image-lightbox__nav:hover { background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .42); }
-.image-lightbox__close:focus-visible,
-.image-lightbox__nav:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-.image-lightbox__close svg,
-.image-lightbox__nav svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.lightbox-enter-active { transition: opacity 260ms var(--ease-fluid); }
-.lightbox-leave-active { transition: opacity 160ms cubic-bezier(.4, 0, .85, .25); }
-/* The figure carries the entrance animation; the image keeps its own inline
-   transform for zoom and pan. */
-.lightbox-enter-active .image-lightbox__figure { transition: transform 460ms var(--ease-settle); }
-.lightbox-leave-active .image-lightbox__figure { transition: transform 180ms cubic-bezier(.4, 0, .85, .25); }
-.lightbox-enter-from,
-.lightbox-leave-to { opacity: 0; }
-.lightbox-enter-from .image-lightbox__figure { transform: scale(.965); }
-.lightbox-leave-to .image-lightbox__figure { transform: scale(.985); }
-
-@media (max-width: 767.98px) {
-  .image-lightbox { padding: 14px; }
-  .image-lightbox__image { max-height: calc(100vh - 150px); border-radius: 8px; }
-  .image-lightbox__close,
-  .image-lightbox__nav { width: 40px; height: 40px; }
-  .image-lightbox__caption { font-size: 12px; }
-  .image-lightbox__hint { display: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lightbox-enter-active,
-  .lightbox-leave-active,
-  .lightbox-enter-active .image-lightbox__figure,
-  .lightbox-leave-active .image-lightbox__figure,
-  .image-lightbox.is-animating .image-lightbox__image,
-  .image-lightbox__caption { transition: none; }
 }
 
 /* Study notes reuse archive/story styles; course links remain readable on narrow screens. */

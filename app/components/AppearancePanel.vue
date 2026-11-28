@@ -7,19 +7,19 @@ import { createDefaultGlassGlobal, createDefaultGlassPreferences } from '~/utils
 import { normalizeGlassPreferences, normalizeGlassGlobal, type GlassGlobalOverride, type GlassPreferences } from '~/utils/glass-settings'
 import { vExperimentalGlass, vGlassPresence } from '~/utils/glass-surfaces'
 import { supportsEmbeddedPdf } from '~/utils/pdf-embed'
+import { appearanceDefaults, LEGACY_DEFAULTS, type AppearanceDefaults } from '~/utils/appearance-defaults'
 import { decodeAppearanceStorage } from '~/utils/appearance-storage'
 import { usePageScrollable } from '~/composables/usePageScrollable'
 
 type VisualMode = 'modern' | 'classic'
 type ColorMode = 'dark' | 'light' | 'auto'
-type MaterialMode = 'liquid' | 'acrylic' | 'mica'
 /* 'auto' 不是画布，而是「没选过」：解析成当前明暗模式下的默认画布。 */
 type BackgroundMode = 'auto' | 'flat' | 'theme' | 'aurora' | 'art' | 'dusk' | 'custom'
 type ResolvedBackground = Exclude<BackgroundMode, 'auto'>
 type LatestPostCount = 5 | 10 | 'all'
 type PdfFallbackMode = 'card' | 'reader'
 
-interface AppearanceState {
+interface AppearanceState extends AppearanceDefaults {
   visual: VisualMode
   colorMode: ColorMode
   /* 「默认设置」开关：受管材质/模糊（含音乐）、遮罩、背景与图表尺寸是否跟随明暗自动取值。 */
@@ -33,101 +33,13 @@ interface AppearanceState {
   glassAntialias: boolean
   glassComponents: GlassPreferences
   glassGlobal: GlassGlobalOverride
-  navMaterial: MaterialMode
-  musicMaterial: MaterialMode
-  contentMaterial: MaterialMode
-  codeMaterial: MaterialMode
-  dropdownMaterial: MaterialMode
-  backgroundMaterial: MaterialMode
   background: BackgroundMode
   /* 用户是否显式点过背景氛围。老存储没有这个字段，因此「没选过」是可判定的。 */
   backgroundPicked?: boolean
-  navBlur: number
-  musicBlur: number
-  contentBlur: number
-  codeBlur: number
-  dropdownBlur: number
-  backgroundBlur: number
-  backgroundOverlay: number
   accent: string
   latestPostCount: LatestPostCount
   latestNoteCount: LatestPostCount
   pdfFallback: PdfFallbackMode
-  /* 图（mermaid）的显示比例，%：100 = mermaid 的原生尺寸，出厂 75。宽图不自动缩小、
-     由容器横向滑动，尺寸因此是一个偏好值。它和其他出厂值一样受「默认设置」开关管，
-     关掉开关才能留着自己的值。 */
-  diagramScale: number
-}
-
-/* 出厂默认分两套，按解析后的明暗取。
-   浅色这一套是用户在面板上逐条定下来的：四组材质都用液态玻璃，模糊 14 / 5 / 4 / 0 px，遮罩 40%。
-   深色沿用 v5 原来的云母与 12 / 10 / 12 / 4 px —— 深浅不必对称：浅色底图的明暗落差本来就小，
-   同一档模糊在浅色上更容易把正文糊成一层灰雾，所以浅色要更轻。
-   两套都保留 40% 遮罩，图（mermaid）的显示比例两套都是 75%。 */
-type AppearanceDefaults = Pick<
-  AppearanceState,
-  'navMaterial' | 'musicMaterial' | 'contentMaterial' | 'codeMaterial' | 'dropdownMaterial' | 'backgroundMaterial'
-  | 'navBlur' | 'musicBlur' | 'contentBlur' | 'codeBlur' | 'dropdownBlur' | 'backgroundBlur' | 'backgroundOverlay'
-  | 'diagramScale'
->
-
-const LIGHT_DEFAULTS: AppearanceDefaults = {
-  musicMaterial: 'liquid',
-  musicBlur: 14,
-  codeMaterial: 'liquid',
-  codeBlur: 5,
-  navMaterial: 'liquid',
-  contentMaterial: 'liquid',
-  dropdownMaterial: 'liquid',
-  backgroundMaterial: 'liquid',
-  navBlur: 14,
-  contentBlur: 5,
-  dropdownBlur: 4,
-  backgroundBlur: 0,
-  backgroundOverlay: 40,
-  diagramScale: 75,
-}
-
-/* v5 时代的出厂值（云母 + 12 / 10 / 12 / 4、遮罩 40%）：它是 state 的初值，也是老访客缺键时的兜底。
-   老访客「从没设置过」的项因此保持改动前的观感，新默认不会被偷偷塞给他。 */
-const LEGACY_DEFAULTS: AppearanceDefaults = {
-  musicMaterial: 'mica',
-  musicBlur: 12,
-  codeMaterial: 'mica',
-  codeBlur: 10,
-  navMaterial: 'mica',
-  contentMaterial: 'mica',
-  dropdownMaterial: 'mica',
-  backgroundMaterial: 'mica',
-  navBlur: 12,
-  contentBlur: 10,
-  dropdownBlur: 12,
-  backgroundBlur: 4,
-  backgroundOverlay: 40,
-  /* 图表尺寸是新控件：老访客缺这个键时落到这里，与两套出厂值同值（75）。 */
-  diagramScale: 75,
-}
-
-/* 深色那一套沿用 v5 的值（所以与 LEGACY_DEFAULTS 同值）：只有浅色是新定的那套。 */
-const DARK_DEFAULTS: AppearanceDefaults = {
-  musicMaterial: 'mica',
-  musicBlur: 12,
-  codeMaterial: 'mica',
-  codeBlur: 10,
-  navMaterial: 'mica',
-  contentMaterial: 'mica',
-  dropdownMaterial: 'mica',
-  backgroundMaterial: 'mica',
-  navBlur: 12,
-  contentBlur: 10,
-  dropdownBlur: 12,
-  backgroundBlur: 4,
-  backgroundOverlay: 40,
-  diagramScale: 75,
-}
-
-function appearanceDefaults(mode: 'dark' | 'light'): AppearanceDefaults {
-  return mode === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS
 }
 
 const STORAGE_KEY = 'paper-trail-appearance-v5'
@@ -1093,8 +1005,8 @@ function resetAppearance() {
         ? '这些选项会随明暗模式自动调整；禁用默认设置后，可再次手动修改。'
         : '之后切换明暗模式，不会再自动更改这些选项。' }}</p>
       <div class="appearance-confirm__actions">
-        <button type="button" class="appearance-confirm__cancel" autofocus @click="closeDefaultSettingsConfirm">取消</button>
-        <button type="button" class="appearance-confirm__accept" @click="confirmDefaultSettings">
+        <button type="button" class="appearance-confirm__neutral" autofocus @click="closeDefaultSettingsConfirm">取消</button>
+        <button type="button" class="appearance-confirm__accent" @click="confirmDefaultSettings">
           {{ dialogDefaultSettings ? '启用默认设置' : '保留并手动调整' }}
         </button>
       </div>

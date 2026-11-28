@@ -138,9 +138,10 @@ assert.match(glassCss, /\[data-liquid-glass-content\] \{\s*background: transpare
 // that single assignment the card double-tints for ~215ms after a route change,
 // which is the亮度闪烁 this suite guards against.
 const contentGlassSource = readFileSync('app/utils/glass-content.ts', 'utf8')
-assert.match(contentGlassSource, /host\.style\.transition = 'none'/, 'Tint handover must not animate')
+assert.match(contentGlassSource, /host\.setAttribute\('data-glass-tint-handoff'/)
+assert.match(glassCss, /\[data-glass-tint-handoff\] \{ transition: none !important;/, 'Tint handover must not animate')
 assert.match(contentGlassSource, /void host\.offsetWidth/, 'The suppressed swap is flushed in the same frame')
-assert.match(appSource, /targets\.forEach\(target => target\.style\.opacity = '0'\)/, 'The existing route motion remains unchanged')
+assert.match(appSource, /target\.setAttribute\('data-route-enter-pending'/, 'Route content is hidden until its entry animation starts')
 // Search has always been a .standard-page, so it already receives the content
 // preview and atomic tint handoff. Its apparent card flicker came from the
 // route animation translating whole .page-intro / .search-results sections,

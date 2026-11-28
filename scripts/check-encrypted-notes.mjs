@@ -5,7 +5,7 @@ import { randomBytes, webcrypto } from 'node:crypto'
 import { createRequire } from 'node:module'
 import vm from 'node:vm'
 import ts from 'typescript'
-import { shallowRef } from 'vue'
+import { computed, shallowRef } from 'vue'
 import { parseNoteKeys } from '../app/utils/note-keys.ts'
 import { decryptNote } from '../app/utils/encrypted-note.ts'
 import { assertEncryptedNotes } from './lib/encrypted-notes-guard.ts'
@@ -61,7 +61,7 @@ for (let index = 0; index < keys.length; index++) {
 }
 
 const listeners = new Map()
-const context = vm.createContext({ shallowRef, window: { addEventListener: (event, callback) => listeners.set(event, callback) } })
+const context = vm.createContext({ computed, shallowRef, window: { addEventListener: (event, callback) => listeners.set(event, callback) } })
 const source = vmSource(readFileSync('app/composables/useUnlockedNotes.ts', 'utf8')).replaceAll('import.meta.client', 'true')
 vm.runInContext(ts.transpile(source, { target: ts.ScriptTarget.ES2022 }) + '\nglobalThis.session = useUnlockedNotes()', context)
 const session = context.session
@@ -75,6 +75,7 @@ session.remember({ id: 'a', path: original.path, source: 'synthetic', metadata: 
 const before = session.revision()
 listeners.get('pagehide')()
 assert.equal(Object.keys(session.documents.value).length, 0)
+assert.equal(session.displayEntry(original), original, 'Leaving clears the display overlay for the same path')
 assert(session.revision() > before, 'Page exit invalidates in-flight batches')
 assertEncryptedNotes(process.cwd())
 console.log('PASS: unlimited key counts, nested ZIP imports, duplicates, invalid archives, cancellation, authenticated decryption, memory overlays and publication guard.')

@@ -72,7 +72,7 @@ assert.equal(findHashTarget('#%xx'), null, 'Broken escapes must not throw')
 assert.equal(findHashTarget('#nope'), null)
 
 /* 源码契约：CSS 与 JS 用同一条媒体查询，容器透明，文档本身不滚。 */
-const css = readFileSync('app/assets/css/main.css', 'utf8')
+const css = readFileSync('app/assets/css/page-scroll.css', 'utf8')
 assert.match(css, /@media \(hover: hover\) and \(pointer: fine\) \{[\s\S]*?\.page-scroll \{[\s\S]*?overflow-y: scroll/)
 assert.match(css, /\.page-scroll \{[\s\S]*?height: 100dvh/)
 assert.match(css, /html \{ overflow-y: hidden; \}/, 'No root scrollbar means no canvas-only gutter')
@@ -123,7 +123,7 @@ assert.doesNotMatch(css, /\.page-scroll::-webkit-scrollbar-button|\.page-scroll:
 assert.match(css, /\.page-scroll::-webkit-scrollbar-track \{ background: transparent; \}/, 'The track keeps revealing the ambient layer')
 assert.doesNotMatch(/(\.page-scroll::-webkit-scrollbar-thumb \{[^}]*\})/.exec(css)[1], /transition:/, 'Native scrollbar pseudo-elements never repaint transitions')
 assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.page-scrollbar__thumb,/, 'Reduced motion must switch off the drawn fade')
-assert.match(css, /html\.no-transition \.page-scroll \{ transition: none !important; \}/, 'Theme switching must not fade the bar')
+assert.match(readFileSync('app/assets/css/main.css', 'utf8'), /html\.no-transition \.page-scroll \{ transition: none !important; \}/, 'Theme switching must not fade the bar')
 
 const composable = readFileSync('app/composables/usePageScrollable.ts', 'utf8')
 assert.match(composable, /PAGE_SCROLLABLE_ATTRIBUTE/)
