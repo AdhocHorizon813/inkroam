@@ -15,7 +15,7 @@
   opacity: 0;
   transform: translateY(6px) scale(.97);
   transition: opacity 160ms var(--ease-exit), transform 160ms var(--ease-exit), box-shadow 160ms var(--ease-exit),
-    overlay 160ms allow-discrete, display 160ms allow-discrete;
+    overlay 320ms allow-discrete, display 320ms allow-discrete;
 }
 .appearance-confirm[open] {
   box-shadow: var(--confirm-resting-shadow);
@@ -27,9 +27,9 @@
 .appearance-confirm::backdrop {
   background: rgb(8 12 20 / .22);
   opacity: 0;
-  transition: opacity 160ms var(--ease-exit), overlay 160ms allow-discrete, display 160ms allow-discrete;
+  transition: opacity 320ms var(--ease-exit), overlay 320ms allow-discrete, display 320ms allow-discrete;
 }
-.appearance-confirm[open]::backdrop { opacity: 1; transition-duration: 420ms; transition-timing-function: var(--ease-settle); }
+.appearance-confirm[open]::backdrop { opacity: 1; transition-duration: 520ms; transition-timing-function: var(--ease-settle); }
 @starting-style {
   .appearance-confirm[open] { opacity: 0; transform: translateY(8px) scale(.96); box-shadow: none; }
   .appearance-confirm[open]::backdrop { opacity: 0; }

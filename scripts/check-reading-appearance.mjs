@@ -344,7 +344,7 @@ assert.match(css, /\.appearance-confirm__actions \{[^}]*grid-template-columns: r
 assert(template.includes('aria-describedby="appearance-confirm-description"'))
 assert(template.includes('class="appearance-confirm__neutral" autofocus'), 'Cancel is the safe initial focus')
 assert(source.includes('dialogDefaultSettings.value = enabled'), 'Exit keeps the same action text')
-assert(css.includes('overlay 160ms allow-discrete'), 'Native dialog exit retains top-layer animation')
+assert(css.includes('overlay 320ms allow-discrete'), 'Native dialog exit retains top-layer animation')
 assert(css.includes('@starting-style'), 'Opening has a defined starting state')
 assert(css.includes('prefers-reduced-transparency'), 'Opaque material fallback is available')
 console.log('PASS: atmosphere order, dusk asset, default canvas, legacy migration, manual override, per-appearance defaults and the default-settings switch.')
